@@ -1,0 +1,575 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum RecordStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum ToolStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+  PAUSED
+}
+
+enum JobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+enum MediaType {
+  UPLOAD
+  RESULT
+  EXAMPLE
+  BLOG_COVER
+  PAGE_ASSET
+}
+
+enum MediaVisibility {
+  PRIVATE
+  PUBLIC
+  TEMP
+}
+
+enum MediaProcessingStatus {
+  PENDING
+  VALIDATED
+  STORED
+  OPTIMIZED
+  FAILED
+}
+
+enum CreditTransactionType {
+  PURCHASE
+  USE
+  REFUND
+  ADMIN_ADJUSTMENT
+  FREE_TRIAL
+  REFERRAL_REWARD
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+  CANCELLED
+}
+
+enum ProviderBudgetMode {
+  NOTIFY_ONLY
+  PAUSE_TOOLS
+  BLOCK_JOBS
+}
+
+enum ContentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum FeatureFlagScope {
+  GLOBAL
+  TOOL
+  PRICING
+  LANGUAGE
+  EXPERIMENT
+}
+
+enum ExperimentStatus {
+  DRAFT
+  RUNNING
+  PAUSED
+  COMPLETED
+}
+
+enum ExperimentType {
+  LANDING_PAGE
+  PRICING
+  UPLOAD_FLOW
+  COPY
+}
+
+enum EmailEventType {
+  PAYMENT_SUCCESSFUL
+  CREDITS_ADDED
+  JOB_COMPLETED
+  JOB_FAILED_REFUNDED
+  LOW_CREDITS
+  WELCOME
+}
+
+enum DeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+enum ReferralStatus {
+  PENDING
+  QUALIFIED
+  REWARDED
+  CANCELLED
+}
+
+enum ActorType {
+  ADMIN
+  USER
+  SYSTEM
+}
+
+model User {
+  id               String       @id @default(cuid())
+  email            String       @unique
+  name             String?
+  role             UserRole     @default(USER)
+  creditBalance    Int          @default(0)
+  freeTrialClaimed Boolean      @default(false)
+  referredByUserId String?
+  affiliateCode    String?      @unique
+  status           RecordStatus @default(ACTIVE)
+  deletedAt        DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  referredBy         User?               @relation("UserReferrals", fields: [referredByUserId], references: [id])
+  referredUsers      User[]              @relation("UserReferrals")
+  jobs               AiJob[]
+  mediaAssets        MediaAsset[]
+  creditTransactions CreditTransaction[]
+  payments           Payment[]
+  subscriptions      Subscription[]
+  adminLogs          AdminLog[]          @relation("AdminLogActor")
+  emailEvents        EmailEvent[]
+  referralsMade      Referral[]          @relation("ReferralReferrer")
+  referralsReceived  Referral[]          @relation("ReferralReferred")
+
+  @@index([email])
+  @@index([role, status])
+}
+
+model AiTool {
+  id                       String     @id @default(cuid())
+  slug                     String
+  version                  Int        @default(1)
+  name                     String
+  category                 String
+  description              String
+  creditCost               Int
+  status                   ToolStatus @default(DRAFT)
+  inputRulesJson           Json
+  outputType               String
+  providerKey              String
+  providerConfigJson       Json
+  seoTitle                 String
+  seoDescription           String
+  landingContentJson       Json
+  exampleImagesJson        Json?
+  fallbackProviderKeysJson Json?
+  retryPolicyJson          Json?
+  experimentKey            String?
+  deletedAt                DateTime?
+  createdAt                DateTime   @default(now())
+  updatedAt                DateTime   @updatedAt
+
+  jobs AiJob[]
+
+  @@unique([slug, version])
+  @@index([slug, status])
+  @@index([providerKey])
+}
+
+model AiJob {
+  id                   String    @id @default(cuid())
+  userId               String?
+  toolId               String
+  providerKey          String
+  providerRequestId    String?
+  status               JobStatus @default(PENDING)
+  inputImageId         String?
+  outputImageId        String?
+  creditCost           Int
+  costEstimate         Decimal?  @db.Decimal(10, 4)
+  errorMessage         String?
+  providerResponseJson Json?
+  processingTimeMs     Int?
+  retryCount           Int       @default(0)
+  maxRetries           Int       @default(0)
+  fallbackAttempted    Boolean   @default(false)
+  fallbackProviderKey  String?
+  toolVersion          Int
+  deletedAt            DateTime?
+  createdAt            DateTime  @default(now())
+  completedAt          DateTime?
+
+  user               User?               @relation(fields: [userId], references: [id])
+  tool               AiTool              @relation(fields: [toolId], references: [id])
+  inputImage         MediaAsset?         @relation("InputImage", fields: [inputImageId], references: [id])
+  outputImage        MediaAsset?         @relation("OutputImage", fields: [outputImageId], references: [id])
+  creditTransactions CreditTransaction[]
+  providerLogs       ProviderLog[]
+  jobEvents          JobEvent[]
+
+  @@index([userId, status])
+  @@index([toolId, status])
+  @@index([providerKey, status])
+  @@index([createdAt])
+}
+
+model MediaAsset {
+  id                  String                @id @default(cuid())
+  userId              String?
+  type                MediaType
+  storageKey          String
+  originalFilename    String?
+  checksum            String?
+  mimeType            String
+  fileSize            Int
+  width               Int?
+  height              Int?
+  visibility          MediaVisibility       @default(PRIVATE)
+  processingStatus    MediaProcessingStatus @default(PENDING)
+  metadataJson        Json?
+  expiresAt           DateTime?
+  optimizedStorageKey String?
+  cdnUrl              String?
+  cacheControl        String?
+  deletedAt           DateTime?
+  createdAt           DateTime              @default(now())
+
+  user          User?      @relation(fields: [userId], references: [id])
+  inputForJobs  AiJob[]    @relation("InputImage")
+  outputForJobs AiJob[]    @relation("OutputImage")
+  blogPosts     BlogPost[]
+
+  @@index([userId, type])
+  @@index([visibility, expiresAt])
+  @@index([checksum])
+}
+
+model CreditTransaction {
+  id           String                @id @default(cuid())
+  userId       String
+  type         CreditTransactionType
+  amount       Int
+  balanceAfter Int
+  aiJobId      String?
+  paymentId    String?
+  note         String?
+  createdAt    DateTime              @default(now())
+
+  user    User     @relation(fields: [userId], references: [id])
+  aiJob   AiJob?   @relation(fields: [aiJobId], references: [id])
+  payment Payment? @relation(fields: [paymentId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([type])
+}
+
+model CreditPackage {
+  id             String       @id @default(cuid())
+  name           String
+  credits        Int
+  price          Decimal      @db.Decimal(10, 2)
+  currency       String       @default("usd")
+  stripePriceId  String?
+  status         RecordStatus @default(ACTIVE)
+  sortOrder      Int          @default(0)
+  featureFlagKey String?
+  deletedAt      DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([status, sortOrder])
+}
+
+model Payment {
+  id                      String        @id @default(cuid())
+  userId                  String
+  stripeCheckoutSessionId String?       @unique
+  stripePaymentIntentId   String?
+  amount                  Decimal       @db.Decimal(10, 2)
+  currency                String        @default("usd")
+  creditsDelivered        Int           @default(0)
+  status                  PaymentStatus @default(PENDING)
+  couponCode              String?
+  rawEventJson            Json?
+  deletedAt               DateTime?
+  createdAt               DateTime      @default(now())
+
+  user               User                @relation(fields: [userId], references: [id])
+  creditTransactions CreditTransaction[]
+
+  @@index([userId, createdAt])
+  @@index([status])
+}
+
+model Subscription {
+  id                   String       @id @default(cuid())
+  userId               String
+  stripeSubscriptionId String?      @unique
+  planId               String
+  status               RecordStatus @default(ACTIVE)
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  deletedAt            DateTime?
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, status])
+}
+
+model ProviderSetting {
+  id                        String             @id @default(cuid())
+  providerKey               String             @unique
+  name                      String
+  status                    RecordStatus       @default(INACTIVE)
+  apiKeyEncrypted           String?
+  configJson                Json
+  monthlyBudgetLimit        Decimal?           @db.Decimal(10, 2)
+  monthlyBudgetUsed         Decimal            @default(0) @db.Decimal(10, 2)
+  budgetEnforcementMode     ProviderBudgetMode @default(NOTIFY_ONLY)
+  safeAdminEditableKeysJson Json?
+  createdAt                 DateTime           @default(now())
+  updatedAt                 DateTime           @updatedAt
+}
+
+model ProviderLog {
+  id            String   @id @default(cuid())
+  aiJobId       String?
+  providerKey   String
+  requestJson   Json?
+  responseJson  Json?
+  statusCode    Int?
+  errorMessage  String?
+  attemptNumber Int      @default(1)
+  timedOut      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  aiJob AiJob? @relation(fields: [aiJobId], references: [id])
+
+  @@index([aiJobId])
+  @@index([providerKey, createdAt])
+}
+
+model JobEvent {
+  id           String   @id @default(cuid())
+  aiJobId      String
+  type         String
+  message      String
+  metadataJson Json?
+  createdAt    DateTime @default(now())
+
+  aiJob AiJob @relation(fields: [aiJobId], references: [id], onDelete: Cascade)
+
+  @@index([aiJobId, createdAt])
+  @@index([type])
+}
+
+model AdminLog {
+  id           String   @id @default(cuid())
+  adminUserId  String?
+  action       String
+  entityType   String
+  entityId     String?
+  metadataJson Json?
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+
+  adminUser User? @relation("AdminLogActor", fields: [adminUserId], references: [id])
+
+  @@index([adminUserId, createdAt])
+  @@index([entityType, entityId])
+}
+
+model BlogPost {
+  id              String        @id @default(cuid())
+  title           String
+  slug            String
+  metaTitle       String
+  metaDescription String
+  coverImageId    String?
+  contentJson     Json
+  language        String        @default("en")
+  status          ContentStatus @default(DRAFT)
+  deletedAt       DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  publishedAt     DateTime?
+
+  coverImage MediaAsset? @relation(fields: [coverImageId], references: [id])
+
+  @@unique([slug, language])
+  @@index([status, language])
+}
+
+model Page {
+  id              String        @id @default(cuid())
+  slug            String
+  title           String
+  metaTitle       String
+  metaDescription String
+  contentJson     Json
+  language        String        @default("en")
+  status          ContentStatus @default(DRAFT)
+  deletedAt       DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([slug, language])
+  @@index([status, language])
+}
+
+model SiteSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  valueJson Json
+  updatedAt DateTime @updatedAt
+}
+
+model FeatureFlag {
+  id          String           @id @default(cuid())
+  key         String           @unique
+  name        String
+  description String?
+  scope       FeatureFlagScope @default(GLOBAL)
+  enabled     Boolean          @default(false)
+  rulesJson   Json?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model Experiment {
+  id                    String           @id @default(cuid())
+  key                   String           @unique
+  name                  String
+  type                  ExperimentType
+  status                ExperimentStatus @default(DRAFT)
+  variantsJson          Json
+  trafficAllocationJson Json
+  startAt               DateTime?
+  endAt                 DateTime?
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+}
+
+model TrackingSetting {
+  id         String   @id @default(cuid())
+  provider   String   @unique
+  enabled    Boolean  @default(false)
+  configJson Json
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model WebhookLog {
+  id           String   @id @default(cuid())
+  source       String
+  eventType    String
+  payloadJson  Json
+  status       String
+  errorMessage String?
+  createdAt    DateTime @default(now())
+
+  @@index([source, eventType])
+}
+
+model EmailEvent {
+  id                String         @id @default(cuid())
+  userId            String?
+  eventType         EmailEventType
+  status            DeliveryStatus @default(PENDING)
+  templateKey       String
+  payloadJson       Json?
+  providerMessageId String?
+  errorMessage      String?
+  createdAt         DateTime       @default(now())
+  sentAt            DateTime?
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([eventType, status])
+}
+
+model Referral {
+  id             String         @id @default(cuid())
+  referrerUserId String
+  referredUserId String?
+  referralCode   String
+  status         ReferralStatus @default(PENDING)
+  rewardCredits  Int            @default(0)
+  createdAt      DateTime       @default(now())
+  qualifiedAt    DateTime?
+
+  referrer User  @relation("ReferralReferrer", fields: [referrerUserId], references: [id])
+  referred User? @relation("ReferralReferred", fields: [referredUserId], references: [id])
+
+  @@index([referrerUserId, status])
+  @@index([referralCode])
+}
+
+model NewsletterSubscriber {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  language     String       @default("en")
+  country      String?
+  source       String?
+  status       RecordStatus @default(ACTIVE)
+  metadataJson Json?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+}
+
+model AuditEvent {
+  id          String    @id @default(cuid())
+  actorUserId String?
+  actorType   ActorType @default(SYSTEM)
+  action      String
+  entityType  String
+  entityId    String?
+  beforeJson  Json?
+  afterJson   Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime  @default(now())
+
+  @@index([actorUserId, createdAt])
+  @@index([entityType, entityId])
+}
+
+model RateLimit {
+  id          String   @id @default(cuid())
+  userId      String?
+  ipAddress   String?
+  action      String
+  count       Int      @default(0)
+  windowStart DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([userId, action, windowStart])
+  @@index([ipAddress, action, windowStart])
+}

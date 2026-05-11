@@ -1,0 +1,16 @@
+{
+  "home": {
+    "eyebrow": "Premium AI photo editing",
+    "headline": "Edit, enhance, and transform photos with AI.",
+    "subheadline": "Upload a photo, choose an AI tool, preview the result for free, and unlock watermark-free exports with credits.",
+    "primaryCta": "Upload a photo",
+    "secondaryCta": "Explore tools"
+  },
+  "nav": {
+    "tools": "Tools",
+    "pricing": "Pricing",
+    "examples": "Examples",
+    "faq": "FAQ",
+    "dashboard": "Dashboard"
+  }
+}

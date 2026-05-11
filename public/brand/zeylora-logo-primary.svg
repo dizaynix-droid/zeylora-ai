@@ -1,0 +1,26 @@
+<svg width="720" height="180" viewBox="0 0 720 180" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ZEYLORA AI logo">
+  <rect width="720" height="180" rx="32" fill="#050814"/>
+  <g transform="translate(42 38)">
+    <rect width="104" height="104" rx="26" fill="#07101F"/>
+    <rect x="1" y="1" width="102" height="102" rx="25" stroke="url(#border)" stroke-opacity=".65" stroke-width="2"/>
+    <path d="M28 30H76L37 76H78" stroke="url(#brand)" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M36 52C36 43.2 43.2 36 52 36C60.8 36 68 43.2 68 52C68 60.8 60.8 68 52 68" stroke="white" stroke-opacity=".22" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="52" cy="52" r="7" fill="url(#brand)"/>
+  </g>
+  <text x="174" y="93" fill="#F8FAFC" font-family="Inter, Arial, sans-serif" font-size="52" font-weight="900" letter-spacing="0">ZEYLORA</text>
+  <rect x="450" y="53" width="70" height="48" rx="24" fill="url(#brand)" fill-opacity=".16" stroke="url(#brand)" stroke-opacity=".55"/>
+  <text x="474" y="86" fill="#A5F3FC" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="900" letter-spacing="0">AI</text>
+  <text x="176" y="125" fill="#94A3B8" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="700" letter-spacing="0">CINEMATIC AI PHOTO STUDIO</text>
+  <defs>
+    <linearGradient id="brand" x1="26" y1="28" x2="80" y2="80" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#20D3FF"/>
+      <stop offset=".52" stop-color="#8B5CF6"/>
+      <stop offset="1" stop-color="#EC4899"/>
+    </linearGradient>
+    <linearGradient id="border" x1="0" y1="0" x2="104" y2="104" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#20D3FF"/>
+      <stop offset=".5" stop-color="#8B5CF6"/>
+      <stop offset="1" stop-color="#EC4899"/>
+    </linearGradient>
+  </defs>
+</svg>
