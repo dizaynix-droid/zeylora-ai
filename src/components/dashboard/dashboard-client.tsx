@@ -184,9 +184,8 @@ export function DashboardClient({
       setJobsStatus("loading");
 
       try {
-        const json = await fetchJsonCached<JobsPayload>(
-          `dashboard:jobs:${activeFilter}`,
-          `/api/v1/dashboard/jobs?filter=${activeFilter}`
+        const json = await fetchJsonFresh<JobsPayload>(
+          `/api/v1/dashboard/jobs?filter=${activeFilter}&t=${Date.now()}`
         );
 
         if (!json?.ok) {
@@ -584,4 +583,26 @@ async function fetchJsonCached<T>(key: string, url: string): Promise<T> {
   });
 
   return promise;
+}
+
+async function fetchJsonFresh<T>(url: string): Promise<T> {
+  const response = await fetch(url, {
+    credentials: "same-origin",
+    cache: "no-store"
+  });
+  const json = (await response.json().catch(() => null)) as (T & { error?: string }) | null;
+
+  if (response.status === 401) {
+    window.location.href = "/auth/sign-in?next=/dashboard";
+    return {
+      ok: false,
+      error: "unauthorized"
+    } as T;
+  }
+
+  if (!response.ok) {
+    throw new Error(json?.error || "Request failed.");
+  }
+
+  return json as T;
 }

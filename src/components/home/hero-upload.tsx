@@ -205,6 +205,7 @@ const heroProductStories = [
 
 export function HeroUpload() {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const toolControlsRef = useRef<HTMLDivElement>(null);
   const jobRequestRef = useRef(0);
   const [status, setStatus] = useState<FlowStatus>("idle");
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
@@ -215,6 +216,7 @@ export function HeroUpload() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [comparisonPosition, setComparisonPosition] = useState(52);
   const [qualityMode, setQualityMode] = useState<QualityMode>("high");
+  const [appliedQualityMode, setAppliedQualityMode] = useState<QualityMode | null>(null);
   const [marketplaceCropFormat, setMarketplaceCropFormat] = useState<MarketplaceCropFormat>("square");
   const [appliedMarketplaceCropFormat, setAppliedMarketplaceCropFormat] = useState<MarketplaceCropFormat | null>(null);
   const [productShadowPreset, setProductShadowPreset] = useState<ProductShadowPreset>("soft-studio");
@@ -228,6 +230,18 @@ export function HeroUpload() {
   const hasActivePreview = Boolean(inputPreviewUrl || resultPreviewUrl || status === "failed");
   const isResultMode = status === "succeeded" && Boolean(inputPreviewUrl && resultPreviewUrl);
   const selectedToolConfig = homeToolOptions.find((tool) => tool.key === selectedTool) ?? homeToolOptions[0];
+  const canRunExistingSource = Boolean(
+    uploadedMediaId &&
+    inputPreviewUrl &&
+    status !== "uploading" &&
+    status !== "processing" &&
+    !isResultMode
+  );
+  const hasPendingQualityMode =
+    selectedTool === "background-remover" &&
+    status === "succeeded" &&
+    Boolean(appliedQualityMode) &&
+    appliedQualityMode !== qualityMode;
   const hasPendingMarketplaceFormat =
     selectedTool === "marketplace-crop" &&
     status === "succeeded" &&
@@ -272,6 +286,7 @@ export function HeroUpload() {
     setResultPreviewUrl(null);
     setJobId(null);
     setErrorMessage(null);
+    setAppliedQualityMode(null);
     setAppliedMarketplaceCropFormat(null);
     setAppliedProductShadowPreset(null);
     setAppliedAiRelightPreset(null);
@@ -348,6 +363,7 @@ export function HeroUpload() {
     setJobId(null);
     setErrorMessage(null);
     setRating(null);
+    setAppliedQualityMode(null);
     setAppliedMarketplaceCropFormat(null);
     setAppliedProductShadowPreset(null);
     setAppliedAiRelightPreset(null);
@@ -407,6 +423,7 @@ export function HeroUpload() {
 
     setJobId(jobJson.job?.id || null);
     setResultPreviewUrl(jobJson.preview.signedUrl);
+    setAppliedQualityMode(input.tool === "background-remover" ? input.quality : null);
     setAppliedMarketplaceCropFormat(input.tool === "marketplace-crop" ? input.cropFormat : null);
     setAppliedProductShadowPreset(input.tool === "product-shadow" ? input.shadowPreset : null);
     setAppliedAiRelightPreset(input.tool === "ai-relight" ? input.relightPreset : null);
@@ -431,6 +448,54 @@ export function HeroUpload() {
         tool: "marketplace-crop",
         preset: format
       }
+    });
+  }
+
+  async function applyQualityMode() {
+    if (selectedTool !== "background-remover" || !uploadedMediaId) return;
+
+    try {
+      await runToolJob({
+        inputMediaId: uploadedMediaId,
+        tool: "background-remover",
+        cropFormat: marketplaceCropFormat,
+        shadowPreset: productShadowPreset,
+        relightPreset: aiRelightPreset,
+        upscalePreset: hdUpscalePreset,
+        quality: qualityMode
+      });
+    } catch (error) {
+      setStatus("failed");
+      setErrorMessage(error instanceof Error ? error.message : "Something went wrong. Please try again.");
+    }
+  }
+
+  async function runCurrentToolAgain() {
+    if (!uploadedMediaId) {
+      fileInputRef.current?.click();
+      return;
+    }
+
+    try {
+      await runToolJob({
+        inputMediaId: uploadedMediaId,
+        tool: selectedTool,
+        cropFormat: marketplaceCropFormat,
+        shadowPreset: productShadowPreset,
+        relightPreset: aiRelightPreset,
+        upscalePreset: hdUpscalePreset,
+        quality: qualityMode
+      });
+    } catch (error) {
+      setStatus("failed");
+      setErrorMessage(error instanceof Error ? error.message : "Something went wrong. Please try again.");
+    }
+  }
+
+  function focusToolControls() {
+    toolControlsRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start"
     });
   }
 
@@ -719,6 +784,11 @@ export function HeroUpload() {
                     Current download is still {getMarketplaceCropFormatLabel(appliedMarketplaceCropFormat)}. Apply {getMarketplaceCropFormatLabel(marketplaceCropFormat)} to generate a new export.
                   </p>
                 ) : null}
+                {hasPendingQualityMode && appliedQualityMode ? (
+                  <p className="mb-3 rounded-xl border border-warning/25 bg-warning/10 p-3 text-xs font-semibold leading-5 text-warning">
+                    Current download is still {getQualityModeLabel(appliedQualityMode)}. Apply {getQualityModeLabel(qualityMode)} to generate a new export.
+                  </p>
+                ) : null}
                 {hasPendingProductShadowPreset && appliedProductShadowPreset ? (
                   <p className="mb-3 rounded-xl border border-warning/25 bg-warning/10 p-3 text-xs font-semibold leading-5 text-warning">
                     Current download is still {getProductShadowPresetLabel(appliedProductShadowPreset)}. Apply {getProductShadowPresetLabel(productShadowPreset)} to generate a new export.
@@ -740,7 +810,16 @@ export function HeroUpload() {
                   </p>
                 ) : null}
                 <div className="grid gap-2">
-                  {hasPendingMarketplaceFormat ? (
+                  {hasPendingQualityMode ? (
+                    <button
+                      type="button"
+                      onClick={() => void applyQualityMode()}
+                      className="inline-flex h-12 items-center justify-center rounded-full bg-zeylora-brand px-4 text-sm font-black text-white shadow-glow transition hover:brightness-110"
+                    >
+                      <Gauge className="mr-2" size={18} />
+                      Apply {getQualityModeLabel(qualityMode)}
+                    </button>
+                  ) : hasPendingMarketplaceFormat ? (
                     <button
                       type="button"
                       onClick={() => void applyMarketplaceFormat()}
@@ -791,13 +870,39 @@ export function HeroUpload() {
                     />
                   )}
                   <div className="grid grid-cols-2 gap-2">
+                    {selectedTool === "background-remover" ? (
+                      <button
+                        type="button"
+                        onClick={focusToolControls}
+                        className="inline-flex h-10 items-center justify-center rounded-full border border-white/15 px-3 text-xs font-black text-white transition hover:bg-white/10"
+                      >
+                        <Gauge className="mr-2" size={15} />
+                        Try quality
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => void runCurrentToolAgain()}
+                      className="inline-flex h-10 items-center justify-center rounded-full border border-white/15 px-3 text-xs font-black text-white transition hover:bg-white/10"
+                    >
+                      <Zap className="mr-2" size={15} />
+                      Run again
+                    </button>
+                    <button
+                      type="button"
+                      onClick={focusToolControls}
+                      className="inline-flex h-10 items-center justify-center rounded-full border border-white/15 px-3 text-xs font-black text-white transition hover:bg-white/10"
+                    >
+                      <Wand2 className="mr-2" size={15} />
+                      Change tool
+                    </button>
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
                       className="inline-flex h-10 items-center justify-center rounded-full border border-white/15 px-3 text-xs font-black text-white transition hover:bg-white/10"
                     >
                       <RotateCcw className="mr-2" size={15} />
-                      Try another
+                      Upload new
                     </button>
                     <a
                       href="/dashboard"
@@ -824,7 +929,13 @@ export function HeroUpload() {
                 <button
                   type="button"
                   disabled={status === "uploading" || status === "processing"}
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={() => {
+                    if (canRunExistingSource) {
+                      void runCurrentToolAgain();
+                      return;
+                    }
+                    fileInputRef.current?.click();
+                  }}
                   className="focus-lift mt-5 inline-flex h-12 w-full items-center justify-center rounded-full bg-zeylora-brand text-sm font-black text-white shadow-glow transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {status === "uploading" || status === "processing" ? (
@@ -834,18 +945,29 @@ export function HeroUpload() {
                     </>
                   ) : (
                     <>
-                      <ImagePlus className="mr-2" size={18} />
-                      Choose image
+                      {canRunExistingSource ? <Zap className="mr-2" size={18} /> : <ImagePlus className="mr-2" size={18} />}
+                      {canRunExistingSource ? "Run selected tool" : "Choose image"}
                     </>
                   )}
                 </button>
+                {uploadedMediaId && inputPreviewUrl ? (
+                  <button
+                    type="button"
+                    disabled={status === "uploading" || status === "processing"}
+                    onClick={() => fileInputRef.current?.click()}
+                    className="mt-2 inline-flex h-10 w-full items-center justify-center rounded-full border border-white/15 px-3 text-xs font-black text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    <RotateCcw className="mr-2" size={15} />
+                    Upload new image
+                  </button>
+                ) : null}
                 <p className="mt-3 text-xs font-semibold text-slate-400">
                   {selectedFileName ? selectedFileName : "Preview first. Export clean with credits."}
                 </p>
               </div>
             )}
 
-            <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.06] p-2">
+            <div ref={toolControlsRef} className="mt-4 scroll-mt-24 rounded-2xl border border-white/10 bg-white/[0.06] p-2">
               <p className="mb-2 flex items-center gap-2 px-2 text-xs font-black uppercase text-slate-400">
                 <Wand2 size={14} />
                 AI tool
@@ -867,6 +989,7 @@ export function HeroUpload() {
                       setResultPreviewUrl(null);
                       setJobId(null);
                       setErrorMessage(null);
+                      setAppliedQualityMode(null);
                       setAppliedMarketplaceCropFormat(null);
                       setAppliedProductShadowPreset(null);
                       setAppliedAiRelightPreset(null);
@@ -903,7 +1026,7 @@ export function HeroUpload() {
                       type="button"
                       disabled={status === "uploading" || status === "processing"}
                       onClick={() => setQualityMode(value as QualityMode)}
-                    className={`min-h-10 rounded-full px-2 py-2 text-xs font-black leading-tight transition ${
+                      className={`min-h-10 rounded-full px-2 py-2 text-xs font-black leading-tight transition ${
                         qualityMode === value
                           ? "bg-cyan text-ink"
                           : "border border-white/10 bg-black/20 text-slate-300 hover:bg-white/10"
@@ -913,6 +1036,11 @@ export function HeroUpload() {
                     </button>
                   ))}
                 </div>
+                {hasPendingQualityMode && appliedQualityMode ? (
+                  <p className="mt-2 px-2 text-xs font-semibold leading-5 text-warning">
+                    Current download is still {getQualityModeLabel(appliedQualityMode)}. Apply {getQualityModeLabel(qualityMode)} to generate a new export from the same image.
+                  </p>
+                ) : null}
               </div>
             ) : selectedTool === "marketplace-crop" ? (
               <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.06] p-2">
@@ -1069,6 +1197,18 @@ export function HeroUpload() {
                       <p className="mt-2 text-xs font-semibold leading-5 text-slate-300">
                         Review the branded result first. Accounts with credits receive clean watermark-free exports.
                       </p>
+                      {selectedTool === "background-remover" && appliedQualityMode ? (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <p className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-xs font-black uppercase text-slate-200">
+                            Generated: {getQualityModeLabel(appliedQualityMode)}
+                          </p>
+                          {hasPendingQualityMode ? (
+                            <p className="rounded-full border border-warning/25 bg-warning/10 px-3 py-1 text-xs font-black uppercase text-warning">
+                              Selected: {getQualityModeLabel(qualityMode)}
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : null}
                       {selectedTool === "marketplace-crop" && appliedMarketplaceCropFormat ? (
                         <div className="mt-2 flex flex-wrap gap-2">
                           <p className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-xs font-black uppercase text-slate-200">
@@ -1184,6 +1324,18 @@ export function HeroUpload() {
                   <p className="mt-2 text-xs font-semibold leading-5 text-slate-300">
                     Review the branded result first. Accounts with credits receive clean watermark-free exports.
                   </p>
+                  {selectedTool === "background-remover" && appliedQualityMode ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <p className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-xs font-black uppercase text-slate-200">
+                        Generated: {getQualityModeLabel(appliedQualityMode)}
+                      </p>
+                      {hasPendingQualityMode ? (
+                        <p className="rounded-full border border-warning/25 bg-warning/10 px-3 py-1 text-xs font-black uppercase text-warning">
+                          Selected: {getQualityModeLabel(qualityMode)}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
                   {selectedTool === "marketplace-crop" && appliedMarketplaceCropFormat ? (
                     <div className="mt-3 flex flex-wrap gap-2">
                       <p className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-xs font-black uppercase text-slate-200">
@@ -1476,6 +1628,12 @@ function waitForPreviewPaint() {
 
 function redirectToSignIn() {
   window.location.href = `/auth/sign-in?next=${encodeURIComponent("/#upload")}`;
+}
+
+function getQualityModeLabel(quality: QualityMode) {
+  if (quality === "fast") return "Fast";
+  if (quality === "standard") return "Standard";
+  return "High Quality";
 }
 
 function getMarketplaceCropFormatLabel(format: MarketplaceCropFormat) {

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { MouseEvent } from "react";
 import { useCallback, useEffect, useState } from "react";
 import { UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,22 @@ export function SiteHeaderAuthActions() {
       setAuthState("signed-out");
     }
   }, []);
+
+  function handleUploadClick(event: MouseEvent<HTMLAnchorElement>) {
+    if (typeof window === "undefined") return;
+
+    if (window.location.pathname !== "/") {
+      return;
+    }
+
+    event.preventDefault();
+    const uploadPanel = document.getElementById("upload");
+    uploadPanel?.scrollIntoView({
+      behavior: "smooth",
+      block: "start"
+    });
+    window.history.replaceState(null, "", "/#upload");
+  }
 
   useEffect(() => {
     if (!isSupabaseAuthConfigured()) {
@@ -95,9 +112,13 @@ export function SiteHeaderAuthActions() {
         </Button>
       )}
 
-      <Button href="/#upload" className="px-4">
+      <Link
+        href="/#upload"
+        onClick={handleUploadClick}
+        className="focus-lift inline-flex h-11 items-center justify-center rounded-full bg-zeylora-brand px-4 text-sm font-bold text-white shadow-glow transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
+      >
         Upload
-      </Button>
+      </Link>
 
       <Link
         href={isSignedIn ? "/dashboard" : "/auth/sign-in"}
