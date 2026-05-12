@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import type { ReactNode } from "react";
+import { ImagePlus } from "lucide-react";
 import { appConfig } from "@/config/app";
 import { brandIdentity } from "@/config/brand";
 import { adminNav, dashboardNav } from "@/config/navigation";
@@ -42,6 +43,20 @@ export function AppShell({ title, description, area, children }: AppShellProps) 
               </Link>
             ))}
           </nav>
+          {area === "dashboard" ? (
+            <div className="mt-3 rounded-2xl border border-cyan/25 bg-[linear-gradient(135deg,rgba(32,211,255,.18),rgba(139,92,246,.14),rgba(255,255,255,.05))] p-3 shadow-glow">
+              <Link
+                href="/#upload"
+                className="inline-flex h-11 w-full items-center justify-center rounded-full bg-zeylora-brand px-4 text-sm font-black text-white shadow-glow transition hover:brightness-110"
+              >
+                <ImagePlus className="mr-2" size={17} />
+                New Edit
+              </Link>
+              <p className="mt-2 text-center text-xs font-semibold leading-5 text-slate-300">
+                Upload another product photo
+              </p>
+            </div>
+          ) : null}
           {area === "dashboard" ? (
             <form action="/auth/sign-out" method="post" className="mt-3 border-t border-white/10 pt-3">
               <button className="w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-slate-400 transition hover:bg-white/10 hover:text-white">
