@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { SiteHeader } from "@/components/layout/site-header";
 import { HeroUpload } from "@/components/home/hero-upload";
 import { SiteFooter } from "@/components/layout/site-footer";
+import { OAuthHomepageRescue } from "@/components/auth/oauth-homepage-rescue";
 import { createMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createMetadata({
@@ -31,6 +32,7 @@ const PlatformSections = dynamic(
 export default function HomePage() {
   return (
     <>
+      <OAuthHomepageRescue />
       <SiteHeader />
       <main>
         <HeroUpload />

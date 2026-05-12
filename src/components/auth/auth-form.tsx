@@ -19,7 +19,7 @@ export function AuthForm({ authStatus, next = "/dashboard" }: { authStatus?: str
   const configured = isSupabaseAuthConfigured();
   const redirectTo = useMemo(() => {
     if (typeof window === "undefined") return undefined;
-    const url = new URL("/auth/callback", window.location.origin);
+    const url = new URL("/auth/callback", getAuthRedirectOrigin());
     url.searchParams.set("next", next);
     return url.toString();
   }, [next]);
@@ -166,4 +166,18 @@ export function AuthForm({ authStatus, next = "/dashboard" }: { authStatus?: str
       </div>
     </div>
   );
+}
+
+function getAuthRedirectOrigin() {
+  const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+
+  if (configuredSiteUrl) {
+    try {
+      return new URL(configuredSiteUrl).origin;
+    } catch {
+      // Fall through to the browser origin if the configured URL is invalid.
+    }
+  }
+
+  return window.location.origin;
 }
