@@ -1,10 +1,9 @@
 import Link from "next/link";
 import Image from "next/image";
-import { UserCircle } from "lucide-react";
 import { appConfig } from "@/config/app";
 import { brandIdentity } from "@/config/brand";
 import { marketingNav } from "@/config/navigation";
-import { Button } from "@/components/ui/button";
+import { SiteHeaderAuthActions } from "./site-header-auth-actions";
 
 export function SiteHeader() {
   return (
@@ -34,21 +33,7 @@ export function SiteHeader() {
           ))}
         </nav>
 
-        <div className="flex items-center gap-2">
-          <Button href="/auth/sign-in" variant="ghost" className="hidden sm:inline-flex">
-            Sign in
-          </Button>
-          <Button href="/#upload" className="px-4">
-            Upload
-          </Button>
-          <Link
-            href="/auth/sign-in"
-            className="grid size-10 place-items-center rounded-full border border-white/10 bg-white/10 text-white transition hover:bg-white/15 md:hidden"
-            aria-label="Sign in"
-          >
-            <UserCircle size={18} />
-          </Link>
-        </div>
+        <SiteHeaderAuthActions />
       </div>
     </header>
   );
