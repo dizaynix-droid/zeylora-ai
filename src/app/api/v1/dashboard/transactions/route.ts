@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCurrentSessionUser } from "@/lib/auth/current-user";
+import { getCurrentAppUserForRead } from "@/lib/auth/current-user";
 import { getDashboardCache, setDashboardCache } from "@/lib/dashboard/cache";
 import { loadDashboardCreditTransactions } from "@/lib/dashboard/data";
 
@@ -19,7 +19,7 @@ type TransactionsCacheValue = {
 
 export async function GET() {
   const startedAt = Date.now();
-  const user = await getCurrentSessionUser();
+  const user = await getCurrentAppUserForRead();
 
   if (!user) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });

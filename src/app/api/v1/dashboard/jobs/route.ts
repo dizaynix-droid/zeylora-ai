@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { getCurrentSessionUser } from "@/lib/auth/current-user";
+import { getCurrentAppUserForRead } from "@/lib/auth/current-user";
 import { loadDashboardJobs, type DashboardFilter } from "@/lib/dashboard/data";
 
 export async function GET(request: Request) {
   const startedAt = Date.now();
   const url = new URL(request.url);
   const filter = normalizeFilter(url.searchParams.get("filter"));
-  const user = await getCurrentSessionUser();
+  const user = await getCurrentAppUserForRead();
 
   if (!user) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
@@ -24,7 +24,8 @@ export async function GET(request: Request) {
       filter,
       jobs: jobs.jobs.length,
       cacheHit: false,
-      source: "db"
+      source: "db",
+      userId: user.id
     });
   }
 

@@ -47,6 +47,42 @@ export async function getCurrentSessionUser(): Promise<SessionUser | null> {
   };
 }
 
+export async function getCurrentAppUserForRead(): Promise<SessionUser | null> {
+  const supabase = await createClient();
+
+  if (!supabase) {
+    return null;
+  }
+
+  const {
+    data: { session },
+    error
+  } = await supabase.auth.getSession();
+
+  if (error || !session?.user?.email) {
+    return null;
+  }
+
+  const appUser = await prisma.user.findFirst({
+    where: {
+      OR: [
+        { id: session.user.id },
+        { email: session.user.email }
+      ],
+      deletedAt: null
+    },
+    select: {
+      id: true,
+      email: true
+    }
+  });
+
+  return {
+    id: appUser?.id ?? session.user.id,
+    email: appUser?.email ?? session.user.email
+  };
+}
+
 export async function getCurrentUserFromSession(): Promise<AuthenticatedUser | null> {
   const { user } = await getCurrentUserFromSessionWithTiming();
   return user;

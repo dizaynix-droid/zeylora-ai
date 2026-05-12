@@ -111,6 +111,13 @@ export async function POST(request: Request) {
     return rateLimitResponse(rateLimit);
   }
 
+  if (process.env.NODE_ENV === "development") {
+    console.info("[tool-run-user]", {
+      tool: backgroundRemoverConfig.slug,
+      userId: user.id
+    });
+  }
+
   const body = (await request.json().catch(() => null)) as JobRequest | null;
   const qualityMode = normalizeQualityMode(body?.qualityMode);
   const activeProviderKey = getProviderForQualityMode(qualityMode);
@@ -180,6 +187,16 @@ export async function POST(request: Request) {
       toolVersion: tool.version
     }
   });
+
+  if (process.env.NODE_ENV === "development") {
+    console.info("[tool-job-created]", {
+      tool: backgroundRemoverConfig.slug,
+      userId: user.id,
+      jobId: job.id,
+      inputMediaId: inputMedia.id,
+      status: job.status
+    });
+  }
 
   await createJobEvent(job.id, "job_created", "Background remover job created.", {
     inputMediaId: inputMedia.id,
@@ -419,6 +436,16 @@ export async function POST(request: Request) {
         completedAt: true
       }
     });
+
+    if (process.env.NODE_ENV === "development") {
+      console.info("[tool-job-completed]", {
+        tool: backgroundRemoverConfig.slug,
+        userId: user.id,
+        jobId: completedJob.id,
+        outputMediaId: outputMedia.id,
+        status: completedJob.status
+      });
+    }
 
     await createJobEvent(job.id, "job_completed", "Background removed successfully.", {
       outputMediaId: outputMedia.id,
