@@ -1,30 +1,30 @@
 "use client";
 
-import { type FormEvent, useMemo, useState } from "react";
-import { ArrowRight, Loader2, Mail, Sparkles } from "lucide-react";
+import { type FormEvent, useState } from "react";
+import { KeyRound, Loader2, Mail, Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseAuthConfigured } from "@/lib/supabase/config";
 
-type AuthMode = "magic" | "signup";
+type AuthMode = "signin" | "signup";
+
+const optionalAuthProviders = {
+  google: false,
+  magicLink: false
+} as const;
 
 export function AuthForm({ authStatus, authError, next = "/dashboard" }: { authStatus?: string; authError?: string; next?: string }) {
   const [email, setEmail] = useState("");
-  const [mode, setMode] = useState<AuthMode>("magic");
+  const [password, setPassword] = useState("");
+  const [mode, setMode] = useState<AuthMode>("signin");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">(authStatus === "retry" ? "error" : "idle");
   const [message, setMessage] = useState(
     authStatus === "retry"
-      ? authError || "Your sign-in could not be completed. Send a fresh login link to continue."
+      ? authError || "Your sign-in could not be completed. Sign in with your email and password to continue."
       : "Sign in to save edits, downloads, credits, and dashboard history."
   );
   const configured = isSupabaseAuthConfigured();
-  const redirectTo = useMemo(() => {
-    if (typeof window === "undefined") return undefined;
-    const url = new URL("/auth/callback", getAuthRedirectOrigin());
-    url.searchParams.set("next", next);
-    return url.toString();
-  }, [next]);
 
-  async function handleEmailAuth(event: FormEvent<HTMLFormElement>) {
+  async function handlePasswordAuth(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!configured) {
@@ -33,50 +33,42 @@ export function AuthForm({ authStatus, authError, next = "/dashboard" }: { authS
       return;
     }
 
+    if (password.length < 8) {
+      setStatus("error");
+      setMessage("Password must be at least 8 characters.");
+      return;
+    }
+
     setStatus("loading");
-    setMessage("Sending secure sign-in link...");
+    setMessage(mode === "signup" ? "Creating your account..." : "Signing you in...");
 
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: redirectTo,
-        shouldCreateUser: true
-      }
-    });
+    const result =
+      mode === "signup"
+        ? await supabase.auth.signUp({
+            email,
+            password
+          })
+        : await supabase.auth.signInWithPassword({
+            email,
+            password
+          });
 
-    if (error) {
+    if (result.error) {
       setStatus("error");
-      setMessage(error.message);
+      setMessage(result.error.message);
+      return;
+    }
+
+    if (mode === "signup" && !result.data.session) {
+      setStatus("success");
+      setMessage("Account created. Check your email if confirmation is enabled, then sign in with your password.");
       return;
     }
 
     setStatus("success");
-    setMessage(mode === "signup" ? "Check your email to confirm and sign in." : "Check your email for your login link.");
-  }
-
-  async function handleGoogleAuth() {
-    if (!configured) {
-      setStatus("error");
-      setMessage("Supabase Auth is not configured yet. Add the Supabase URL and publishable key.");
-      return;
-    }
-
-    setStatus("loading");
-    setMessage("Opening Google sign-in...");
-
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo
-      }
-    });
-
-    if (error) {
-      setStatus("error");
-      setMessage(error.message);
-    }
+    setMessage("Signed in. Opening your workspace...");
+    window.location.assign(getSafeNextPath(next));
   }
 
   return (
@@ -90,18 +82,24 @@ export function AuthForm({ authStatus, authError, next = "/dashboard" }: { authS
           Sign in to your product photo workspace.
         </h1>
         <p className="mt-3 text-sm leading-6 text-slate-300">
-          Secure sessions unlock uploads, AI jobs, dashboard history, downloads, ratings, and future credits.
+          Secure sessions unlock uploads, AI jobs, dashboard history, downloads, ratings, and credits.
         </p>
 
         <div className="mt-6 grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-white/[0.05] p-2">
           {[
-            ["magic", "Sign in"],
+            ["signin", "Sign in"],
             ["signup", "Sign up"]
           ].map(([value, label]) => (
             <button
               key={value}
               type="button"
-              onClick={() => setMode(value as AuthMode)}
+              onClick={() => {
+                setMode(value as AuthMode);
+                if (status !== "loading") {
+                  setStatus("idle");
+                  setMessage("Sign in to save edits, downloads, credits, and dashboard history.");
+                }
+              }}
               className={`h-10 rounded-full text-sm font-black transition ${
                 mode === value ? "bg-cyan text-ink" : "text-slate-300 hover:bg-white/10"
               }`}
@@ -111,23 +109,13 @@ export function AuthForm({ authStatus, authError, next = "/dashboard" }: { authS
           ))}
         </div>
 
-        <button
-          type="button"
-          onClick={() => void handleGoogleAuth()}
-          disabled={status === "loading"}
-          className="mt-4 inline-flex h-12 w-full items-center justify-center rounded-full border border-white/15 bg-white/[0.06] text-sm font-black text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-70"
-        >
-          Continue with Google
-          <ArrowRight className="ml-2" size={17} />
-        </button>
+        {optionalAuthProviders.google || optionalAuthProviders.magicLink ? null : (
+          <p className="mt-4 rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-3 text-xs font-semibold leading-5 text-slate-400">
+            Email and password login is active for launch testing.
+          </p>
+        )}
 
-        <div className="my-5 flex items-center gap-3 text-xs font-black uppercase text-slate-500">
-          <span className="h-px flex-1 bg-white/10" />
-          Magic link
-          <span className="h-px flex-1 bg-white/10" />
-        </div>
-
-        <form onSubmit={(event) => void handleEmailAuth(event)}>
+        <form onSubmit={(event) => void handlePasswordAuth(event)} className="mt-5">
           <label htmlFor="auth-email" className="text-xs font-black uppercase text-slate-400">
             Email address
           </label>
@@ -141,9 +129,29 @@ export function AuthForm({ authStatus, authError, next = "/dashboard" }: { authS
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               placeholder="you@store.com"
+              autoComplete="email"
               className="h-12 w-full rounded-full border border-white/10 bg-white/[0.06] pl-11 pr-4 text-sm font-semibold text-white outline-none transition placeholder:text-slate-500 focus:border-cyan/60"
             />
           </div>
+
+          <label htmlFor="auth-password" className="mt-4 block text-xs font-black uppercase text-slate-400">
+            Password
+          </label>
+          <div className="relative mt-2">
+            <KeyRound className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+            <input
+              id="auth-password"
+              type="password"
+              required
+              minLength={8}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Minimum 8 characters"
+              autoComplete={mode === "signup" ? "new-password" : "current-password"}
+              className="h-12 w-full rounded-full border border-white/10 bg-white/[0.06] pl-11 pr-4 text-sm font-semibold text-white outline-none transition placeholder:text-slate-500 focus:border-cyan/60"
+            />
+          </div>
+
           <button
             type="submit"
             disabled={status === "loading"}
@@ -152,10 +160,12 @@ export function AuthForm({ authStatus, authError, next = "/dashboard" }: { authS
             {status === "loading" ? (
               <>
                 <Loader2 className="mr-2 animate-spin" size={18} />
-                Sending...
+                {mode === "signup" ? "Creating..." : "Signing in..."}
               </>
+            ) : mode === "signup" ? (
+              "Create Account"
             ) : (
-              "Send Magic Link"
+              "Sign In"
             )}
           </button>
         </form>
@@ -168,16 +178,10 @@ export function AuthForm({ authStatus, authError, next = "/dashboard" }: { authS
   );
 }
 
-function getAuthRedirectOrigin() {
-  const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
-
-  if (configuredSiteUrl) {
-    try {
-      return new URL(configuredSiteUrl).origin;
-    } catch {
-      // Fall through to the browser origin if the configured URL is invalid.
-    }
+function getSafeNextPath(next: string) {
+  if (!next.startsWith("/") || next.startsWith("//")) {
+    return "/dashboard";
   }
 
-  return window.location.origin;
+  return next;
 }
