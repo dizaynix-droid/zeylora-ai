@@ -1,5 +1,6 @@
+import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getSupabaseBrowserEnv, isSupabaseAuthConfigured } from "@/lib/supabase/config";
 
 export const dynamic = "force-dynamic";
 
@@ -33,15 +34,30 @@ export async function GET(request: NextRequest) {
     return redirectToSignIn(requestUrl, nextPath, "Missing authentication code.");
   }
 
-  const supabase = await createClient();
-
-  if (!supabase) {
+  if (!isSupabaseAuthConfigured()) {
     if (process.env.NODE_ENV === "development") {
       console.error("[auth/callback-route] Supabase Auth is not configured");
     }
 
     return redirectToSignIn(requestUrl, nextPath, "Supabase Auth is not configured.");
   }
+
+  const redirectResponse = NextResponse.redirect(new URL(nextPath, requestUrl.origin), { status: 303 });
+  const cookieNames: string[] = [];
+  const env = getSupabaseBrowserEnv();
+  const supabase = createServerClient(env.url, env.publishableKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(cookiesToSet) {
+        cookieNames.push(...cookiesToSet.map((cookie) => cookie.name));
+        cookiesToSet.forEach(({ name, value, options }) => {
+          redirectResponse.cookies.set(name, value, options);
+        });
+      }
+    }
+  });
 
   const { error } = await supabase.auth.exchangeCodeForSession(code);
 
@@ -55,11 +71,13 @@ export async function GET(request: NextRequest) {
 
   if (process.env.NODE_ENV === "development") {
     console.info("[auth/callback-route] exchange succeeded", {
-      nextPath
+      nextPath,
+      cookiesWritten: cookieNames.length,
+      cookieNames
     });
   }
 
-  return NextResponse.redirect(new URL(nextPath, requestUrl.origin), { status: 303 });
+  return redirectResponse;
 }
 
 function redirectToSignIn(requestUrl: URL, nextPath: string, errorMessage: string) {

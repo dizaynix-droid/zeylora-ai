@@ -1,16 +1,21 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const supabase = await createClient();
+  const authCookieNames = request.cookies
+    .getAll()
+    .map((cookie) => cookie.name)
+    .filter((name) => name.startsWith("sb-") || name.includes("auth-token"));
 
   if (!supabase) {
     if (process.env.NODE_ENV === "development") {
       console.info("[api/auth/me]", {
         authenticated: false,
-        reason: "supabase_not_configured"
+        reason: "supabase_not_configured",
+        authCookieNames
       });
     }
 
@@ -33,7 +38,8 @@ export async function GET() {
     if (process.env.NODE_ENV === "development") {
       console.info("[api/auth/me]", {
         authenticated: false,
-        hasError: Boolean(error)
+        hasError: Boolean(error),
+        authCookieNames
       });
     }
 
@@ -50,7 +56,8 @@ export async function GET() {
   if (process.env.NODE_ENV === "development") {
     console.info("[api/auth/me]", {
       authenticated: true,
-      email: user.email ?? null
+      email: user.email ?? null,
+      authCookieNames
     });
   }
 
