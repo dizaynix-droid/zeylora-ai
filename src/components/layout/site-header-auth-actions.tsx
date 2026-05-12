@@ -1,15 +1,38 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { isSupabaseAuthConfigured } from "@/lib/supabase/config";
 
 type AuthState = "loading" | "signed-in" | "signed-out";
+type AuthMeResponse = {
+  authenticated: boolean;
+  user?: {
+    email?: string | null;
+  };
+};
 
 export function SiteHeaderAuthActions() {
   const [authState, setAuthState] = useState<AuthState>("loading");
+
+  const refreshAuthState = useCallback(async () => {
+    try {
+      const response = await fetch("/api/auth/me", {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+        headers: {
+          Accept: "application/json"
+        }
+      });
+      const payload = (await response.json().catch(() => null)) as AuthMeResponse | null;
+      setAuthState(response.ok && payload?.authenticated ? "signed-in" : "signed-out");
+    } catch {
+      setAuthState("signed-out");
+    }
+  }, []);
 
   useEffect(() => {
     if (!isSupabaseAuthConfigured()) {
@@ -20,29 +43,19 @@ export function SiteHeaderAuthActions() {
     let mounted = true;
     let unsubscribe: (() => void) | undefined;
 
+    void refreshAuthState();
+
     void import("@/lib/supabase/client")
       .then(({ createClient }) => {
         if (!mounted) return;
 
         const supabase = createClient();
 
-        supabase.auth
-          .getSession()
-          .then(({ data }) => {
-            if (mounted) {
-              setAuthState(data.session ? "signed-in" : "signed-out");
-            }
-          })
-          .catch(() => {
-            if (mounted) {
-              setAuthState("signed-out");
-            }
-          });
-
         const {
           data: { subscription }
-        } = supabase.auth.onAuthStateChange((_event, session) => {
-          setAuthState(session ? "signed-in" : "signed-out");
+        } = supabase.auth.onAuthStateChange(() => {
+          if (!mounted) return;
+          void refreshAuthState();
         });
 
         unsubscribe = () => subscription.unsubscribe();
@@ -57,7 +70,7 @@ export function SiteHeaderAuthActions() {
       mounted = false;
       unsubscribe?.();
     };
-  }, []);
+  }, [refreshAuthState]);
 
   const isSignedIn = authState === "signed-in";
 

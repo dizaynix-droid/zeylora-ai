@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { AuthForm } from "@/components/auth/auth-form";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
+import { createClient } from "@/lib/supabase/server";
 import { createMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createMetadata({
@@ -17,6 +19,17 @@ export default async function SignInPage({
   searchParams?: Promise<{ authStatus?: string; next?: string }>;
 }) {
   const params = await searchParams;
+  const supabase = await createClient();
+
+  if (supabase) {
+    const {
+      data: { user }
+    } = await supabase.auth.getUser();
+
+    if (user) {
+      redirect(getSafeNextPath(params?.next));
+    }
+  }
 
   return (
     <>
@@ -27,4 +40,12 @@ export default async function SignInPage({
       <SiteFooter />
     </>
   );
+}
+
+function getSafeNextPath(next?: string) {
+  if (!next?.startsWith("/") || next.startsWith("//")) {
+    return "/dashboard";
+  }
+
+  return next;
 }
