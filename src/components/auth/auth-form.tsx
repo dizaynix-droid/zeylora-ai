@@ -7,13 +7,13 @@ import { isSupabaseAuthConfigured } from "@/lib/supabase/config";
 
 type AuthMode = "magic" | "signup";
 
-export function AuthForm({ authStatus, next = "/dashboard" }: { authStatus?: string; next?: string }) {
+export function AuthForm({ authStatus, authError, next = "/dashboard" }: { authStatus?: string; authError?: string; next?: string }) {
   const [email, setEmail] = useState("");
   const [mode, setMode] = useState<AuthMode>("magic");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">(authStatus === "retry" ? "error" : "idle");
   const [message, setMessage] = useState(
     authStatus === "retry"
-      ? "Your email was confirmed, but we could not start a session. Send a fresh login link to continue."
+      ? authError || "Your sign-in could not be completed. Send a fresh login link to continue."
       : "Sign in to save edits, downloads, credits, and dashboard history."
   );
   const configured = isSupabaseAuthConfigured();

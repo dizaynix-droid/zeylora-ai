@@ -7,6 +7,13 @@ export async function GET() {
   const supabase = await createClient();
 
   if (!supabase) {
+    if (process.env.NODE_ENV === "development") {
+      console.info("[api/auth/me]", {
+        authenticated: false,
+        reason: "supabase_not_configured"
+      });
+    }
+
     return NextResponse.json(
       { authenticated: false },
       {
@@ -23,6 +30,13 @@ export async function GET() {
   } = await supabase.auth.getUser();
 
   if (error || !user) {
+    if (process.env.NODE_ENV === "development") {
+      console.info("[api/auth/me]", {
+        authenticated: false,
+        hasError: Boolean(error)
+      });
+    }
+
     return NextResponse.json(
       { authenticated: false },
       {
@@ -31,6 +45,13 @@ export async function GET() {
         }
       }
     );
+  }
+
+  if (process.env.NODE_ENV === "development") {
+    console.info("[api/auth/me]", {
+      authenticated: true,
+      email: user.email ?? null
+    });
   }
 
   return NextResponse.json(
