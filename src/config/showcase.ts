@@ -22,7 +22,7 @@ export const showcaseExamples: ShowcaseExample[] = [
     after: "/showcase/hd-upscale-after.png",
     metric: "Recommended",
     metricLabel: "4x Ultra, detail, artifact cleanup",
-    useCase: "Ecommerce, social, low-res product photos",
+    useCase: "Amazon listings, Shopify PDPs, TikTok Shop images",
     beforeLabel: "Low resolution",
     afterLabel: "HD upscale"
   },
@@ -35,7 +35,7 @@ export const showcaseExamples: ShowcaseExample[] = [
     after: "/showcase/ai-relight-after.png",
     metric: "Popular",
     metricLabel: "Luxury Glow, studio balance, product focus",
-    useCase: "Shopify, Amazon, Etsy, TikTok Shop ads",
+    useCase: "Shopify stores, Etsy listings, TikTok Shop ads",
     beforeLabel: "Flat lighting",
     afterLabel: "Studio relit"
   },
@@ -48,7 +48,7 @@ export const showcaseExamples: ShowcaseExample[] = [
     after: "/showcase/photo-enhancer-after.png",
     metric: "Details enhanced",
     metricLabel: "clarity, brightness, polish",
-    useCase: "Cosmetics, perfume, catalog PDPs",
+    useCase: "Cosmetics, perfume, Shopify catalog PDPs",
     beforeLabel: "Dull compressed image",
     afterLabel: "Details enhanced"
   },
@@ -61,7 +61,7 @@ export const showcaseExamples: ShowcaseExample[] = [
     after: "/showcase/marketplace-crop-after.png",
     metric: "Marketplace ready",
     metricLabel: "white frame, 1:1, 4:5, 9:16, 16:9",
-    useCase: "Shopify, Amazon, Etsy, social ads",
+    useCase: "Amazon white frames, Shopify grids, Etsy listings",
     beforeLabel: "Original frame",
     afterLabel: "Marketplace ready"
   },
@@ -74,7 +74,7 @@ export const showcaseExamples: ShowcaseExample[] = [
     after: "/showcase/background-remover-after.png",
     metric: "Cutout workflow",
     metricLabel: "background cleanup and clean frame",
-    useCase: "Cosmetics, perfume, jewelry, shoes",
+    useCase: "Jewelry, shoes, cosmetics, clean Amazon assets",
     beforeLabel: "Cluttered background",
     afterLabel: "Background removed"
   },
@@ -87,7 +87,7 @@ export const showcaseExamples: ShowcaseExample[] = [
     after: "/showcase/product-shadow-after.png",
     metric: "Beta look",
     metricLabel: "creative shadow, grounding, catalog feel",
-    useCase: "Catalog pages, PDPs, ads",
+    useCase: "Creative PDP images, catalog tiles, ad tests",
     beforeLabel: "Flat product",
     afterLabel: "Studio shadow"
   }

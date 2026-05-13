@@ -4,10 +4,10 @@ import { showcaseExamples } from "@/config/showcase";
 import { BeforeAfterSlider } from "./before-after-slider";
 
 const storyPoints = [
-  "Lead with HD Upscale, AI Relight, and Photo Enhancer for premium seller visuals.",
-  "Preview transformations before committing to clean exports.",
-  "Use support workflows for cropping, cutouts, and creative shadow looks.",
-  "Keep downloads private with signed links and dashboard history."
+  "Amazon sellers can sharpen catalog assets and prepare clean marketplace frames.",
+  "Shopify stores can relight dull product photos before publishing PDP visuals.",
+  "Etsy and TikTok Shop sellers can preview branded edits before clean exports.",
+  "Signed preview/download links and dashboard history keep production organized."
 ] as const;
 
 const useCases = ["Shopify", "Amazon", "Etsy", "TikTok Shop", "Perfume", "Skincare"] as const;
@@ -29,7 +29,7 @@ export function ResultShowcase() {
               Lead with sharper, brighter, more premium product visuals.
             </h2>
             <p className="mt-4 max-w-xl text-base leading-8 text-slate-300">
-              Zeylora is positioned as an AI Product Photo Editor for sellers: upscale low-res assets, relight dull photos, polish catalog shots, then use support tools for framing, cutouts, and creative depth.
+              Real seller workflows first: upscale low-res listing images, relight dull product shots, polish cosmetics and perfume photos, then frame assets for Amazon, Shopify, Etsy, and TikTok Shop.
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
               {useCases.map((useCase) => (
@@ -80,7 +80,7 @@ export function ResultShowcase() {
                   </h3>
                   <p className="mt-4 text-sm leading-7 text-slate-300">{example.promise}</p>
                   <p className="mt-4 inline-flex rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-black uppercase text-slate-300">
-                    {example.useCase}
+                    Seller use: {example.useCase}
                   </p>
                 </div>
 

@@ -264,8 +264,14 @@ export function DashboardClient({
                 <p className="text-xs font-black uppercase text-cyan">Credits</p>
                 <h2 className="mt-2 text-2xl font-black text-white">Credit balance and activity</h2>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
-                  Credits unlock watermark-free exports when available. Free previews remain available with subtle Zeylora branding.
+                  Preview edits for free with Zeylora branding. Use credits when you are ready to download clean watermark-free files.
                 </p>
+                <Link
+                  href="/pricing"
+                  className="mt-4 inline-flex h-10 items-center justify-center rounded-full border border-cyan/25 bg-cyan/10 px-4 text-sm font-black text-cyan transition hover:bg-cyan hover:text-ink"
+                >
+                  View credit packs
+                </Link>
               </div>
               <div className="rounded-2xl border border-cyan/25 bg-black/25 px-5 py-4 text-left shadow-glow md:text-right">
                 <p className="text-xs font-black uppercase text-cyan">Available credits</p>
@@ -310,7 +316,7 @@ export function DashboardClient({
               ) : null}
               {transactionsStatus === "ready" && creditTransactions.length === 0 ? (
                 <p className="mt-3 text-sm leading-6 text-slate-400">
-                  No credit transactions yet. Purchases, watermark-free export use, refunds, and admin adjustments will appear here.
+                  No credit transactions yet. Buy credits when you are ready to download clean files; preview edits remain available with Zeylora branding.
                 </p>
               ) : null}
               {transactionsStatus === "error" ? (
@@ -330,7 +336,7 @@ export function DashboardClient({
               <p className="text-xs font-black uppercase text-cyan">Jobs</p>
               <h2 className="mt-2 text-xl font-black text-white">Recent AI jobs</h2>
               <p className="mt-2 text-sm leading-6 text-slate-300">
-                Completed Background Remover, Photo Enhancer, HD Upscale, Marketplace Crop, Product Shadow, and AI Relight jobs appear here with secure previews and download actions.
+                Inspect recent previews, compare input/output thumbnails, and download finished exports from secure signed links.
               </p>
             </div>
             <p className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-xs font-bold text-slate-400">
@@ -363,7 +369,7 @@ export function DashboardClient({
               {jobs.map((job) => (
                 <div
                   key={job.id}
-                  className="grid gap-4 rounded-2xl border border-white/10 bg-white/[0.05] p-4 lg:grid-cols-[260px_1fr_auto] lg:items-center"
+                  className="grid gap-4 rounded-2xl border border-white/10 bg-white/[0.05] p-4 lg:grid-cols-[340px_1fr_auto] lg:items-center"
                 >
                   <div className="grid grid-cols-2 gap-2">
                     <PreviewImage url={job.inputPreviewUrl} label="Input" alt="Input image thumbnail" />
@@ -378,6 +384,7 @@ export function DashboardClient({
                   {job.downloadUrl ? (
                     <DownloadResultButton
                       href={job.downloadUrl}
+                      label="Download export"
                       className="inline-flex h-10 w-full items-center justify-center rounded-full bg-zeylora-brand px-4 text-sm font-black text-white shadow-glow lg:w-auto"
                     />
                   ) : null}
@@ -477,7 +484,7 @@ export function DashboardClient({
 
 function PreviewImage({ url, label, alt }: { url: string | null; label: string; alt: string }) {
   return (
-    <div className="relative aspect-[4/3] overflow-hidden rounded-xl border border-white/10 bg-black/30">
+    <div className="relative aspect-[5/4] overflow-hidden rounded-2xl border border-white/10 bg-black/30">
       {url ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={url} alt={alt} className="h-full w-full object-contain" loading="lazy" decoding="async" />

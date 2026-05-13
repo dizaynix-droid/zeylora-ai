@@ -9,17 +9,18 @@ const trustItems: Array<[string, string, LucideIcon]> = [
   ["Six live workflows", "HD upscale, relight, enhancement, crop, cutout, and creative shadow tools in one studio.", Sparkles],
   ["Dashboard history", "Every completed edit stays available in your workspace.", History],
   ["Credit clean exports", "Credits unlock watermark-free exports for finished product assets.", CreditCard],
-  ["Provider-backed processing", "AI workflows use established image providers and production-safe error handling.", ShieldCheck],
+  ["Signed links", "Preview and download URLs are temporary instead of exposed as raw storage links.", ShieldCheck],
   ["Fast product workflow", "Upload, preview, adjust, download, and repeat without leaving the page.", Zap],
-  ["Branded previews", "Preview outputs can be reviewed before using credits for clean exports.", CheckCircle2],
-  ["Seller-ready formats", "Prepare visuals for Shopify, Amazon, Etsy, social ads, and catalog pages.", Clock3]
+  ["Branded previews", "Free previews are visibly watermarked so clean exports stay credit-based.", CheckCircle2],
+  ["Seller-ready formats", "Prepare visuals for Shopify, Amazon, Etsy, TikTok Shop, social ads, and catalog pages.", Clock3]
 ];
 
 const credibility = [
-  "Private signed downloads",
-  "Replicate + PhotoRoom providers",
+  "Private uploads",
+  "Signed preview and download links",
   "Dashboard history",
-  "Credit-based clean exports"
+  "Credit-based clean exports",
+  "Seller-ready workflows"
 ] as const;
 
 export function PlatformSections() {
@@ -83,8 +84,21 @@ export function PlatformSections() {
             </h2>
           </div>
           <p className="max-w-md text-sm leading-6 text-slate-300">
-            Credits are simple: preview first, then use credits when you want a clean export without the Zeylora watermark.
+            Previews are free and watermarked. Credits are used when you want clean files without the Zeylora watermark.
           </p>
+        </div>
+
+        <div className="mb-5 grid gap-3 md:grid-cols-3">
+          {[
+            ["1 credit", "One clean export for selected lightweight tools."],
+            ["2 credits", "HD Upscale and Background Remover may require 2 credits."],
+            ["3 credits", "Photo Enhancer may require 3 credits for a clean export."]
+          ].map(([label, description]) => (
+            <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.045] p-4">
+              <p className="text-sm font-black uppercase text-cyan">{label}</p>
+              <p className="mt-2 text-sm leading-6 text-slate-300">{description}</p>
+            </div>
+          ))}
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
@@ -105,6 +119,10 @@ export function PlatformSections() {
                 {pack.credits + pack.bonusCredits} credits{pack.bonusCredits ? ` with ${pack.bonusCredits} bonus` : ""}
               </p>
               <div className="mt-5 grid gap-2 border-t border-white/10 pt-5 text-sm text-slate-300">
+                <p className="flex items-center gap-2">
+                  <CheckCircle2 size={15} className="text-emerald" />
+                  Free watermarked previews before export
+                </p>
                 <p className="flex items-center gap-2">
                   <CheckCircle2 size={15} className="text-emerald" />
                   Clean exports without Zeylora watermark

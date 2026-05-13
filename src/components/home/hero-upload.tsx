@@ -700,7 +700,7 @@ export function HeroUpload() {
               </p>
 
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-                <Button href="#upload" className="h-12 px-6">
+                <Button href="#upload" className="h-14 px-8 text-base shadow-[0_0_42px_rgba(32,211,255,.28)]">
                   Upload product photo
                   <ArrowRight className="ml-2" size={18} />
                 </Button>
@@ -919,16 +919,16 @@ export function HeroUpload() {
                 </div>
               </div>
             ) : (
-              <div className="relative overflow-hidden rounded-[1.5rem] border border-dashed border-cyan/[0.35] bg-[linear-gradient(145deg,rgba(32,211,255,.12),rgba(139,92,246,.08),rgba(255,255,255,.035))] p-5 text-center md:p-6">
+              <div className="relative overflow-hidden rounded-[1.5rem] border border-dashed border-cyan/[0.45] bg-[linear-gradient(145deg,rgba(32,211,255,.16),rgba(139,92,246,.1),rgba(255,255,255,.045))] p-5 text-center shadow-[0_0_54px_rgba(32,211,255,.16)] md:p-6">
                 <div className="absolute inset-x-0 top-0 h-px overflow-hidden bg-white/10">
                   <div className="h-full w-1/2 animate-shimmer bg-gradient-to-r from-transparent via-cyan to-transparent" />
                 </div>
                 <div className="mx-auto grid size-16 place-items-center rounded-2xl bg-[linear-gradient(135deg,#20D3FF,#8B5CF6)] text-white shadow-glow">
                   <ImagePlus size={28} />
                 </div>
-                <h2 className="mt-5 text-2xl font-black text-white">Upload once. Preview first.</h2>
+                <h2 className="mt-5 text-2xl font-black text-white">Upload product photo</h2>
                 <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-300">
-                  Generate a branded preview for product photos, then export clean when credits are available on your account.
+                  Preview a branded edit first. Use credits when you want the clean watermark-free export.
                 </p>
                 <button
                   type="button"
@@ -940,7 +940,7 @@ export function HeroUpload() {
                     }
                     fileInputRef.current?.click();
                   }}
-                  className="focus-lift mt-5 inline-flex h-12 w-full items-center justify-center rounded-full bg-zeylora-brand text-sm font-black text-white shadow-glow transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+                  className="focus-lift mt-5 inline-flex h-14 w-full items-center justify-center rounded-full bg-zeylora-brand text-base font-black text-white shadow-[0_0_46px_rgba(32,211,255,.32)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {status === "uploading" || status === "processing" ? (
                     <>
@@ -954,6 +954,9 @@ export function HeroUpload() {
                     </>
                   )}
                 </button>
+                <p className="mt-2 text-[11px] font-black uppercase tracking-[0.18em] text-cyan">
+                  Default: HD Upscale for seller-ready detail
+                </p>
                 {uploadedMediaId && inputPreviewUrl ? (
                   <button
                     type="button"
