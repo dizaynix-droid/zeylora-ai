@@ -3,6 +3,11 @@ import { creditPackages } from "@/config/pricing";
 import { adminPerfNow, logAdminPerf, measureAdminQuery } from "@/lib/admin/perf";
 
 const ADMIN_PAGE_SIZE = 25;
+const ADMIN_OVERVIEW_CACHE_TTL_MS = 15_000;
+const ADMIN_ANALYTICS_CACHE_TTL_MS = 30_000;
+
+let adminOverviewCache: AdminCacheEntry<AdminOverviewData> | null = null;
+let adminAnalyticsCache: AdminCacheEntry<AdminAnalyticsData> | null = null;
 
 export const LAUNCH_TOOL_SLUGS = [
   "hd-upscale",
@@ -26,43 +31,89 @@ export type AdminPagination = {
 };
 
 export async function getAdminOverviewData() {
+  const cached = getAdminCache(adminOverviewCache);
+  if (cached) {
+    logAdminPerf("admin.overview.data", {
+      duration: "0ms",
+      cacheHit: true,
+      resultCount: cached.recentJobs.length
+    });
+    return cached;
+  }
+
+  const result = await buildAdminOverviewData();
+  adminOverviewCache = createAdminCacheEntry(result, ADMIN_OVERVIEW_CACHE_TTL_MS);
+  return result;
+}
+
+async function buildAdminOverviewData() {
   const startedAt = adminPerfNow();
-  const [totalUsers, totalJobs, completedJobs, failedJobs, creditsUsed, recentJobs] = await Promise.all([
-    measureAdminQuery("overview.users.count", prisma.user.count({ where: { deletedAt: null } })),
-    measureAdminQuery("overview.jobs.count", prisma.aiJob.count({ where: { deletedAt: null } })),
-    measureAdminQuery("overview.jobs.completed.count", prisma.aiJob.count({ where: { deletedAt: null, status: "COMPLETED" } })),
-    measureAdminQuery("overview.jobs.failed.count", prisma.aiJob.count({ where: { deletedAt: null, status: "FAILED" } })),
+  const cardsStartedAt = adminPerfNow();
+  const cardsPromise = Promise.all([
+    measureAdminQuery("overview.cards.users.count", prisma.user.count({ where: { deletedAt: null } })),
     measureAdminQuery(
-      "overview.credits.used.aggregate",
+      "overview.cards.jobs.statusGroup",
+      prisma.aiJob.groupBy({
+        by: ["status"],
+        where: { deletedAt: null },
+        _count: { _all: true }
+      })
+    ),
+    measureAdminQuery(
+      "overview.cards.credits.used",
       prisma.creditTransaction.aggregate({
         where: { type: "USE" },
         _sum: { amount: true }
       })
-    ),
-    measureAdminQuery(
-      "overview.jobs.recent",
-      prisma.aiJob.findMany({
-        where: { deletedAt: null },
-        orderBy: { createdAt: "desc" },
-        take: 10,
-        select: {
-          id: true,
-          status: true,
-          creditCost: true,
-          providerKey: true,
-          errorMessage: true,
-          createdAt: true,
-          completedAt: true,
-          tool: { select: { name: true, slug: true } },
-          user: { select: { email: true } }
-        }
-      }),
-      { take: 10 }
     )
+  ]).then(([totalUsers, jobStatusCounts, creditsUsed]) => {
+    const completedJobs = getStatusCount(jobStatusCounts, "COMPLETED");
+    const failedJobs = getStatusCount(jobStatusCounts, "FAILED");
+    const totalJobs = jobStatusCounts.reduce((sum, item) => sum + item._count._all, 0);
+
+    logAdminPerf("overview.cards", {
+      duration: `${adminPerfNow() - cardsStartedAt}ms`,
+      queryCount: 3,
+      statusBuckets: jobStatusCounts.length
+    });
+
+    return {
+      totalUsers,
+      totalJobs,
+      completedJobs,
+      failedJobs,
+      creditsUsed
+    };
+  });
+  const recentJobsPromise = measureAdminQuery(
+    "overview.recentJobs",
+    prisma.aiJob.findMany({
+      where: { deletedAt: null },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+      select: {
+        id: true,
+        status: true,
+        creditCost: true,
+        providerKey: true,
+        errorMessage: true,
+        createdAt: true,
+        completedAt: true,
+        tool: { select: { name: true, slug: true } },
+        user: { select: { email: true } }
+      }
+    }),
+    { take: 10 }
+  );
+
+  const [{ totalUsers, totalJobs, completedJobs, failedJobs, creditsUsed }, recentJobs] = await Promise.all([
+    cardsPromise,
+    recentJobsPromise
   ]);
   logAdminPerf("admin.overview.data", {
     duration: `${adminPerfNow() - startedAt}ms`,
-    queryCount: 6,
+    queryCount: 4,
+    cacheHit: false,
     resultCount: recentJobs.length
   });
 
@@ -78,6 +129,8 @@ export async function getAdminOverviewData() {
     recentJobs
   };
 }
+
+type AdminOverviewData = Awaited<ReturnType<typeof buildAdminOverviewData>>;
 
 export async function getAdminUsersData(input: {
   query?: string;
@@ -425,49 +478,116 @@ export async function getAdminPaymentsData(input: { page?: number; pageSize?: nu
 }
 
 export async function getAdminAnalyticsData() {
+  const cached = getAdminCache(adminAnalyticsCache);
+  if (cached) {
+    logAdminPerf("admin.analytics.data", {
+      duration: "0ms",
+      cacheHit: true,
+      resultCount: cached.topTools.length,
+      providerCount: cached.providerSplit.length
+    });
+    return cached;
+  }
+
+  const result = await buildAdminAnalyticsData();
+  adminAnalyticsCache = createAdminCacheEntry(result, ADMIN_ANALYTICS_CACHE_TTL_MS);
+  return result;
+}
+
+async function buildAdminAnalyticsData() {
   const startedAt = adminPerfNow();
-  const [completedJobs, failedJobs, creditsUsed, providerSplit, toolUsage, tools] = await Promise.all([
-    measureAdminQuery("analytics.jobs.completed.count", prisma.aiJob.count({ where: { deletedAt: null, status: "COMPLETED" } })),
-    measureAdminQuery("analytics.jobs.failed.count", prisma.aiJob.count({ where: { deletedAt: null, status: "FAILED" } })),
-    measureAdminQuery("analytics.credits.used.aggregate", prisma.creditTransaction.aggregate({ where: { type: "USE" }, _sum: { amount: true } })),
+  const failureRateStartedAt = adminPerfNow();
+  const failureRatePromise = measureAdminQuery(
+    "analytics.failureRate.statusGroup",
+    prisma.aiJob.groupBy({
+      by: ["status"],
+      where: { deletedAt: null },
+      _count: { _all: true }
+    })
+  ).then((jobStatusCounts) => {
+    const completedJobs = getStatusCount(jobStatusCounts, "COMPLETED");
+    const failedJobs = getStatusCount(jobStatusCounts, "FAILED");
+    const totalTerminalJobs = completedJobs + failedJobs;
+
+    logAdminPerf("analytics.failureRate", {
+      duration: `${adminPerfNow() - failureRateStartedAt}ms`,
+      statusBuckets: jobStatusCounts.length
+    });
+
+    return {
+      completedJobs,
+      failedJobs,
+      failureRate: totalTerminalJobs ? Math.round((failedJobs / totalTerminalJobs) * 100) : 0
+    };
+  });
+  const creditsUsedPromise = measureAdminQuery(
+    "analytics.credits.used",
+    prisma.creditTransaction.aggregate({ where: { type: "USE" }, _sum: { amount: true } })
+  );
+  const providerSplitStartedAt = adminPerfNow();
+  const providerSplitPromise = measureAdminQuery(
+    "analytics.providerSplit",
+    prisma.aiJob.groupBy({
+      by: ["providerKey"],
+      where: { deletedAt: null },
+      _count: { _all: true }
+    })
+  ).then((providerSplit) => {
+    logAdminPerf("analytics.providerSplit.total", {
+      duration: `${adminPerfNow() - providerSplitStartedAt}ms`,
+      resultCount: providerSplit.length
+    });
+    return providerSplit;
+  });
+  const topToolsStartedAt = adminPerfNow();
+  const topToolsPromise = Promise.all([
     measureAdminQuery(
-      "analytics.provider.split",
-      prisma.aiJob.groupBy({
-        by: ["providerKey"],
-        where: { deletedAt: null },
-        _count: { _all: true }
-      })
-    ),
-    measureAdminQuery(
-      "analytics.tool.usage",
+      "analytics.topTools.usage",
       prisma.aiJob.groupBy({
         by: ["toolId"],
         where: { deletedAt: null },
-        _count: { _all: true }
-      })
+        _count: { _all: true },
+        orderBy: { _count: { toolId: "desc" } },
+        take: 5
+      }),
+      { take: 5 }
     ),
     measureAdminQuery(
-      "analytics.tools.list",
+      "analytics.topTools.tools",
       prisma.aiTool.findMany({
         where: { deletedAt: null },
         select: { id: true, name: true, slug: true, creditCost: true, providerKey: true, status: true }
       })
     )
-  ]);
+  ]).then(([toolUsage, tools]) => {
+    const toolNameById = new Map(tools.map((tool) => [tool.id, tool]));
+    const topTools = toolUsage
+      .map((item) => ({
+        ...item,
+        tool: toolNameById.get(item.toolId)
+      }))
+      .filter((item) => item.tool && item._count._all > 0);
 
-  const toolNameById = new Map(tools.map((tool) => [tool.id, tool]));
-  const topTools = toolUsage
-    .map((item) => ({
-      ...item,
-      tool: toolNameById.get(item.toolId)
-    }))
-    .filter((item) => item.tool && item._count._all > 0)
-    .sort((a, b) => b._count._all - a._count._all);
-  const totalTerminalJobs = completedJobs + failedJobs;
+    logAdminPerf("analytics.topTools", {
+      duration: `${adminPerfNow() - topToolsStartedAt}ms`,
+      queryCount: 2,
+      resultCount: topTools.length
+    });
+
+    return topTools;
+  });
+
+  const [{ completedJobs, failedJobs, failureRate }, creditsUsed, providerSplit, topTools] = await Promise.all([
+    failureRatePromise,
+    creditsUsedPromise,
+    providerSplitPromise,
+    topToolsPromise
+  ]);
 
   logAdminPerf("admin.analytics.data", {
     duration: `${adminPerfNow() - startedAt}ms`,
-    queryCount: 6,
+    queryCount: 5,
+    cacheHit: false,
     resultCount: topTools.length,
     providerCount: providerSplit.length
   });
@@ -475,12 +595,14 @@ export async function getAdminAnalyticsData() {
   return {
     completedJobs,
     failedJobs,
-    failureRate: totalTerminalJobs ? Math.round((failedJobs / totalTerminalJobs) * 100) : 0,
+    failureRate,
     creditsUsed: Math.abs(creditsUsed._sum.amount ?? 0),
     providerSplit,
     topTools
   };
 }
+
+type AdminAnalyticsData = Awaited<ReturnType<typeof buildAdminAnalyticsData>>;
 
 export async function getToolEconomics() {
   const tools = await measureAdminQuery(
@@ -550,6 +672,27 @@ function dedupeCreditPackages<T extends { name: string; status?: string; sortOrd
   }
 
   return Array.from(byName.values()).sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
+}
+
+type AdminCacheEntry<T> = {
+  expiresAt: number;
+  value: T;
+};
+
+function getAdminCache<T>(entry: AdminCacheEntry<T> | null) {
+  if (!entry || entry.expiresAt <= Date.now()) return null;
+  return entry.value;
+}
+
+function createAdminCacheEntry<T>(value: T, ttlMs: number): AdminCacheEntry<T> {
+  return {
+    expiresAt: Date.now() + ttlMs,
+    value
+  };
+}
+
+function getStatusCount<T extends { status: string; _count: { _all: number } }>(items: T[], status: string) {
+  return items.find((item) => item.status === status)?._count._all ?? 0;
 }
 
 export function normalizeAdminPage(value: unknown) {
