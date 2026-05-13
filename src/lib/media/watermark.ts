@@ -13,12 +13,16 @@ export type WatermarkResult = {
 };
 
 const FREE_PREVIEW_MAX_LONG_EDGE = 1600;
-const WATERMARK_FONT_FAMILY = "ZeyloraPreviewFont, DejaVu Sans, Arial, Helvetica, sans-serif";
-const WATERMARK_FONT_PATH = path.join(
+const CENTER_WATERMARK_ASSET_PATH = path.join(
   process.cwd(),
-  "src/assets/noto-sans-v27-latin-regular.ttf"
+  "public/watermarks/zeylora-preview-center.png"
 );
-let cachedWatermarkFontCss: string | null | undefined;
+const BADGE_WATERMARK_ASSET_PATH = path.join(
+  process.cwd(),
+  "public/watermarks/zeylora-preview-badge.png"
+);
+let cachedCenterWatermarkAsset: Buffer | undefined;
+let cachedBadgeWatermarkAsset: Buffer | undefined;
 
 export async function applyFreeExportWatermark(input: Buffer): Promise<WatermarkResult> {
   if (!businessFoundation.exports.freeWatermarkEnabled) {
@@ -53,11 +57,7 @@ async function applyPremiumPreviewWatermark(input: Buffer): Promise<WatermarkRes
   });
 
   const previewBuffer = await createProtectedPreviewBuffer(input);
-  const image = sharp(previewBuffer, { failOn: "none" });
-  const [metadata, luminance] = await Promise.all([
-    image.metadata(),
-    getAverageLuminance(previewBuffer)
-  ]);
+  const metadata = await sharp(previewBuffer, { failOn: "none" }).metadata();
   const width = metadata.width ?? 1400;
   const height = metadata.height ?? 1000;
 
@@ -73,121 +73,38 @@ async function applyPremiumPreviewWatermark(input: Buffer): Promise<WatermarkRes
 
   const label = "ZEYLORA PREVIEW";
   const placement = "center";
-  const markTone = luminance > 142
-    ? { centerFill: "#FFFFFF", centerOpacity: 0.34, badgeFillOpacity: 0.58, haloOpacity: 0.14 }
-    : { centerFill: "#FFFFFF", centerOpacity: 0.36, badgeFillOpacity: 0.48, haloOpacity: 0.18 };
-
-  const shortEdge = Math.min(width, height);
-  const fontSize = clamp(Math.round(shortEdge * 0.026), 15, 27);
-  const centerFontSize = clamp(Math.round(shortEdge * 0.078), 42, 96);
-  const subFontSize = clamp(Math.round(shortEdge * 0.022), 13, 24);
-  const markSize = Math.round(fontSize * 1.45);
-  const gap = Math.round(fontSize * 0.48);
-  const horizontalPadding = Math.round(fontSize * 0.78);
-  const verticalPadding = Math.round(fontSize * 0.48);
-  const estimatedTextWidth = Math.round("Made with Zeylora AI".length * fontSize * 0.56);
-  const badgeWidth = clamp(
-    estimatedTextWidth + markSize + gap + horizontalPadding * 2,
-    Math.min(width, 48),
-    Math.max(Math.min(width - 16, estimatedTextWidth + markSize + gap + horizontalPadding * 2), 48)
-  );
-  const badgeHeight = Math.max(markSize + verticalPadding, fontSize + verticalPadding * 2);
   const safeInsetX = Math.max(14, Math.round(width * 0.026));
   const safeInsetY = Math.max(14, Math.round(height * 0.028));
-  const x = Math.max(14, width - badgeWidth - safeInsetX);
-  const y = Math.max(14, height - badgeHeight - safeInsetY);
-  const markX = x + horizontalPadding;
-  const markY = y + Math.round((badgeHeight - markSize) / 2);
-  const textX = markX + markSize + gap;
-  const textY = y + Math.round(badgeHeight / 2) + Math.round(fontSize * 0.34);
-  const centerText = "ZEYLORA PREVIEW";
-  const centerSubText = "BRANDED PREVIEW EXPORT";
-  const centerTextWidth = Math.round(centerText.length * centerFontSize * 0.58);
-  const centerBoxWidth = clamp(
-    Math.max(Math.round(width * 0.48), centerTextWidth + Math.round(centerFontSize * 1.3)),
-    Math.min(width, 96),
-    Math.max(Math.round(width * 0.86), 96)
-  );
-  const centerBoxHeight = clamp(
-    Math.max(Math.round(centerFontSize * 1.65), centerFontSize + subFontSize + Math.round(shortEdge * 0.075)),
-    Math.min(height, 56),
-    Math.max(Math.round(height * 0.52), 56)
-  );
-  const centerX = Math.round((width - centerBoxWidth) / 2);
-  const centerY = Math.round((height - centerBoxHeight) / 2);
-  const centerTextX = Math.round(width / 2);
-  const centerTextY = centerY + Math.round(centerBoxHeight * 0.47);
-  const centerSubTextY = centerTextY + Math.round(centerFontSize * 0.46);
-  const fontCss = getWatermarkFontCss();
+  const centerOverlayWidth = clamp(Math.round(width * 0.62), Math.min(width - 24, 260), Math.min(width - 24, 1040));
+  const centerOverlay = await resizeOverlayPng(getCenterWatermarkAsset(), centerOverlayWidth);
+  const centerMetadata = await sharp(centerOverlay, { failOn: "none" }).metadata();
+  const centerWidth = centerMetadata.width ?? centerOverlayWidth;
+  const centerHeight = centerMetadata.height ?? Math.round(centerOverlayWidth * 0.24);
+  const centerX = Math.max(0, Math.round((width - centerWidth) / 2));
+  const centerY = Math.max(0, Math.round((height - centerHeight) / 2));
 
-  const watermarkSvg = Buffer.from(`
-    <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        ${fontCss}
-        <linearGradient id="zeyloraMark" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#20D3FF" stop-opacity="0.9"/>
-          <stop offset="54%" stop-color="#8B5CF6" stop-opacity="0.88"/>
-          <stop offset="100%" stop-color="#F05FB8" stop-opacity="0.86"/>
-        </linearGradient>
-        <filter id="glassShadow" x="-25%" y="-60%" width="150%" height="220%">
-          <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#02030A" flood-opacity="0.34"/>
-        </filter>
-        <filter id="centerShadow" x="-30%" y="-60%" width="160%" height="220%">
-          <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#02030A" flood-opacity="0.34"/>
-        </filter>
-      </defs>
-      <g filter="url(#centerShadow)" opacity="0.96">
-        <rect x="${centerX}" y="${centerY}" width="${centerBoxWidth}" height="${centerBoxHeight}" rx="${Math.round(centerBoxHeight * 0.22)}"
-          fill="#050712" fill-opacity="${markTone.badgeFillOpacity}"/>
-        <rect x="${centerX + 1}" y="${centerY + 1}" width="${centerBoxWidth - 2}" height="${centerBoxHeight - 2}" rx="${Math.round(centerBoxHeight * 0.22) - 1}"
-          fill="none" stroke="url(#zeyloraMark)" stroke-opacity="0.42" stroke-width="1.5"/>
-        <ellipse cx="${centerTextX}" cy="${Math.round(height / 2)}" rx="${Math.round(centerBoxWidth * 0.43)}" ry="${Math.round(centerBoxHeight * 0.48)}"
-          fill="url(#zeyloraMark)" fill-opacity="${markTone.haloOpacity}"/>
-        <text x="${centerTextX}" y="${centerTextY}"
-          text-anchor="middle"
-          font-family="${WATERMARK_FONT_FAMILY}"
-          font-size="${centerFontSize}"
-          font-weight="700"
-          fill="${markTone.centerFill}"
-          fill-opacity="${markTone.centerOpacity}">${centerText}</text>
-        <text x="${centerTextX}" y="${centerSubTextY}"
-          text-anchor="middle"
-          font-family="${WATERMARK_FONT_FAMILY}"
-          font-size="${subFontSize}"
-          font-weight="700"
-          fill="${markTone.centerFill}"
-          fill-opacity="${Math.min(markTone.centerOpacity + 0.12, 0.42)}">${centerSubText}</text>
-      </g>
-      <g filter="url(#glassShadow)" opacity="0.88">
-        <rect x="${x}" y="${y}" width="${badgeWidth}" height="${badgeHeight}" rx="${Math.round(badgeHeight / 2)}" fill="#050712" fill-opacity="${markTone.badgeFillOpacity}"/>
-        <rect x="${x + 1}" y="${y + 1}" width="${badgeWidth - 2}" height="${badgeHeight - 2}" rx="${Math.round(badgeHeight / 2) - 1}" fill="none" stroke="url(#zeyloraMark)" stroke-opacity="0.38" stroke-width="1"/>
-        <circle cx="${markX + Math.round(markSize / 2)}" cy="${markY + Math.round(markSize / 2)}" r="${Math.round(markSize / 2)}" fill="url(#zeyloraMark)" fill-opacity="0.86"/>
-        <text x="${markX + Math.round(markSize / 2)}" y="${markY + Math.round(markSize / 2) + Math.round(fontSize * 0.37)}"
-          text-anchor="middle"
-          font-family="${WATERMARK_FONT_FAMILY}"
-          font-size="${Math.round(fontSize * 0.96)}"
-          font-weight="700"
-          fill="#FFFFFF"
-          fill-opacity="0.96">Z</text>
-      </g>
-      <text x="${textX}" y="${textY}"
-        text-anchor="start"
-        font-family="${WATERMARK_FONT_FAMILY}"
-        font-size="${fontSize}"
-        font-weight="700"
-        fill="#FFFFFF"
-        fill-opacity="0.84">Made with Zeylora AI</text>
-    </svg>
-  `);
+  const badgeOverlayWidth = clamp(Math.round(width * 0.31), Math.min(width - 24, 220), Math.min(width - 24, 520));
+  const badgeOverlay = await resizeOverlayPng(getBadgeWatermarkAsset(), badgeOverlayWidth);
+  const badgeMetadata = await sharp(badgeOverlay, { failOn: "none" }).metadata();
+  const badgeWidth = badgeMetadata.width ?? badgeOverlayWidth;
+  const badgeHeight = badgeMetadata.height ?? Math.round(badgeOverlayWidth * 0.16);
+  const badgeX = Math.max(0, width - badgeWidth - safeInsetX);
+  const badgeY = Math.max(0, height - badgeHeight - safeInsetY);
 
   logPreviewProtection("premium_center_preview_overlay_created", {
     width,
     height,
-    overlayBytes: watermarkSvg.length
+    centerOverlayBytes: centerOverlay.length,
+    badgeOverlayBytes: badgeOverlay.length,
+    centerOverlayWidth: centerWidth,
+    badgeOverlayWidth: badgeWidth
   });
 
   const buffer = await sharp(previewBuffer, { failOn: "none" })
-    .composite([{ input: watermarkSvg, blend: "over" }])
+    .composite([
+      { input: centerOverlay, left: centerX, top: centerY, blend: "over" },
+      { input: badgeOverlay, left: badgeX, top: badgeY, blend: "over" }
+    ])
     .png({
       compressionLevel: 6,
       adaptiveFiltering: true,
@@ -287,23 +204,16 @@ async function createSafePreviewFallback(input: Buffer, originalError: unknown):
     const metadata = await sharp(previewBuffer, { failOn: "none" }).metadata();
     const width = metadata.width ?? 1200;
     const height = metadata.height ?? 900;
-    const fontSize = clamp(Math.round(Math.min(width, height) * 0.072), 36, 86);
-    const subFontSize = clamp(Math.round(fontSize * 0.26), 11, 20);
-    const overlay = Buffer.from(`
-      <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          ${getWatermarkFontCss()}
-        </defs>
-        <rect x="${Math.round(width * 0.1)}" y="${Math.round(height * 0.42)}" width="${Math.round(width * 0.8)}" height="${Math.round(height * 0.16)}" rx="${Math.round(fontSize * 0.32)}" fill="#050712" fill-opacity="0.42"/>
-        <text x="${Math.round(width / 2)}" y="${Math.round(height * 0.505)}" text-anchor="middle"
-          font-family="${WATERMARK_FONT_FAMILY}" font-size="${fontSize}" font-weight="700" fill="#FFFFFF" fill-opacity="0.32">ZEYLORA PREVIEW</text>
-        <text x="${Math.round(width / 2)}" y="${Math.round(height * 0.545)}" text-anchor="middle"
-          font-family="${WATERMARK_FONT_FAMILY}" font-size="${subFontSize}" font-weight="700" fill="#20D3FF" fill-opacity="0.82">BRANDED PREVIEW EXPORT</text>
-      </svg>
-    `);
+    const centerOverlayWidth = clamp(Math.round(width * 0.62), Math.min(width - 24, 260), Math.min(width - 24, 1040));
+    const centerOverlay = await resizeOverlayPng(getCenterWatermarkAsset(), centerOverlayWidth);
+    const centerMetadata = await sharp(centerOverlay, { failOn: "none" }).metadata();
+    const centerWidth = centerMetadata.width ?? centerOverlayWidth;
+    const centerHeight = centerMetadata.height ?? Math.round(centerOverlayWidth * 0.24);
+    const centerX = Math.max(0, Math.round((width - centerWidth) / 2));
+    const centerY = Math.max(0, Math.round((height - centerHeight) / 2));
 
     const buffer = await sharp(previewBuffer, { failOn: "none" })
-      .composite([{ input: overlay, blend: "over" }])
+      .composite([{ input: centerOverlay, left: centerX, top: centerY, blend: "over" }])
       .png({
         compressionLevel: 6,
         adaptiveFiltering: true,
@@ -378,52 +288,32 @@ async function createLastResortPreview(input: Buffer): Promise<WatermarkResult> 
   }
 }
 
-async function getAverageLuminance(input: Buffer) {
-  try {
-    const { data } = await sharp(input, { failOn: "none" })
-      .removeAlpha()
-      .resize(1, 1, { fit: "fill" })
-      .raw()
-      .toBuffer({ resolveWithObject: true });
+async function resizeOverlayPng(input: Buffer, width: number) {
+  return sharp(input, { failOn: "none" })
+    .resize({
+      width: Math.max(1, Math.round(width)),
+      withoutEnlargement: true
+    })
+    .png({
+      compressionLevel: 6,
+      adaptiveFiltering: true,
+      palette: false
+    })
+    .toBuffer();
+}
 
-    const red = data[0] ?? 12;
-    const green = data[1] ?? red;
-    const blue = data[2] ?? red;
-    return red * 0.2126 + green * 0.7152 + blue * 0.0722;
-  } catch {
-    return 128;
-  }
+function getCenterWatermarkAsset() {
+  cachedCenterWatermarkAsset ??= readFileSync(CENTER_WATERMARK_ASSET_PATH);
+  return cachedCenterWatermarkAsset;
+}
+
+function getBadgeWatermarkAsset() {
+  cachedBadgeWatermarkAsset ??= readFileSync(BADGE_WATERMARK_ASSET_PATH);
+  return cachedBadgeWatermarkAsset;
 }
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
-}
-
-function getWatermarkFontCss() {
-  if (cachedWatermarkFontCss !== undefined) {
-    return cachedWatermarkFontCss;
-  }
-
-  try {
-    const fontBase64 = readFileSync(WATERMARK_FONT_PATH).toString("base64");
-    cachedWatermarkFontCss = `
-      <style>
-        @font-face {
-          font-family: "ZeyloraPreviewFont";
-          src: url("data:font/truetype;charset=utf-8;base64,${fontBase64}") format("truetype");
-          font-weight: 400 900;
-          font-style: normal;
-        }
-      </style>
-    `;
-    return cachedWatermarkFontCss;
-  } catch (error) {
-    logPreviewProtection("watermark_font_embed_failed", {
-      errorMessage: error instanceof Error ? error.message : "Unknown font embed error."
-    });
-    cachedWatermarkFontCss = "";
-    return cachedWatermarkFontCss;
-  }
 }
 
 function logPreviewProtection(event: string, payload: Record<string, unknown>) {
