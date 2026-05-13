@@ -66,8 +66,8 @@ async function applyPremiumPreviewWatermark(input: Buffer): Promise<WatermarkRes
   const label = "ZEYLORA PREVIEW";
   const placement = "center";
   const markTone = luminance > 142
-    ? { fill: "#050712", centerOpacity: 0.24, badgeFillOpacity: 0.58, haloOpacity: 0.14 }
-    : { fill: "#FFFFFF", centerOpacity: 0.28, badgeFillOpacity: 0.48, haloOpacity: 0.18 };
+    ? { centerFill: "#FFFFFF", centerOpacity: 0.34, badgeFillOpacity: 0.58, haloOpacity: 0.14 }
+    : { centerFill: "#FFFFFF", centerOpacity: 0.36, badgeFillOpacity: 0.48, haloOpacity: 0.18 };
 
   const shortEdge = Math.min(width, height);
   const fontSize = clamp(Math.round(shortEdge * 0.026), 15, 27);
@@ -139,7 +139,7 @@ async function applyPremiumPreviewWatermark(input: Buffer): Promise<WatermarkRes
           font-size="${centerFontSize}"
           font-weight="900"
           letter-spacing="0"
-          fill="${markTone.fill}"
+          fill="${markTone.centerFill}"
           fill-opacity="${markTone.centerOpacity}">${centerText}</text>
         <text x="${centerTextX}" y="${centerSubTextY}"
           text-anchor="middle"
@@ -147,7 +147,7 @@ async function applyPremiumPreviewWatermark(input: Buffer): Promise<WatermarkRes
           font-size="${subFontSize}"
           font-weight="850"
           letter-spacing="0"
-          fill="${markTone.fill}"
+          fill="${markTone.centerFill}"
           fill-opacity="${Math.min(markTone.centerOpacity + 0.12, 0.42)}">${centerSubText}</text>
       </g>
       <g filter="url(#glassShadow)" opacity="0.88">
@@ -260,7 +260,7 @@ async function createProtectedPreviewBuffer(input: Buffer) {
       brightness: 0.992,
       saturation: 0.97
     })
-    .blur(0.16)
+    .blur(0.3)
     .png({
       compressionLevel: 6,
       adaptiveFiltering: true,
