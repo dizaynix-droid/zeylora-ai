@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db";
 import { creditPackages } from "@/config/pricing";
 
+const ADMIN_PAGE_SIZE = 25;
+
 export const LAUNCH_TOOL_SLUGS = [
   "hd-upscale",
   "ai-relight",
@@ -11,18 +13,19 @@ export const LAUNCH_TOOL_SLUGS = [
   "product-shadow"
 ] as const;
 
+export type AdminPagination = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  from: number;
+  to: number;
+  hasPrevious: boolean;
+  hasNext: boolean;
+};
+
 export async function getAdminOverviewData() {
-  const [
-    totalUsers,
-    totalJobs,
-    completedJobs,
-    failedJobs,
-    creditsUsed,
-    recentJobs,
-    recentUsers,
-    packages,
-    toolEconomics
-  ] = await Promise.all([
+  const [totalUsers, totalJobs, completedJobs, failedJobs, creditsUsed, recentJobs] = await Promise.all([
     prisma.user.count({ where: { deletedAt: null } }),
     prisma.aiJob.count({ where: { deletedAt: null } }),
     prisma.aiJob.count({ where: { deletedAt: null, status: "COMPLETED" } }),
@@ -46,34 +49,7 @@ export async function getAdminOverviewData() {
         tool: { select: { name: true, slug: true } },
         user: { select: { email: true } }
       }
-    }),
-    prisma.user.findMany({
-      where: { deletedAt: null },
-      orderBy: { createdAt: "desc" },
-      take: 5,
-      select: {
-        id: true,
-        email: true,
-        creditBalance: true,
-        role: true,
-        status: true,
-        createdAt: true
-      }
-    }),
-    prisma.creditPackage.findMany({
-      where: { deletedAt: null },
-      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-      select: {
-        id: true,
-        name: true,
-        credits: true,
-        price: true,
-        currency: true,
-        status: true,
-        sortOrder: true
-      }
-    }),
-    getToolEconomics()
+    })
   ]);
 
   return {
@@ -85,56 +61,65 @@ export async function getAdminOverviewData() {
       creditsUsed: Math.abs(creditsUsed._sum.amount ?? 0),
       recentExports: completedJobs
     },
-    recentJobs,
-    recentUsers,
-    packages: packages.length ? packages : getFallbackPackages(),
-    toolEconomics
+    recentJobs
   };
 }
 
 export async function getAdminUsersData(input: {
   query?: string;
   filter?: "all" | "with-credits" | "with-jobs" | "recent";
-  take?: number;
+  page?: number;
+  pageSize?: number;
 } = {}) {
   const query = input.query?.trim();
   const filter = input.filter || "all";
-  const take = Math.min(input.take || 50, 100);
+  const page = normalizeAdminPage(input.page);
+  const pageSize = normalizeAdminPageSize(input.pageSize);
+  const where = {
+    deletedAt: null,
+    ...(query
+      ? {
+          OR: [
+            { email: { contains: query, mode: "insensitive" as const } },
+            { name: { contains: query, mode: "insensitive" as const } }
+          ]
+        }
+      : {}),
+    ...(filter === "with-credits" ? { creditBalance: { gt: 0 } } : {}),
+    ...(filter === "with-jobs" ? { jobs: { some: { deletedAt: null } } } : {}),
+    ...(filter === "recent" ? { createdAt: { gte: new Date(Date.now() - 1000 * 60 * 60 * 24 * 14) } } : {})
+  };
 
-  return prisma.user.findMany({
-    where: {
-      deletedAt: null,
-      ...(query
-        ? {
-            OR: [
-              { email: { contains: query, mode: "insensitive" as const } },
-              { name: { contains: query, mode: "insensitive" as const } }
-            ]
+  const [items, total] = await Promise.all([
+    prisma.user.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: getSkip(page, pageSize),
+      take: pageSize,
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        status: true,
+        creditBalance: true,
+        createdAt: true,
+        _count: {
+          select: {
+            jobs: true,
+            creditTransactions: true,
+            payments: true
           }
-        : {}),
-      ...(filter === "with-credits" ? { creditBalance: { gt: 0 } } : {}),
-      ...(filter === "with-jobs" ? { jobs: { some: { deletedAt: null } } } : {}),
-      ...(filter === "recent" ? { createdAt: { gte: new Date(Date.now() - 1000 * 60 * 60 * 24 * 14) } } : {})
-    },
-    orderBy: { createdAt: "desc" },
-    take,
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      role: true,
-      status: true,
-      creditBalance: true,
-      createdAt: true,
-      _count: {
-        select: {
-          jobs: true,
-          creditTransactions: true,
-          payments: true
         }
       }
-    }
-  });
+    }),
+    prisma.user.count({ where })
+  ]);
+
+  return {
+    items,
+    pagination: createPagination({ page, pageSize, total })
+  };
 }
 
 export async function getAdminToolsData() {
@@ -179,11 +164,15 @@ export async function getAdminPricingData() {
   return dedupeCreditPackages(packages.length ? packages : getFallbackPackages());
 }
 
-export async function getAdminCreditsData() {
-  const [transactions, totals] = await Promise.all([
+export async function getAdminCreditsData(input: { page?: number; pageSize?: number } = {}) {
+  const page = normalizeAdminPage(input.page);
+  const pageSize = normalizeAdminPageSize(input.pageSize);
+
+  const [transactions, totalTransactions, totals] = await Promise.all([
     prisma.creditTransaction.findMany({
       orderBy: { createdAt: "desc" },
-      take: 50,
+      skip: getSkip(page, pageSize),
+      take: pageSize,
       select: {
         id: true,
         type: true,
@@ -195,6 +184,7 @@ export async function getAdminCreditsData() {
         aiJob: { select: { id: true, tool: { select: { name: true } } } }
       }
     }),
+    prisma.creditTransaction.count(),
     prisma.creditTransaction.groupBy({
       by: ["type"],
       _sum: { amount: true },
@@ -204,6 +194,7 @@ export async function getAdminCreditsData() {
 
   return {
     transactions,
+    pagination: createPagination({ page, pageSize, total: totalTransactions }),
     totals,
     summary: {
       issued: totals
@@ -220,52 +211,108 @@ export async function getAdminJobsData(input: {
   status?: "all" | "completed" | "failed";
   tool?: string;
   user?: string;
-  take?: number;
+  page?: number;
+  pageSize?: number;
 } = {}) {
   const status = input.status || "all";
-  const take = Math.min(input.take || 50, 100);
+  const page = normalizeAdminPage(input.page);
+  const pageSize = normalizeAdminPageSize(input.pageSize);
   const user = input.user?.trim();
   const tool = input.tool?.trim();
+  const where = {
+    deletedAt: null,
+    ...(status === "completed" ? { status: "COMPLETED" as const } : {}),
+    ...(status === "failed" ? { status: "FAILED" as const } : {}),
+    ...(tool ? { tool: { slug: tool } } : {}),
+    ...(user ? { user: { email: { contains: user, mode: "insensitive" as const } } } : {})
+  };
 
-  return prisma.aiJob.findMany({
-    where: {
-      deletedAt: null,
-      ...(status === "completed" ? { status: "COMPLETED" as const } : {}),
-      ...(status === "failed" ? { status: "FAILED" as const } : {}),
-      ...(tool ? { tool: { slug: tool } } : {}),
-      ...(user ? { user: { email: { contains: user, mode: "insensitive" as const } } } : {})
-    },
-    orderBy: { createdAt: "desc" },
-    take,
-    select: {
-      id: true,
-      status: true,
-      providerKey: true,
-      creditCost: true,
-      errorMessage: true,
-      processingTimeMs: true,
-      createdAt: true,
-      completedAt: true,
-      tool: { select: { name: true, slug: true } },
-      user: { select: { email: true } }
-    }
-  });
+  const [items, total] = await Promise.all([
+    prisma.aiJob.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: getSkip(page, pageSize),
+      take: pageSize,
+      select: {
+        id: true,
+        status: true,
+        providerKey: true,
+        creditCost: true,
+        errorMessage: true,
+        processingTimeMs: true,
+        createdAt: true,
+        completedAt: true,
+        tool: { select: { name: true, slug: true } },
+        user: { select: { email: true } }
+      }
+    }),
+    prisma.aiJob.count({ where })
+  ]);
+
+  return {
+    items,
+    pagination: createPagination({ page, pageSize, total })
+  };
 }
 
-export async function getAdminLogsData() {
-  return prisma.adminLog.findMany({
-    orderBy: { createdAt: "desc" },
-    take: 50,
-    select: {
-      id: true,
-      action: true,
-      entityType: true,
-      entityId: true,
-      metadataJson: true,
-      createdAt: true,
-      adminUser: { select: { email: true } }
-    }
-  });
+export async function getAdminLogsData(input: { page?: number; pageSize?: number } = {}) {
+  const page = normalizeAdminPage(input.page);
+  const pageSize = normalizeAdminPageSize(input.pageSize);
+
+  const [items, total] = await Promise.all([
+    prisma.adminLog.findMany({
+      orderBy: { createdAt: "desc" },
+      skip: getSkip(page, pageSize),
+      take: pageSize,
+      select: {
+        id: true,
+        action: true,
+        entityType: true,
+        entityId: true,
+        metadataJson: true,
+        createdAt: true,
+        adminUser: { select: { email: true } }
+      }
+    }),
+    prisma.adminLog.count()
+  ]);
+
+  return {
+    items,
+    pagination: createPagination({ page, pageSize, total })
+  };
+}
+
+export async function getAdminPaymentsData(input: { page?: number; pageSize?: number } = {}) {
+  const page = normalizeAdminPage(input.page);
+  const pageSize = normalizeAdminPageSize(input.pageSize);
+
+  const [items, total] = await Promise.all([
+    prisma.payment.findMany({
+      where: { deletedAt: null },
+      orderBy: { createdAt: "desc" },
+      skip: getSkip(page, pageSize),
+      take: pageSize,
+      select: {
+        id: true,
+        amount: true,
+        currency: true,
+        status: true,
+        stripeCheckoutSessionId: true,
+        stripePaymentIntentId: true,
+        creditsDelivered: true,
+        couponCode: true,
+        createdAt: true,
+        user: { select: { email: true } }
+      }
+    }),
+    prisma.payment.count({ where: { deletedAt: null } })
+  ]);
+
+  return {
+    items,
+    pagination: createPagination({ page, pageSize, total })
+  };
 }
 
 export async function getAdminAnalyticsData() {
@@ -374,4 +421,37 @@ function dedupeCreditPackages<T extends { name: string; status?: string; sortOrd
   }
 
   return Array.from(byName.values()).sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
+}
+
+export function normalizeAdminPage(value: unknown) {
+  const page = Number(value || 1);
+  return Number.isInteger(page) && page > 0 ? page : 1;
+}
+
+function normalizeAdminPageSize(value: unknown) {
+  const pageSize = Number(value || ADMIN_PAGE_SIZE);
+  if (!Number.isInteger(pageSize) || pageSize <= 0) return ADMIN_PAGE_SIZE;
+  return Math.min(pageSize, 100);
+}
+
+function getSkip(page: number, pageSize: number) {
+  return (page - 1) * pageSize;
+}
+
+function createPagination(input: { page: number; pageSize: number; total: number }): AdminPagination {
+  const totalPages = Math.max(1, Math.ceil(input.total / input.pageSize));
+  const page = Math.min(input.page, totalPages);
+  const from = input.total === 0 ? 0 : (page - 1) * input.pageSize + 1;
+  const to = Math.min(input.total, page * input.pageSize);
+
+  return {
+    page,
+    pageSize: input.pageSize,
+    total: input.total,
+    totalPages,
+    from,
+    to,
+    hasPrevious: page > 1,
+    hasNext: page < totalPages
+  };
 }

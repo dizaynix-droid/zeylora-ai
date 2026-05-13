@@ -77,6 +77,78 @@ export function AdminLinkButton({ href, children }: { href: string; children: Re
   );
 }
 
+export function AdminPaginationControls({
+  pagination,
+  basePath,
+  params = {}
+}: {
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+    from: number;
+    to: number;
+    hasPrevious: boolean;
+    hasNext: boolean;
+  };
+  basePath: string;
+  params?: Record<string, string | number | null | undefined>;
+}) {
+  const makeHref = (page: number) => {
+    const search = new URLSearchParams();
+
+    for (const [key, value] of Object.entries(params)) {
+      if (key === "page" || value === null || value === undefined || String(value).trim() === "") continue;
+      search.set(key, String(value));
+    }
+
+    if (page > 1) search.set("page", String(page));
+    const query = search.toString();
+    return query ? `${basePath}?${query}` : basePath;
+  };
+
+  const previousPage = Math.max(1, pagination.page - 1);
+  const nextPage = Math.min(pagination.totalPages, pagination.page + 1);
+
+  return (
+    <div className="flex flex-col gap-2 rounded-2xl border border-white/10 bg-white/[0.035] px-3 py-2 text-sm text-slate-300 md:flex-row md:items-center md:justify-between">
+      <p className="font-bold">
+        Showing{" "}
+        <span className="text-white">
+          {pagination.from}-{pagination.to}
+        </span>{" "}
+        of <span className="text-white">{pagination.total}</span>
+      </p>
+      <div className="flex items-center gap-2">
+        <Link
+          href={makeHref(previousPage)}
+          aria-disabled={!pagination.hasPrevious}
+          className={clsx(
+            "inline-flex h-9 items-center rounded-full border border-white/10 px-3 text-xs font-black uppercase tracking-[0.12em] text-white transition hover:border-cyan/40 hover:bg-cyan/10",
+            !pagination.hasPrevious && "pointer-events-none opacity-40"
+          )}
+        >
+          Previous
+        </Link>
+        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-slate-300">
+          Page {pagination.page} / {pagination.totalPages}
+        </span>
+        <Link
+          href={makeHref(nextPage)}
+          aria-disabled={!pagination.hasNext}
+          className={clsx(
+            "inline-flex h-9 items-center rounded-full border border-white/10 px-3 text-xs font-black uppercase tracking-[0.12em] text-white transition hover:border-cyan/40 hover:bg-cyan/10",
+            !pagination.hasNext && "pointer-events-none opacity-40"
+          )}
+        >
+          Next
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 export function formatAdminDate(date: Date | string | null | undefined) {
   if (!date) return "-";
   return new Intl.DateTimeFormat("en", {

@@ -1,17 +1,27 @@
 import { AppShell } from "@/components/layout/app-shell";
-import { AdminSection, AdminTable, formatAdminDate } from "@/components/admin/admin-ui";
+import { AdminPaginationControls, AdminSection, AdminTable, formatAdminDate } from "@/components/admin/admin-ui";
 import { requireAdmin } from "@/lib/admin/auth";
-import { getAdminLogsData } from "@/lib/admin/data";
+import { getAdminLogsData, normalizeAdminPage } from "@/lib/admin/data";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminLogsPage() {
+export default async function AdminLogsPage({
+  searchParams
+}: {
+  searchParams?: Promise<{ page?: string }>;
+}) {
   await requireAdmin();
-  const logs = await getAdminLogsData();
+  const params = await searchParams;
+  const page = normalizeAdminPage(params?.page);
+  const data = await getAdminLogsData({ page });
+  const logs = data.items;
 
   return (
     <AppShell area="admin" title="Audit kayıtları" description="Önemli admin aksiyonları ve sistem değişiklikleri.">
       <AdminSection title="Admin audit trail" description="Kredi ve tool değişiklikleri burada kayıt altında tutulur.">
+        <div className="mb-3">
+          <AdminPaginationControls basePath="/admin/logs" pagination={data.pagination} />
+        </div>
         <AdminTable>
           <table className="min-w-[1040px] w-full divide-y divide-white/10 text-sm">
             <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
@@ -35,6 +45,9 @@ export default async function AdminLogsPage() {
             </tbody>
           </table>
         </AdminTable>
+        <div className="mt-3">
+          <AdminPaginationControls basePath="/admin/logs" pagination={data.pagination} />
+        </div>
       </AdminSection>
     </AppShell>
   );

@@ -1,7 +1,7 @@
 import { AppShell } from "@/components/layout/app-shell";
-import { AdminSection, AdminStatusPill, AdminTable, formatAdminDate } from "@/components/admin/admin-ui";
+import { AdminPaginationControls, AdminSection, AdminStatusPill, AdminTable, formatAdminDate } from "@/components/admin/admin-ui";
 import { requireAdmin } from "@/lib/admin/auth";
-import { getAdminUsersData } from "@/lib/admin/data";
+import { getAdminUsersData, normalizeAdminPage } from "@/lib/admin/data";
 import { adjustUserCreditsAction } from "@/lib/admin/actions";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminUsersPage({
   searchParams
 }: {
-  searchParams?: Promise<{ q?: string; filter?: string }>;
+  searchParams?: Promise<{ q?: string; filter?: string; page?: string }>;
 }) {
   await requireAdmin();
   const params = await searchParams;
@@ -17,7 +17,9 @@ export default async function AdminUsersPage({
     ? params.filter
     : "all";
   const query = params?.q || "";
-  const users = await getAdminUsersData({ query, filter });
+  const page = normalizeAdminPage(params?.page);
+  const data = await getAdminUsersData({ query, filter, page });
+  const users = data.items;
 
   return (
     <AppShell
@@ -50,6 +52,13 @@ export default async function AdminUsersPage({
             Filter
           </button>
         </form>
+        <div className="mb-3">
+          <AdminPaginationControls
+            basePath="/admin/users"
+            params={{ q: query, filter }}
+            pagination={data.pagination}
+          />
+        </div>
         <AdminTable>
           <table className="min-w-[1280px] w-full divide-y divide-white/10 text-sm">
             <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
@@ -117,6 +126,13 @@ export default async function AdminUsersPage({
             </tbody>
           </table>
         </AdminTable>
+        <div className="mt-3">
+          <AdminPaginationControls
+            basePath="/admin/users"
+            params={{ q: query, filter }}
+            pagination={data.pagination}
+          />
+        </div>
       </AdminSection>
     </AppShell>
   );

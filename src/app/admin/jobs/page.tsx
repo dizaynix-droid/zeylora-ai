@@ -1,19 +1,21 @@
 import { AppShell } from "@/components/layout/app-shell";
-import { AdminSection, AdminStatusPill, AdminTable, formatAdminDate } from "@/components/admin/admin-ui";
+import { AdminPaginationControls, AdminSection, AdminStatusPill, AdminTable, formatAdminDate } from "@/components/admin/admin-ui";
 import { requireAdmin } from "@/lib/admin/auth";
-import { getAdminJobsData } from "@/lib/admin/data";
+import { getAdminJobsData, normalizeAdminPage } from "@/lib/admin/data";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminJobsPage({
   searchParams
 }: {
-  searchParams?: Promise<{ status?: string; tool?: string; user?: string }>;
+  searchParams?: Promise<{ status?: string; tool?: string; user?: string; page?: string }>;
 }) {
   await requireAdmin();
   const params = await searchParams;
   const status = params?.status === "completed" || params?.status === "failed" ? params.status : "all";
-  const jobs = await getAdminJobsData({ status, tool: params?.tool, user: params?.user });
+  const page = normalizeAdminPage(params?.page);
+  const data = await getAdminJobsData({ status, tool: params?.tool, user: params?.user, page });
+  const jobs = data.items;
 
   return (
     <AppShell area="admin" title="AI işlem kayıtları" description="Tüm tool run, provider, hata ve export kayıtlarını izle.">
@@ -28,6 +30,13 @@ export default async function AdminJobsPage({
           <input name="user" defaultValue={params?.user || ""} placeholder="User email" className="h-10 rounded-xl border border-white/10 bg-[#080d1f] px-3 text-sm text-white outline-none focus:border-cyan" />
           <button className="h-10 rounded-full bg-cyan px-5 text-sm font-black text-ink transition hover:bg-cyan/90">Filter</button>
         </form>
+        <div className="mb-3">
+          <AdminPaginationControls
+            basePath="/admin/jobs"
+            params={{ status, tool: params?.tool, user: params?.user }}
+            pagination={data.pagination}
+          />
+        </div>
         <AdminTable>
           <table className="min-w-[1280px] w-full divide-y divide-white/10 text-sm">
             <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
@@ -66,6 +75,13 @@ export default async function AdminJobsPage({
             </tbody>
           </table>
         </AdminTable>
+        <div className="mt-3">
+          <AdminPaginationControls
+            basePath="/admin/jobs"
+            params={{ status, tool: params?.tool, user: params?.user }}
+            pagination={data.pagination}
+          />
+        </div>
       </AdminSection>
     </AppShell>
   );

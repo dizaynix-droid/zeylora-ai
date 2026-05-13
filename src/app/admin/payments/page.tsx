@@ -1,13 +1,19 @@
 import { AppShell } from "@/components/layout/app-shell";
-import { AdminSection, AdminStatusPill } from "@/components/admin/admin-ui";
+import { AdminPaginationControls, AdminSection, AdminStatusPill, AdminTable, formatAdminDate } from "@/components/admin/admin-ui";
 import { requireAdmin } from "@/lib/admin/auth";
-import { getAdminPricingData } from "@/lib/admin/data";
+import { getAdminPaymentsData, getAdminPricingData, normalizeAdminPage } from "@/lib/admin/data";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminPaymentsPage() {
+export default async function AdminPaymentsPage({
+  searchParams
+}: {
+  searchParams?: Promise<{ page?: string }>;
+}) {
   await requireAdmin();
-  const packages = await getAdminPricingData();
+  const params = await searchParams;
+  const page = normalizeAdminPage(params?.page);
+  const [packages, payments] = await Promise.all([getAdminPricingData(), getAdminPaymentsData({ page })]);
   const checklist = [
     { label: "Stripe secret key", ready: Boolean(process.env.STRIPE_SECRET_KEY), note: "Required for checkout sessions." },
     { label: "Stripe webhook secret", ready: Boolean(process.env.STRIPE_WEBHOOK_SECRET), note: "Required for verified webhook delivery." },
@@ -33,6 +39,69 @@ export default async function AdminPaymentsPage() {
           ))}
         </div>
       </AdminSection>
+
+      <div className="mt-4">
+        <AdminSection
+          title="Payment history"
+          description="Checkout aktif olduğunda son ödeme ve kredi teslimatı kayıtları burada sayfalı olarak görünür."
+        >
+          <div className="mb-3">
+            <AdminPaginationControls basePath="/admin/payments" pagination={payments.pagination} />
+          </div>
+          <AdminTable>
+            <table className="min-w-[1180px] w-full divide-y divide-white/10 text-sm">
+              <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
+                <tr>
+                  <th className="px-4 py-3">Kullanıcı</th>
+                  <th className="px-4 py-3">Durum</th>
+                  <th className="px-4 py-3">Tutar</th>
+                  <th className="px-4 py-3">Kredi</th>
+                  <th className="px-4 py-3">Stripe ref</th>
+                  <th className="px-4 py-3">Tarih</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/10">
+                {payments.items.map((payment) => (
+                  <tr key={payment.id}>
+                    <td className="px-4 py-3 font-bold text-white">{payment.user.email}</td>
+                    <td className="px-4 py-3">
+                      <PaymentStatus status={payment.status} />
+                    </td>
+                    <td className="px-4 py-3 font-black text-white">
+                      {payment.amount.toString()} {payment.currency.toUpperCase()}
+                    </td>
+                    <td className="px-4 py-3 text-slate-300">{payment.creditsDelivered}</td>
+                    <td className="px-4 py-3 text-xs text-slate-400">
+                      {payment.stripeCheckoutSessionId || payment.stripePaymentIntentId || payment.couponCode || "-"}
+                    </td>
+                    <td className="px-4 py-3 text-slate-400">{formatAdminDate(payment.createdAt)}</td>
+                  </tr>
+                ))}
+                {payments.items.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-10 text-center">
+                      <p className="font-black text-white">Henüz ödeme kaydı yok.</p>
+                      <p className="mt-2 text-sm text-slate-400">Checkout açıldığında başarılı, başarısız ve iade kayıtları burada listelenecek.</p>
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </AdminTable>
+          <div className="mt-3">
+            <AdminPaginationControls basePath="/admin/payments" pagination={payments.pagination} />
+          </div>
+        </AdminSection>
+      </div>
     </AppShell>
   );
+}
+
+function PaymentStatus({ status }: { status: string }) {
+  if (status === "PAID") return <AdminStatusPill tone="good">{status}</AdminStatusPill>;
+  if (status === "FAILED" || status === "CANCELLED") return <AdminStatusPill tone="bad">{status}</AdminStatusPill>;
+  if (status === "REFUNDED" || status === "PARTIALLY_REFUNDED" || status === "PENDING") {
+    return <AdminStatusPill tone="warn">{status}</AdminStatusPill>;
+  }
+  return <AdminStatusPill>{status}</AdminStatusPill>;
 }

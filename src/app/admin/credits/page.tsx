@@ -1,13 +1,19 @@
 import { AppShell } from "@/components/layout/app-shell";
-import { AdminMetricCard, AdminSection, AdminTable, formatAdminDate } from "@/components/admin/admin-ui";
+import { AdminMetricCard, AdminPaginationControls, AdminSection, AdminTable, formatAdminDate } from "@/components/admin/admin-ui";
 import { requireAdmin } from "@/lib/admin/auth";
-import { getAdminCreditsData } from "@/lib/admin/data";
+import { getAdminCreditsData, normalizeAdminPage } from "@/lib/admin/data";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminCreditsPage() {
+export default async function AdminCreditsPage({
+  searchParams
+}: {
+  searchParams?: Promise<{ page?: string }>;
+}) {
   await requireAdmin();
-  const data = await getAdminCreditsData();
+  const params = await searchParams;
+  const page = normalizeAdminPage(params?.page);
+  const data = await getAdminCreditsData({ page });
 
   return (
     <AppShell
@@ -27,6 +33,9 @@ export default async function AdminCreditsPage() {
           title="Son kredi hareketleri"
           description="Admin ayarları, paid clean export kesintileri, refund ve purchase kayıtları burada görünür."
         >
+          <div className="mb-3">
+            <AdminPaginationControls basePath="/admin/credits" pagination={data.pagination} />
+          </div>
           <AdminTable>
             <table className="min-w-[1180px] w-full divide-y divide-white/10 text-sm">
               <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
@@ -63,6 +72,9 @@ export default async function AdminCreditsPage() {
               </tbody>
             </table>
           </AdminTable>
+          <div className="mt-3">
+            <AdminPaginationControls basePath="/admin/credits" pagination={data.pagination} />
+          </div>
         </AdminSection>
       </div>
     </AppShell>
