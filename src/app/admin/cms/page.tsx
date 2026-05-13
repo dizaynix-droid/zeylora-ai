@@ -6,8 +6,13 @@ import { getAdminCmsPages } from "@/lib/cms/pages";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminCmsPage() {
+export default async function AdminCmsPage({
+  searchParams
+}: {
+  searchParams?: Promise<{ saved?: string; error?: string }>;
+}) {
   await requireAdmin();
+  const params = await searchParams;
   const pages = await getAdminCmsPages();
   const publishedCount = pages.filter((page) => page.status === "PUBLISHED").length;
   const draftCount = pages.filter((page) => page.status === "DRAFT").length;
@@ -19,6 +24,18 @@ export default async function AdminCmsPage() {
         <AdminMetricCard label="Published" value={publishedCount} note="Public sayfada DB içeriği görünür" />
         <AdminMetricCard label="Draft" value={draftCount} note="Draft ise public fallback kullanılır" />
       </div>
+
+      {params?.saved ? (
+        <div className="mt-5 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm font-bold text-emerald-100">
+          Page saved: /{params.saved}. Public page will use CMS content when status is PUBLISHED.
+        </div>
+      ) : null}
+
+      {params?.error ? (
+        <div className="mt-5 rounded-2xl border border-rose-400/20 bg-rose-400/10 p-4 text-sm font-bold text-rose-100">
+          Page could not be saved. Please check required fields and try again.
+        </div>
+      ) : null}
 
       <div className="mt-5">
         <AdminSection
@@ -77,6 +94,7 @@ export default async function AdminCmsPage() {
                   <summary className="cursor-pointer text-sm font-black text-cyan">Edit page body</summary>
                   <textarea
                     name="bodyMarkdown"
+                    id={`body-${page.slug}`}
                     defaultValue={page.bodyMarkdown}
                     rows={12}
                     className="mt-3 w-full rounded-2xl border border-white/10 bg-[#080d1f] p-4 font-mono text-sm leading-6 text-slate-100 outline-none focus:border-cyan"

@@ -4,14 +4,14 @@ Use this when moving Zeylora AI from localhost to a Vercel preview or production
 
 ## 1. Required Production Environment Variables
 
-Replace `YOUR_DOMAIN.com`, `PROJECT_REF`, `REGION`, and secret placeholders with the real production values.
+Replace `zeylora.ai`, `PROJECT_REF`, `REGION`, and secret placeholders with the real production values.
 
 ### App
 
 ```env
-NEXT_PUBLIC_SITE_URL="https://YOUR_DOMAIN.com"
+NEXT_PUBLIC_SITE_URL="https://zeylora.ai"
 NEXT_PUBLIC_SITE_NAME="Zeylora AI"
-NEXT_PUBLIC_SUPPORT_EMAIL="support@YOUR_DOMAIN.com"
+NEXT_PUBLIC_SUPPORT_EMAIL="support@zeylora.ai"
 MAINTENANCE_MODE="false"
 ```
 
@@ -118,11 +118,11 @@ Supabase Dashboard -> Authentication -> URL Configuration:
 
 ```text
 Site URL:
-https://YOUR_DOMAIN.com
+https://zeylora.ai
 
 Redirect URLs:
-https://YOUR_DOMAIN.com/auth/callback
-https://www.YOUR_DOMAIN.com/auth/callback
+https://zeylora.ai/auth/callback
+https://www.zeylora.ai/auth/callback
 https://YOUR_PROJECT.vercel.app/auth/callback
 http://localhost:3000/auth/callback
 ```
@@ -137,8 +137,8 @@ Google Cloud Console -> OAuth Client:
 
 ```text
 Authorized JavaScript origins:
-https://YOUR_DOMAIN.com
-https://www.YOUR_DOMAIN.com
+https://zeylora.ai
+https://www.zeylora.ai
 https://YOUR_PROJECT.vercel.app
 
 Authorized redirect URI:
@@ -157,7 +157,7 @@ https://PROJECT_REF.supabase.co/auth/v1/callback
 The app's own final redirect after Supabase is:
 
 ```text
-https://YOUR_DOMAIN.com/auth/callback
+https://zeylora.ai/auth/callback
 ```
 
 ## 6. Stripe URLs
@@ -166,7 +166,7 @@ Stripe Dashboard -> Developers -> Webhooks:
 
 ```text
 Endpoint URL:
-https://YOUR_DOMAIN.com/api/v1/payments/stripe/webhook
+https://zeylora.ai/api/v1/payments/stripe/webhook
 
 Events:
 checkout.session.completed
@@ -183,10 +183,10 @@ Checkout success and cancel URLs are generated from `NEXT_PUBLIC_SITE_URL`:
 
 ```text
 Success:
-https://YOUR_DOMAIN.com/dashboard#credits
+https://zeylora.ai/dashboard#credits
 
 Cancel:
-https://YOUR_DOMAIN.com/pricing
+https://zeylora.ai/pricing
 ```
 
 ## 7. Cloudflare R2 Checklist
@@ -203,8 +203,8 @@ Recommended CORS if needed:
 [
   {
     "AllowedOrigins": [
-      "https://YOUR_DOMAIN.com",
-      "https://www.YOUR_DOMAIN.com",
+      "https://zeylora.ai",
+      "https://www.zeylora.ai",
       "https://YOUR_PROJECT.vercel.app",
       "http://localhost:3000"
     ],

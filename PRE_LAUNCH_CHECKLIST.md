@@ -29,9 +29,9 @@ Use this before pointing real traffic at the production domain. This checklist a
 ### App
 
 ```env
-NEXT_PUBLIC_SITE_URL="https://your-domain.com"
+NEXT_PUBLIC_SITE_URL="https://zeylora.ai"
 NEXT_PUBLIC_SITE_NAME="Zeylora AI"
-NEXT_PUBLIC_SUPPORT_EMAIL="support@your-domain.com"
+NEXT_PUBLIC_SUPPORT_EMAIL="support@zeylora.ai"
 MAINTENANCE_MODE="false"
 ```
 
@@ -100,9 +100,9 @@ NEXT_PUBLIC_GA4_MEASUREMENT_ID=""
 ## 4. Supabase Production Setup
 
 - Authentication -> URL Configuration:
-  - Site URL: `https://your-domain.com`
-  - Redirect URL: `https://your-domain.com/auth/callback`
-  - Add `https://www.your-domain.com/auth/callback` if using `www`.
+  - Site URL: `https://zeylora.ai`
+  - Redirect URL: `https://zeylora.ai/auth/callback`
+  - Add `https://www.zeylora.ai/auth/callback` if using `www`.
 - Authentication -> Providers -> Email:
   - Email provider enabled.
   - Signups enabled if public beta is open.
@@ -119,8 +119,8 @@ NEXT_PUBLIC_GA4_MEASUREMENT_ID=""
 
 - Google Cloud Console -> OAuth Client:
   - Authorized JavaScript origins:
-    - `https://your-domain.com`
-    - `https://www.your-domain.com` if used.
+    - `https://zeylora.ai`
+    - `https://www.zeylora.ai` if used.
   - Authorized redirect URI:
     - Supabase Google callback URL from Supabase provider settings.
 - Test Google login in an incognito browser after deploy.
@@ -139,7 +139,7 @@ NEXT_PUBLIC_GA4_MEASUREMENT_ID=""
 - Start in Stripe test mode.
 - Create credit products/prices or rely on dynamic `price_data` for controlled testing.
 - Add webhook endpoint:
-  - `https://your-domain.com/api/v1/payments/stripe/webhook`
+  - `https://zeylora.ai/api/v1/payments/stripe/webhook`
 - Subscribe at minimum:
   - `checkout.session.completed`
   - `checkout.session.expired`

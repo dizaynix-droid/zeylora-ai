@@ -4,7 +4,7 @@ Run this on the production URL after every launch deploy. Use an incognito brows
 
 ## 1. Basic Site Checks
 
-1. Open `https://your-domain.com`.
+1. Open `https://zeylora.ai`.
 2. Confirm premium homepage loads without raw/unstyled HTML.
 3. Confirm live tools count is `6`.
 4. Confirm upload selector shows:
