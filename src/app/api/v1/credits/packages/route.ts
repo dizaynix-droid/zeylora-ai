@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
-import { creditPackages } from "@/config/pricing";
+import { getCreditPackagesForDisplay } from "@/lib/pricing/packages";
 
-export function GET() {
+export async function GET() {
+  const packages = await getCreditPackagesForDisplay();
+
   return NextResponse.json({
-    packages: creditPackages
+    packages
   });
 }

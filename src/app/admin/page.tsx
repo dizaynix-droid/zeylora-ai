@@ -1,43 +1,110 @@
-import { AlertTriangle, BarChart3, Brain, CreditCard, Database, Flag, Gauge, Users } from "lucide-react";
+import { Activity, CreditCard, Settings, ShieldCheck, Users, WandSparkles } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
-import { Card } from "@/components/ui/card";
-import { adminTr } from "@/i18n/admin/tr";
+import { AdminLinkButton, AdminMetricCard, AdminSection, AdminStatusPill, AdminTable, formatAdminDate } from "@/components/admin/admin-ui";
+import { requireAdmin } from "@/lib/admin/auth";
+import { getAdminOverviewData } from "@/lib/admin/data";
 
-const adminModules: Array<[string, string, LucideIcon]> = [
-  [adminTr.overview.modules.users.title, adminTr.overview.modules.users.description, Users],
-  [adminTr.overview.modules.tools.title, adminTr.overview.modules.tools.description, Brain],
-  [adminTr.overview.modules.payments.title, adminTr.overview.modules.payments.description, CreditCard],
-  [adminTr.overview.modules.featureFlags.title, adminTr.overview.modules.featureFlags.description, Flag],
-  [adminTr.overview.modules.providerBudgets.title, adminTr.overview.modules.providerBudgets.description, Gauge],
-  [adminTr.overview.modules.usageAnalytics.title, adminTr.overview.modules.usageAnalytics.description, BarChart3],
-  [adminTr.overview.modules.cms.title, adminTr.overview.modules.cms.description, Database],
-  [adminTr.overview.modules.errorLogs.title, adminTr.overview.modules.errorLogs.description, AlertTriangle]
-];
+export const dynamic = "force-dynamic";
 
-export default function AdminPage() {
+export default async function AdminPage() {
+  const admin = await requireAdmin();
+  const data = await getAdminOverviewData();
+
   return (
     <AppShell
       area="admin"
-      title={adminTr.overview.title}
-      description={adminTr.overview.description}
+      title="Yönetim merkezi"
+      description="Krediler, fiyatlama, kullanıcılar, araç ekonomisi ve lansman ayarları için güvenli operasyon paneli."
     >
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {adminModules.map(([title, description, Icon]) => (
-          <Card key={title} className="p-5">
-            <span className="grid size-10 place-items-center rounded-xl bg-white/10 text-cyan">
-              <Icon size={19} />
-            </span>
-            <h2 className="mt-4 font-black text-white">{title}</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-300">{description}</p>
-          </Card>
-        ))}
+      <div className="mb-5 rounded-2xl border border-cyan/20 bg-cyan/10 p-4 text-sm font-semibold text-cyan">
+        Admin girişi: {admin.email} ({admin.source === "role" ? "rol" : "email whitelist"})
       </div>
 
-      <Card className="mt-5 p-6">
-        <h2 className="text-xl font-black text-white">{adminTr.overview.priorityTitle}</h2>
-        <p className="mt-2 text-sm leading-6 text-slate-300">{adminTr.overview.priorityDescription}</p>
-      </Card>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+        <AdminMetricCard label="Kullanıcı" value={data.metrics.totalUsers} note="Toplam kayıtlı hesap" />
+        <AdminMetricCard label="İşlem" value={data.metrics.totalJobs} note="Tüm AI job kayıtları" />
+        <AdminMetricCard label="Tamamlanan" value={data.metrics.completedJobs} note="Başarılı export akışı" />
+        <AdminMetricCard label="Hatalı" value={data.metrics.failedJobs} note="İncelenecek job sayısı" />
+        <AdminMetricCard label="Kredi Kullanımı" value={data.metrics.creditsUsed} note="Harcanan toplam kredi" />
+        <AdminMetricCard label="Export" value={data.metrics.recentExports} note="Completed job adedi" />
+      </div>
+
+      <div className="mt-5 grid gap-5 xl:grid-cols-[1.2fr_.8fr]">
+        <AdminSection
+          title="Son işlemler"
+          description="Job durumu, sağlayıcı, araç ve kullanıcı ilişkisini hızlıca kontrol et."
+          action={<AdminLinkButton href="/admin/jobs">Tüm işlemler</AdminLinkButton>}
+        >
+          <AdminTable>
+            <table className="min-w-full divide-y divide-white/10 text-sm">
+              <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
+                <tr>
+                  <th className="px-4 py-3">Araç</th>
+                  <th className="px-4 py-3">Durum</th>
+                  <th className="px-4 py-3">Kullanıcı</th>
+                  <th className="px-4 py-3">Kredi</th>
+                  <th className="px-4 py-3">Tarih</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/10">
+                {data.recentJobs.map((job) => (
+                  <tr key={job.id}>
+                    <td className="px-4 py-3 font-bold text-white">{job.tool.name}</td>
+                    <td className="px-4 py-3"><JobStatusPill status={job.status} /></td>
+                    <td className="px-4 py-3 text-slate-300">{job.user?.email || "-"}</td>
+                    <td className="px-4 py-3 text-slate-300">{job.creditCost}</td>
+                    <td className="px-4 py-3 text-slate-400">{formatAdminDate(job.createdAt)}</td>
+                  </tr>
+                ))}
+                {data.recentJobs.length === 0 ? (
+                  <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">Henüz işlem yok.</td></tr>
+                ) : null}
+              </tbody>
+            </table>
+          </AdminTable>
+        </AdminSection>
+
+        <AdminSection
+          title="Operasyon modülleri"
+          description="Phase 2 admin temeli. Her modül genişletilebilir şekilde ayrıldı."
+        >
+          <div className="grid gap-3">
+            {operationModules.map(({ title, description, Icon, href }) => (
+              <a key={title} href={href} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-3 transition hover:bg-white/10">
+                <span className="grid size-10 place-items-center rounded-xl bg-cyan/10 text-cyan">
+                  <Icon size={18} />
+                </span>
+                <span>
+                  <span className="block font-black text-white">{title}</span>
+                  <span className="block text-sm leading-5 text-slate-400">{description}</span>
+                </span>
+              </a>
+            ))}
+          </div>
+        </AdminSection>
+      </div>
     </AppShell>
   );
+}
+
+const operationModules: Array<{
+  title: string;
+  description: string;
+  Icon: LucideIcon;
+  href: string;
+}> = [
+  { title: "Kullanıcılar", description: "Kredi bakiyesi, manuel düzenleme ve job özeti.", Icon: Users, href: "/admin/users" },
+  { title: "Fiyatlama", description: "Kredi paketleri, bonuslar ve Stripe hazırlığı.", Icon: CreditCard, href: "/admin/pricing" },
+  { title: "Araç ekonomisi", description: "Tool maliyetleri, aktif/pasif durum ve export modeli.", Icon: WandSparkles, href: "/admin/tools" },
+  { title: "Lansman ayarları", description: "Preview, watermark, promo ve feature flag kontrolleri.", Icon: Settings, href: "/admin/settings" },
+  { title: "Audit", description: "Admin aksiyonları ve sistem kayıtları.", Icon: ShieldCheck, href: "/admin/logs" },
+  { title: "Analiz", description: "Kullanım, hata ve kredi ekonomisi özeti.", Icon: Activity, href: "/admin/analytics" }
+];
+
+function JobStatusPill({ status }: { status: string }) {
+  if (status === "COMPLETED") return <AdminStatusPill tone="good">Completed</AdminStatusPill>;
+  if (status === "FAILED" || status === "CANCELLED") return <AdminStatusPill tone="bad">{status}</AdminStatusPill>;
+  if (status === "PROCESSING" || status === "PENDING") return <AdminStatusPill tone="warn">{status}</AdminStatusPill>;
+  return <AdminStatusPill>{status}</AdminStatusPill>;
 }

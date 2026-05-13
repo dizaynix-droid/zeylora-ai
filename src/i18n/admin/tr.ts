@@ -8,6 +8,7 @@ export const adminTr = {
     tools: "AI Araçları",
     jobs: "İşlemler",
     credits: "Krediler",
+    pricing: "Fiyatlama",
     payments: "Ödemeler",
     cms: "İçerik",
     providers: "Sağlayıcılar",

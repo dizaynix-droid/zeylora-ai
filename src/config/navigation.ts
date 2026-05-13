@@ -21,6 +21,7 @@ export const adminNav = [
   { label: adminTr.nav.tools, href: "/admin/tools" },
   { label: adminTr.nav.jobs, href: "/admin/jobs" },
   { label: adminTr.nav.credits, href: "/admin/credits" },
+  { label: adminTr.nav.pricing, href: "/admin/pricing" },
   { label: adminTr.nav.payments, href: "/admin/payments" },
   { label: adminTr.nav.cms, href: "/admin/cms" },
   { label: adminTr.nav.providers, href: "/admin/providers" },

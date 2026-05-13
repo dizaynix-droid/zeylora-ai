@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { Card } from "@/components/ui/card";
-import { creditPackages } from "@/config/pricing";
+import { getCreditPackagesForDisplay } from "@/lib/pricing/packages";
 import { createMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createMetadata({
@@ -11,7 +11,11 @@ export const metadata: Metadata = createMetadata({
   path: "/pricing"
 });
 
-export default function PricingPage() {
+export const dynamic = "force-dynamic";
+
+export default async function PricingPage() {
+  const creditPackages = await getCreditPackagesForDisplay();
+
   return (
     <>
       <SiteHeader />
@@ -32,9 +36,9 @@ export default function PricingPage() {
                 <p className="mt-3 min-h-12 text-sm leading-6 text-slate-300">{pack.description}</p>
                 <p className="mt-6 text-5xl font-black text-white">${pack.price}</p>
                 <p className="mt-2 font-bold text-cyan">
-                  {pack.credits + pack.bonusCredits} credits{pack.bonusCredits ? ` (${pack.bonusCredits} bonus)` : ""}
+                  {pack.totalCredits} credits{pack.bonusCredits ? ` (${pack.bonusCredits} bonus)` : ""}
                 </p>
-                <p className="mt-2 text-xs font-bold uppercase text-slate-500">{pack.billingModel.replaceAll("_", " ")}</p>
+                <p className="mt-2 text-xs font-bold uppercase text-slate-500">one time credits</p>
                 <button className="mt-6 h-11 w-full rounded-full bg-cyan text-sm font-black text-ink transition hover:bg-cyan/90">
                   Coming soon
                 </button>
