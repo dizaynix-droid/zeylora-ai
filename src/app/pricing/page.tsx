@@ -57,7 +57,7 @@ export default async function PricingPage() {
                 <p className="mt-3 min-h-12 text-sm leading-6 text-slate-300">{pack.description}</p>
                 <p className="mt-6 text-5xl font-black text-white">${pack.price}</p>
                 <p className="mt-2 font-bold text-cyan">
-                  {pack.totalCredits} credits{pack.bonusCredits ? ` (${pack.bonusCredits} bonus)` : ""}
+                  {pack.totalCredits} credits{pack.bonusCredits ? ` (${pack.credits} + ${pack.bonusCredits} bonus)` : ""}
                 </p>
                 <p className="mt-2 text-xs font-bold uppercase text-slate-500">one time credits</p>
                 <CheckoutButton

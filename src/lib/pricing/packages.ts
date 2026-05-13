@@ -21,6 +21,7 @@ export type PublicCreditPackage = {
 
 export async function getCreditPackagesForDisplay(): Promise<PublicCreditPackage[]> {
   try {
+    await ensureLaunchCreditPackageDefaults();
     const dbPackages = await prisma.creditPackage.findMany({
       where: {
         deletedAt: null,
@@ -87,6 +88,91 @@ export async function getCreditPackagesForDisplay(): Promise<PublicCreditPackage
     status: "ACTIVE",
     sortOrder: index
   }));
+}
+
+export async function ensureLaunchCreditPackageDefaults() {
+  for (const [index, pack] of creditPackages.entries()) {
+    const totalCredits = pack.credits + pack.bonusCredits;
+    const legacyNames = pack.key === "pro-seller" ? ["Pro Seller", "Studio"] : [pack.name];
+    const existing = await prisma.creditPackage.findFirst({
+      where: {
+        deletedAt: null,
+        OR: [
+          { featureFlagKey: pack.featureFlagKey },
+          {
+            name: {
+              in: legacyNames
+            }
+          }
+        ]
+      },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      select: {
+        id: true,
+        name: true,
+        credits: true,
+        price: true,
+        currency: true,
+        sortOrder: true,
+        featureFlagKey: true,
+        status: true
+      }
+    });
+
+    const launchData = {
+      name: pack.name,
+      credits: totalCredits,
+      price: pack.price,
+      currency: pack.currency.toLowerCase(),
+      sortOrder: index + 1,
+      featureFlagKey: pack.featureFlagKey,
+      status: "ACTIVE" as const
+    };
+
+    if (!existing) {
+      await prisma.creditPackage.create({
+        data: launchData
+      });
+      continue;
+    }
+
+    if (shouldRepairLaunchPackage(existing, pack.name, totalCredits, pack.price, pack.featureFlagKey)) {
+      await prisma.creditPackage.update({
+        where: { id: existing.id },
+        data: launchData
+      });
+    }
+  }
+}
+
+function shouldRepairLaunchPackage(
+  pack: {
+    name: string;
+    credits: number;
+    price: unknown;
+    featureFlagKey: string | null;
+    status: string;
+  },
+  expectedName: string,
+  expectedCredits: number,
+  expectedPrice: number,
+  expectedFeatureFlagKey: string
+) {
+  const price = Number(pack.price);
+  const legacyRecord =
+    (pack.name === "Starter" && pack.credits === 40 && price === 9) ||
+    (pack.name === "Creator" && pack.credits === 120 && price === 19) ||
+    (pack.name === "Studio" && pack.credits === 320 && price === 39) ||
+    (pack.name === "Pro Seller" && pack.credits === 320 && price === 39);
+  const missingFeatureFlag = !pack.featureFlagKey;
+
+  if (legacyRecord || missingFeatureFlag) return true;
+  return (
+    pack.name === expectedName &&
+    pack.credits === expectedCredits &&
+    price === expectedPrice &&
+    pack.featureFlagKey !== expectedFeatureFlagKey
+  );
 }
 
 function getBonusCredits(name: string, totalCredits: number) {

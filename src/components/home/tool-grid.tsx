@@ -43,7 +43,7 @@ export function ToolGrid() {
             </h2>
           </div>
           <p className="max-w-md text-sm leading-6 text-slate-300">
-            HD Upscale, AI Relight, and Photo Enhancer carry the premium launch experience. Crop, cutout, and shadow tools complete the seller workflow.
+            HD Upscale, AI Relight, and Photo Enhancer are the premium launch workflows. Crop, cutout, and creative shadow tools support the full seller production flow.
           </p>
         </div>
 

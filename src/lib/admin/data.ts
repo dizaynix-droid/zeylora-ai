@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { creditPackages } from "@/config/pricing";
+import { ensureLaunchCreditPackageDefaults } from "@/lib/pricing/packages";
 import { adminPerfNow, logAdminPerf, measureAdminQuery } from "@/lib/admin/perf";
 
 const ADMIN_PAGE_SIZE = 25;
@@ -238,6 +239,7 @@ export async function getAdminToolsData() {
 
 export async function getAdminPricingData() {
   const startedAt = adminPerfNow();
+  await ensureLaunchCreditPackageDefaults();
   const packages = await measureAdminQuery(
     "pricing.packages.list",
     prisma.creditPackage.findMany({

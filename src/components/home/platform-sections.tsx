@@ -5,13 +5,13 @@ import { Button } from "@/components/ui/button";
 import { creditPackages } from "@/config/pricing";
 
 const trustItems: Array<[string, string, LucideIcon]> = [
-  ["Private uploads", "Images are stored privately and served through temporary signed links.", Lock],
-  ["Six live workflows", "HD upscale, relight, enhancement, crop, cutout, and creative shadow tools in one studio.", Sparkles],
+  ["Private uploads", "Product photos are stored privately and served through temporary signed links.", Lock],
+  ["Six seller workflows", "Upscale, relight, enhance, crop, cutout, and creative shadow tools in one ecommerce studio.", Sparkles],
   ["Dashboard history", "Every completed edit stays available in your workspace.", History],
-  ["Credit clean exports", "Credits unlock watermark-free exports for finished product assets.", CreditCard],
-  ["Signed links", "Preview and download URLs are temporary instead of exposed as raw storage links.", ShieldCheck],
-  ["Fast product workflow", "Upload, preview, adjust, download, and repeat without leaving the page.", Zap],
-  ["Branded previews", "Free previews are visibly watermarked so clean exports stay credit-based.", CheckCircle2],
+  ["Credit clean exports", "Credits unlock watermark-free files when the preview is ready.", CreditCard],
+  ["Signed downloads", "Preview and export URLs are temporary instead of exposed as raw storage links.", ShieldCheck],
+  ["Fast seller workflow", "Upload, preview, adjust, export, and repeat without leaving the page.", Zap],
+  ["Free branded preview", "Free previews are visibly branded so clean exports stay credit-based.", CheckCircle2],
   ["Seller-ready formats", "Prepare visuals for Shopify, Amazon, Etsy, TikTok Shop, social ads, and catalog pages.", Clock3]
 ];
 
@@ -33,7 +33,7 @@ export function PlatformSections() {
               <p className="text-sm font-black uppercase text-cyan">Trust layer</p>
               <h2 className="mt-2 text-2xl font-black text-white">A secure product photo workspace for serious sellers.</h2>
               <p className="mt-2 text-sm leading-6 text-slate-300">
-                Upload privately, upscale or relight product photos, keep results in your dashboard, and export clean seller-ready assets with credits.
+              Upload privately, preview branded edits for free, keep results in your dashboard, and export clean seller-ready assets with credits.
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -58,7 +58,7 @@ export function PlatformSections() {
               Built for repeat ecommerce product-photo production.
             </h2>
             <p className="mt-4 text-sm leading-7 text-slate-300">
-              Zeylora focuses on seller workflows first: sharpen low-res assets, improve lighting, polish catalog photos, then prepare channel-ready exports.
+              Zeylora focuses on seller workflows first: sharpen low-res assets, improve lighting, polish catalog photos, then prepare exports for Shopify, Etsy, Amazon, TikTok Shop, and social ads.
             </p>
           </div>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -90,9 +90,9 @@ export function PlatformSections() {
 
         <div className="mb-5 grid gap-3 md:grid-cols-3">
           {[
-            ["1 credit", "One clean export for selected lightweight tools."],
-            ["2 credits", "HD Upscale and Background Remover may require 2 credits."],
-            ["3 credits", "Photo Enhancer may require 3 credits for a clean export."]
+            ["1 credit", "One clean export for selected lightweight tools like crop, relight, or shadow."],
+            ["2 credits", "HD Upscale and Background Remover use 2 credits for clean exports."],
+            ["3 credits", "Photo Enhancer uses 3 credits for a polished clean export."]
           ].map(([label, description]) => (
             <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.045] p-4">
               <p className="text-sm font-black uppercase text-cyan">{label}</p>
@@ -116,7 +116,7 @@ export function PlatformSections() {
               <p className="mt-3 text-sm leading-6 text-slate-300">{pack.description}</p>
               <p className="mt-6 text-4xl font-black text-white">${pack.price}</p>
               <p className="mt-1 text-sm font-bold text-cyan">
-                {pack.credits + pack.bonusCredits} credits{pack.bonusCredits ? ` with ${pack.bonusCredits} bonus` : ""}
+                {pack.credits + pack.bonusCredits} credits{pack.bonusCredits ? ` (${pack.credits} + ${pack.bonusCredits} bonus)` : ""}
               </p>
               <div className="mt-5 grid gap-2 border-t border-white/10 pt-5 text-sm text-slate-300">
                 <p className="flex items-center gap-2">

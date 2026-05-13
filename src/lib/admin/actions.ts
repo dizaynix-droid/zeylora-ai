@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin/auth";
 import { logAdminAction } from "@/lib/admin/audit";
@@ -109,7 +110,10 @@ export async function updateCreditPackageAction(formData: FormData) {
   const admin = await requireAdmin();
   const packageId = String(formData.get("packageId") || "");
   const name = getFormString(formData, "name", 80);
-  const credits = Number(formData.get("credits") || 0);
+  const baseCredits = Number(formData.get("baseCredits") || 0);
+  const bonusCredits = Number(formData.get("bonusCredits") || 0);
+  const directCredits = Number(formData.get("credits") || 0);
+  const credits = baseCredits || bonusCredits ? baseCredits + bonusCredits : directCredits;
   const price = Number(formData.get("price") || 0);
   const sortOrder = Number(formData.get("sortOrder") || 0);
   const stripePriceId = getFormString(formData, "stripePriceId", 240);
@@ -119,6 +123,7 @@ export async function updateCreditPackageAction(formData: FormData) {
   if (
     !packageId ||
     !name ||
+    (baseCredits < 0 || bonusCredits < 0) ||
     !Number.isInteger(credits) ||
     credits <= 0 ||
     !Number.isFinite(price) ||
@@ -150,7 +155,7 @@ export async function updateCreditPackageAction(formData: FormData) {
     action: "pricing.update_pack",
     entityType: "CreditPackage",
     entityId: packageId,
-    metadata: { name, credits, price, sortOrder, stripePriceId: Boolean(stripePriceId), featureFlagKey, status }
+    metadata: { name, credits, baseCredits, bonusCredits, price, sortOrder, stripePriceId: Boolean(stripePriceId), featureFlagKey, status }
   });
 
   revalidatePath("/admin");
@@ -213,68 +218,91 @@ export async function upsertCmsPageAction(formData: FormData) {
   const title = getFormString(formData, "title", 160);
   const metaTitle = getFormString(formData, "metaTitle", 180);
   const metaDescription = getFormString(formData, "metaDescription", 280);
-  const bodyMarkdown = getFormString(formData, "bodyMarkdown", 20000);
+  const bodyMarkdown = getFormString(formData, "bodyMarkdown", 20000) || getFormString(formData, "body", 20000);
   const status = getFormString(formData, "status", 20);
 
   if (!slug || !title || !metaTitle || !metaDescription || !["DRAFT", "PUBLISHED", "ARCHIVED"].includes(status)) {
-    throw new Error("Invalid CMS page.");
+    redirect("/admin/cms?error=invalid");
   }
 
   const contentJson = {
     bodyMarkdown: stripDangerousCmsContent(bodyMarkdown)
   };
 
-  const page = pageId
-    ? await prisma.page.update({
-        where: { id: pageId },
-        data: {
-          slug,
-          title,
-          metaTitle,
-          metaDescription,
-          contentJson,
-          status: status as "DRAFT" | "PUBLISHED" | "ARCHIVED"
-        },
-        select: { id: true, slug: true }
-      })
-    : await prisma.page.upsert({
-        where: {
-          slug_language: {
+  let savedPage: { id: string; slug: string } | null = null;
+
+  try {
+    savedPage = pageId
+      ? await prisma.page.update({
+          where: { id: pageId },
+          data: {
             slug,
-            language: "en"
-          }
-        },
-        update: {
-          title,
-          metaTitle,
-          metaDescription,
-          contentJson,
-          status: status as "DRAFT" | "PUBLISHED" | "ARCHIVED",
-          deletedAt: null
-        },
-        create: {
-          slug,
-          title,
-          metaTitle,
-          metaDescription,
-          contentJson,
-          language: "en",
-          status: status as "DRAFT" | "PUBLISHED" | "ARCHIVED"
-        },
-        select: { id: true, slug: true }
+            title,
+            metaTitle,
+            metaDescription,
+            contentJson,
+            status: status as "DRAFT" | "PUBLISHED" | "ARCHIVED",
+            deletedAt: null
+          },
+          select: { id: true, slug: true }
+        })
+      : await prisma.page.upsert({
+          where: {
+            slug_language: {
+              slug,
+              language: "en"
+            }
+          },
+          update: {
+            title,
+            metaTitle,
+            metaDescription,
+            contentJson,
+            status: status as "DRAFT" | "PUBLISHED" | "ARCHIVED",
+            deletedAt: null
+          },
+          create: {
+            slug,
+            title,
+            metaTitle,
+            metaDescription,
+            contentJson,
+            language: "en",
+            status: status as "DRAFT" | "PUBLISHED" | "ARCHIVED"
+          },
+          select: { id: true, slug: true }
+        });
+
+    await logAdminAction({
+      admin,
+      action: "cms.page.upsert",
+      entityType: "Page",
+      entityId: savedPage.id,
+      metadata: { slug: savedPage.slug, status }
+    });
+
+    if (process.env.NODE_ENV === "development") {
+      console.info("[admin-cms-save]", {
+        pageId: savedPage.id,
+        slug: savedPage.slug,
+        status,
+        bodyLength: contentJson.bodyMarkdown.length
       });
+    }
 
-  await logAdminAction({
-    admin,
-    action: "cms.page.upsert",
-    entityType: "Page",
-    entityId: page.id,
-    metadata: { slug: page.slug, status }
-  });
+    revalidatePath("/admin/cms");
+    revalidatePath(`/${savedPage.slug}`);
+    revalidatePath("/", "layout");
+  } catch (error) {
+    console.error("[admin-cms-save-failed]", {
+      slug,
+      status,
+      error: error instanceof Error ? error.message : "Unknown CMS save error"
+    });
+    redirect(`/admin/cms?error=${encodeURIComponent(slug || "cms")}`);
+  }
 
-  revalidatePath("/admin/cms");
-  revalidatePath(`/${page.slug}`);
-  revalidatePath("/", "layout");
+  redirect(`/admin/cms?saved=${encodeURIComponent(savedPage.slug)}`);
 }
 
 export async function updateMarketingTrackingSettingsAction(formData: FormData) {

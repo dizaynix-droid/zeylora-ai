@@ -4,7 +4,7 @@ export const marketingNav = [
   { label: "Tools", href: "/tools" },
   { label: "Pricing", href: "/pricing" },
   { label: "Examples", href: "/#examples" },
-  { label: "FAQ", href: "/#faq" }
+  { label: "FAQ", href: "/faq" }
 ] as const;
 
 export const dashboardNav = [
