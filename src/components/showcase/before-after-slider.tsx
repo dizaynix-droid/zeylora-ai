@@ -46,6 +46,16 @@ export function BeforeAfterSlider({
       </div>
 
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_18%,rgba(32,211,255,.16),transparent_34%),linear-gradient(180deg,rgba(3,5,13,.08),transparent_46%,rgba(3,5,13,.6))]" />
+      <div className="pointer-events-none absolute inset-0 grid place-items-center px-6">
+        <div className="max-w-[82%] rounded-3xl border border-white/15 bg-black/30 px-5 py-3 text-center shadow-cinematic backdrop-blur-md">
+          <p className="text-xl font-black uppercase tracking-normal text-white/30 sm:text-3xl md:text-4xl">
+            ZEYLORA PREVIEW
+          </p>
+          <p className="mt-1 text-[10px] font-black uppercase tracking-[0.2em] text-cyan/70">
+            Branded preview export
+          </p>
+        </div>
+      </div>
       <div
         className="absolute inset-y-0 w-px bg-white/90 shadow-[0_0_32px_rgba(32,211,255,.68)]"
         style={{ left: `${position}%` }}

@@ -1,25 +1,25 @@
 export type PreviewProtectionStrategy = {
   enabled: boolean;
-  mode: "current_watermarked_export" | "protected_preview";
+  mode: "current_watermarked_export" | "protected_preview" | "premium_center_preview";
   plannedHooks: {
-    centerWatermark: "planned";
-    lowerResolutionPreview: "planned";
-    paidCleanExportOnly: "planned";
+    centerWatermark: "active";
+    lowerResolutionPreview: "active";
+    paidCleanExportOnly: "active";
   };
   notes: string[];
 };
 
 export const previewProtectionStrategy: PreviewProtectionStrategy = {
-  enabled: false,
-  mode: "current_watermarked_export",
+  enabled: true,
+  mode: "premium_center_preview",
   plannedHooks: {
-    centerWatermark: "planned",
-    lowerResolutionPreview: "planned",
-    paidCleanExportOnly: "planned"
+    centerWatermark: "active",
+    lowerResolutionPreview: "active",
+    paidCleanExportOnly: "active"
   },
   notes: [
-    "Launch keeps the current protected pattern badge watermark behavior.",
-    "Next watermark pass should add stronger center preview protection before payment traffic scales.",
+    "Free preview exports use a premium centered ZEYLORA PREVIEW watermark and subtle quality limiting.",
+    "Paid clean export branch must stay full-quality and watermark-free.",
     "Paid credit exports should remain clean and watermark-free."
   ]
 };
