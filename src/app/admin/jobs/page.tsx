@@ -2,6 +2,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { AdminPaginationControls, AdminSection, AdminStatusPill, AdminTable, formatAdminDate } from "@/components/admin/admin-ui";
 import { requireAdmin } from "@/lib/admin/auth";
 import { getAdminJobsData, normalizeAdminPage } from "@/lib/admin/data";
+import { adminPerfNow, logAdminPerf } from "@/lib/admin/perf";
 
 export const dynamic = "force-dynamic";
 
@@ -10,12 +11,26 @@ export default async function AdminJobsPage({
 }: {
   searchParams?: Promise<{ status?: string; tool?: string; user?: string; page?: string }>;
 }) {
+  const pageStartedAt = adminPerfNow();
+  const authStartedAt = adminPerfNow();
   await requireAdmin();
+  const authMs = adminPerfNow() - authStartedAt;
   const params = await searchParams;
   const status = params?.status === "completed" || params?.status === "failed" ? params.status : "all";
   const page = normalizeAdminPage(params?.page);
+  const dataStartedAt = adminPerfNow();
   const data = await getAdminJobsData({ status, tool: params?.tool, user: params?.user, page });
   const jobs = data.items;
+  logAdminPerf("page./admin/jobs", {
+    authMs: `${authMs}ms`,
+    dataMs: `${adminPerfNow() - dataStartedAt}ms`,
+    totalMs: `${adminPerfNow() - pageStartedAt}ms`,
+    page,
+    status,
+    hasTool: Boolean(params?.tool),
+    hasUser: Boolean(params?.user),
+    resultCount: jobs.length
+  });
 
   return (
     <AppShell area="admin" title="AI işlem kayıtları" description="Tüm tool run, provider, hata ve export kayıtlarını izle.">

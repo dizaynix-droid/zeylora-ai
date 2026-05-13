@@ -2,6 +2,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { AdminPaginationControls, AdminSection, AdminTable, formatAdminDate } from "@/components/admin/admin-ui";
 import { requireAdmin } from "@/lib/admin/auth";
 import { getAdminLogsData, normalizeAdminPage } from "@/lib/admin/data";
+import { adminPerfNow, logAdminPerf } from "@/lib/admin/perf";
 
 export const dynamic = "force-dynamic";
 
@@ -10,11 +11,22 @@ export default async function AdminLogsPage({
 }: {
   searchParams?: Promise<{ page?: string }>;
 }) {
+  const pageStartedAt = adminPerfNow();
+  const authStartedAt = adminPerfNow();
   await requireAdmin();
+  const authMs = adminPerfNow() - authStartedAt;
   const params = await searchParams;
   const page = normalizeAdminPage(params?.page);
+  const dataStartedAt = adminPerfNow();
   const data = await getAdminLogsData({ page });
   const logs = data.items;
+  logAdminPerf("page./admin/logs", {
+    authMs: `${authMs}ms`,
+    dataMs: `${adminPerfNow() - dataStartedAt}ms`,
+    totalMs: `${adminPerfNow() - pageStartedAt}ms`,
+    page,
+    resultCount: logs.length
+  });
 
   return (
     <AppShell area="admin" title="Audit kayıtları" description="Önemli admin aksiyonları ve sistem değişiklikleri.">

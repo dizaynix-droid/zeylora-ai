@@ -4,12 +4,23 @@ import { AppShell } from "@/components/layout/app-shell";
 import { AdminLinkButton, AdminMetricCard, AdminSection, AdminStatusPill, AdminTable, formatAdminDate } from "@/components/admin/admin-ui";
 import { requireAdmin } from "@/lib/admin/auth";
 import { getAdminOverviewData } from "@/lib/admin/data";
+import { adminPerfNow, logAdminPerf } from "@/lib/admin/perf";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
+  const pageStartedAt = adminPerfNow();
+  const authStartedAt = adminPerfNow();
   const admin = await requireAdmin();
+  const authMs = adminPerfNow() - authStartedAt;
+  const dataStartedAt = adminPerfNow();
   const data = await getAdminOverviewData();
+  logAdminPerf("page./admin", {
+    authMs: `${authMs}ms`,
+    dataMs: `${adminPerfNow() - dataStartedAt}ms`,
+    totalMs: `${adminPerfNow() - pageStartedAt}ms`,
+    resultCount: data.recentJobs.length
+  });
 
   return (
     <AppShell

@@ -2,6 +2,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { AdminMetricCard, AdminPaginationControls, AdminSection, AdminTable, formatAdminDate } from "@/components/admin/admin-ui";
 import { requireAdmin } from "@/lib/admin/auth";
 import { getAdminCreditsData, normalizeAdminPage } from "@/lib/admin/data";
+import { adminPerfNow, logAdminPerf } from "@/lib/admin/perf";
 
 export const dynamic = "force-dynamic";
 
@@ -10,10 +11,21 @@ export default async function AdminCreditsPage({
 }: {
   searchParams?: Promise<{ page?: string }>;
 }) {
+  const pageStartedAt = adminPerfNow();
+  const authStartedAt = adminPerfNow();
   await requireAdmin();
+  const authMs = adminPerfNow() - authStartedAt;
   const params = await searchParams;
   const page = normalizeAdminPage(params?.page);
+  const dataStartedAt = adminPerfNow();
   const data = await getAdminCreditsData({ page });
+  logAdminPerf("page./admin/credits", {
+    authMs: `${authMs}ms`,
+    dataMs: `${adminPerfNow() - dataStartedAt}ms`,
+    totalMs: `${adminPerfNow() - pageStartedAt}ms`,
+    page,
+    resultCount: data.transactions.length
+  });
 
   return (
     <AppShell

@@ -2,28 +2,43 @@ import { AppShell } from "@/components/layout/app-shell";
 import { AdminSection, AdminStatusPill } from "@/components/admin/admin-ui";
 import { requireAdmin } from "@/lib/admin/auth";
 import { prisma } from "@/lib/db";
+import { adminPerfNow, logAdminPerf, measureAdminQuery } from "@/lib/admin/perf";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminProvidersPage() {
+  const pageStartedAt = adminPerfNow();
+  const authStartedAt = adminPerfNow();
   await requireAdmin();
-  const providerSettings = await prisma.providerSetting.findMany({
-    orderBy: { providerKey: "asc" },
-    select: {
-      providerKey: true,
-      name: true,
-      status: true,
-      monthlyBudgetLimit: true,
-      monthlyBudgetUsed: true,
-      budgetEnforcementMode: true
-    }
-  });
+  const authMs = adminPerfNow() - authStartedAt;
+  const dataStartedAt = adminPerfNow();
+  const providerSettings = await measureAdminQuery(
+    "providers.settings.list",
+    prisma.providerSetting.findMany({
+      orderBy: { providerKey: "asc" },
+      select: {
+        providerKey: true,
+        name: true,
+        status: true,
+        monthlyBudgetLimit: true,
+        monthlyBudgetUsed: true,
+        budgetEnforcementMode: true
+      }
+    })
+  );
   const dbProviderMap = new Map(providerSettings.map((provider) => [provider.providerKey, provider]));
   const runtimeProviders = [
     { key: "replicate", name: "Replicate", configured: Boolean(process.env.REPLICATE_API_TOKEN) },
     { key: "photoroom", name: "PhotoRoom", configured: Boolean(process.env.PHOTOROOM_API_KEY) },
     { key: "removebg", name: "remove.bg", configured: Boolean(process.env.REMOVEBG_API_KEY) }
   ];
+  logAdminPerf("page./admin/providers", {
+    authMs: `${authMs}ms`,
+    dataMs: `${adminPerfNow() - dataStartedAt}ms`,
+    totalMs: `${adminPerfNow() - pageStartedAt}ms`,
+    resultCount: providerSettings.length,
+    runtimeProviderCount: runtimeProviders.length
+  });
 
   return (
     <AppShell area="admin" title="Sağlayıcı ayarları" description="PhotoRoom, Replicate ve gelecekteki provider bütçe kontrolleri.">

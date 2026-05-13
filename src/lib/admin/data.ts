@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { creditPackages } from "@/config/pricing";
+import { adminPerfNow, logAdminPerf, measureAdminQuery } from "@/lib/admin/perf";
 
 const ADMIN_PAGE_SIZE = 25;
 
@@ -25,32 +26,45 @@ export type AdminPagination = {
 };
 
 export async function getAdminOverviewData() {
+  const startedAt = adminPerfNow();
   const [totalUsers, totalJobs, completedJobs, failedJobs, creditsUsed, recentJobs] = await Promise.all([
-    prisma.user.count({ where: { deletedAt: null } }),
-    prisma.aiJob.count({ where: { deletedAt: null } }),
-    prisma.aiJob.count({ where: { deletedAt: null, status: "COMPLETED" } }),
-    prisma.aiJob.count({ where: { deletedAt: null, status: "FAILED" } }),
-    prisma.creditTransaction.aggregate({
-      where: { type: "USE" },
-      _sum: { amount: true }
-    }),
-    prisma.aiJob.findMany({
-      where: { deletedAt: null },
-      orderBy: { createdAt: "desc" },
-      take: 10,
-      select: {
-        id: true,
-        status: true,
-        creditCost: true,
-        providerKey: true,
-        errorMessage: true,
-        createdAt: true,
-        completedAt: true,
-        tool: { select: { name: true, slug: true } },
-        user: { select: { email: true } }
-      }
-    })
+    measureAdminQuery("overview.users.count", prisma.user.count({ where: { deletedAt: null } })),
+    measureAdminQuery("overview.jobs.count", prisma.aiJob.count({ where: { deletedAt: null } })),
+    measureAdminQuery("overview.jobs.completed.count", prisma.aiJob.count({ where: { deletedAt: null, status: "COMPLETED" } })),
+    measureAdminQuery("overview.jobs.failed.count", prisma.aiJob.count({ where: { deletedAt: null, status: "FAILED" } })),
+    measureAdminQuery(
+      "overview.credits.used.aggregate",
+      prisma.creditTransaction.aggregate({
+        where: { type: "USE" },
+        _sum: { amount: true }
+      })
+    ),
+    measureAdminQuery(
+      "overview.jobs.recent",
+      prisma.aiJob.findMany({
+        where: { deletedAt: null },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+        select: {
+          id: true,
+          status: true,
+          creditCost: true,
+          providerKey: true,
+          errorMessage: true,
+          createdAt: true,
+          completedAt: true,
+          tool: { select: { name: true, slug: true } },
+          user: { select: { email: true } }
+        }
+      }),
+      { take: 10 }
+    )
   ]);
+  logAdminPerf("admin.overview.data", {
+    duration: `${adminPerfNow() - startedAt}ms`,
+    queryCount: 6,
+    resultCount: recentJobs.length
+  });
 
   return {
     metrics: {
@@ -71,6 +85,7 @@ export async function getAdminUsersData(input: {
   page?: number;
   pageSize?: number;
 } = {}) {
+  const startedAt = adminPerfNow();
   const query = input.query?.trim();
   const filter = input.filter || "all";
   const page = normalizeAdminPage(input.page);
@@ -91,30 +106,44 @@ export async function getAdminUsersData(input: {
   };
 
   const [items, total] = await Promise.all([
-    prisma.user.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      skip: getSkip(page, pageSize),
-      take: pageSize,
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        status: true,
-        creditBalance: true,
-        createdAt: true,
-        _count: {
-          select: {
-            jobs: true,
-            creditTransactions: true,
-            payments: true
+    measureAdminQuery(
+      "users.list",
+      prisma.user.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip: getSkip(page, pageSize),
+        take: pageSize,
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          status: true,
+          creditBalance: true,
+          createdAt: true,
+          _count: {
+            select: {
+              jobs: true,
+              creditTransactions: true,
+              payments: true
+            }
           }
         }
-      }
-    }),
-    prisma.user.count({ where })
+      }),
+      { page, take: pageSize, filter, hasQuery: Boolean(query) }
+    ),
+    measureAdminQuery("users.count", prisma.user.count({ where }), { filter, hasQuery: Boolean(query) })
   ]);
+  logAdminPerf("admin.users.data", {
+    duration: `${adminPerfNow() - startedAt}ms`,
+    queryCount: 2,
+    page,
+    take: pageSize,
+    filter,
+    hasQuery: Boolean(query),
+    resultCount: items.length,
+    total
+  });
 
   return {
     items,
@@ -123,74 +152,112 @@ export async function getAdminUsersData(input: {
 }
 
 export async function getAdminToolsData() {
-  const dbTools = await prisma.aiTool.findMany({
-    where: { deletedAt: null },
-    orderBy: [{ status: "asc" }, { createdAt: "asc" }],
-    select: {
-      id: true,
-      slug: true,
-      version: true,
-      name: true,
-      category: true,
-      creditCost: true,
-      status: true,
-      providerKey: true,
-      updatedAt: true,
-      _count: { select: { jobs: true } }
-    }
+  const startedAt = adminPerfNow();
+  const dbTools = await measureAdminQuery(
+    "tools.list",
+    prisma.aiTool.findMany({
+      where: { deletedAt: null },
+      orderBy: [{ status: "asc" }, { createdAt: "asc" }],
+      select: {
+        id: true,
+        slug: true,
+        version: true,
+        name: true,
+        category: true,
+        creditCost: true,
+        status: true,
+        providerKey: true,
+        updatedAt: true,
+        _count: { select: { jobs: true } }
+      }
+    })
+  );
+  const tools = sortLaunchToolsFirst(dbTools.length ? dbTools : await getToolEconomics());
+  logAdminPerf("admin.tools.data", {
+    duration: `${adminPerfNow() - startedAt}ms`,
+    queryCount: dbTools.length ? 1 : 2,
+    resultCount: tools.length,
+    source: dbTools.length ? "db" : "fallback"
   });
 
-  return sortLaunchToolsFirst(dbTools.length ? dbTools : await getToolEconomics());
+  return tools;
 }
 
 export async function getAdminPricingData() {
-  const packages = await prisma.creditPackage.findMany({
-    where: { deletedAt: null },
-    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-    select: {
-      id: true,
-      name: true,
-      credits: true,
-      price: true,
-      currency: true,
-      stripePriceId: true,
-      status: true,
-      sortOrder: true,
-      featureFlagKey: true,
-      updatedAt: true
-    }
+  const startedAt = adminPerfNow();
+  const packages = await measureAdminQuery(
+    "pricing.packages.list",
+    prisma.creditPackage.findMany({
+      where: { deletedAt: null },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      select: {
+        id: true,
+        name: true,
+        credits: true,
+        price: true,
+        currency: true,
+        stripePriceId: true,
+        status: true,
+        sortOrder: true,
+        featureFlagKey: true,
+        updatedAt: true
+      }
+    })
+  );
+  const result = dedupeCreditPackages(packages.length ? packages : getFallbackPackages());
+  logAdminPerf("admin.pricing.data", {
+    duration: `${adminPerfNow() - startedAt}ms`,
+    queryCount: 1,
+    resultCount: result.length,
+    source: packages.length ? "db" : "fallback"
   });
 
-  return dedupeCreditPackages(packages.length ? packages : getFallbackPackages());
+  return result;
 }
 
 export async function getAdminCreditsData(input: { page?: number; pageSize?: number } = {}) {
+  const startedAt = adminPerfNow();
   const page = normalizeAdminPage(input.page);
   const pageSize = normalizeAdminPageSize(input.pageSize);
 
   const [transactions, totalTransactions, totals] = await Promise.all([
-    prisma.creditTransaction.findMany({
-      orderBy: { createdAt: "desc" },
-      skip: getSkip(page, pageSize),
-      take: pageSize,
-      select: {
-        id: true,
-        type: true,
-        amount: true,
-        balanceAfter: true,
-        note: true,
-        createdAt: true,
-        user: { select: { email: true } },
-        aiJob: { select: { id: true, tool: { select: { name: true } } } }
-      }
-    }),
-    prisma.creditTransaction.count(),
-    prisma.creditTransaction.groupBy({
-      by: ["type"],
-      _sum: { amount: true },
-      _count: { _all: true }
-    })
+    measureAdminQuery(
+      "credits.transactions.list",
+      prisma.creditTransaction.findMany({
+        orderBy: { createdAt: "desc" },
+        skip: getSkip(page, pageSize),
+        take: pageSize,
+        select: {
+          id: true,
+          type: true,
+          amount: true,
+          balanceAfter: true,
+          note: true,
+          createdAt: true,
+          user: { select: { email: true } },
+          aiJob: { select: { id: true, tool: { select: { name: true } } } }
+        }
+      }),
+      { page, take: pageSize }
+    ),
+    measureAdminQuery("credits.transactions.count", prisma.creditTransaction.count()),
+    measureAdminQuery(
+      "credits.transactions.totals",
+      prisma.creditTransaction.groupBy({
+        by: ["type"],
+        _sum: { amount: true },
+        _count: { _all: true }
+      })
+    )
   ]);
+  logAdminPerf("admin.credits.data", {
+    duration: `${adminPerfNow() - startedAt}ms`,
+    queryCount: 3,
+    page,
+    take: pageSize,
+    resultCount: transactions.length,
+    total: totalTransactions
+  });
 
   return {
     transactions,
@@ -214,6 +281,7 @@ export async function getAdminJobsData(input: {
   page?: number;
   pageSize?: number;
 } = {}) {
+  const startedAt = adminPerfNow();
   const status = input.status || "all";
   const page = normalizeAdminPage(input.page);
   const pageSize = normalizeAdminPageSize(input.pageSize);
@@ -228,26 +296,41 @@ export async function getAdminJobsData(input: {
   };
 
   const [items, total] = await Promise.all([
-    prisma.aiJob.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      skip: getSkip(page, pageSize),
-      take: pageSize,
-      select: {
-        id: true,
-        status: true,
-        providerKey: true,
-        creditCost: true,
-        errorMessage: true,
-        processingTimeMs: true,
-        createdAt: true,
-        completedAt: true,
-        tool: { select: { name: true, slug: true } },
-        user: { select: { email: true } }
-      }
-    }),
-    prisma.aiJob.count({ where })
+    measureAdminQuery(
+      "jobs.list",
+      prisma.aiJob.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip: getSkip(page, pageSize),
+        take: pageSize,
+        select: {
+          id: true,
+          status: true,
+          providerKey: true,
+          creditCost: true,
+          errorMessage: true,
+          processingTimeMs: true,
+          createdAt: true,
+          completedAt: true,
+          tool: { select: { name: true, slug: true } },
+          user: { select: { email: true } }
+        }
+      }),
+      { page, take: pageSize, status, hasTool: Boolean(tool), hasUser: Boolean(user) }
+    ),
+    measureAdminQuery("jobs.count", prisma.aiJob.count({ where }), { status, hasTool: Boolean(tool), hasUser: Boolean(user) })
   ]);
+  logAdminPerf("admin.jobs.data", {
+    duration: `${adminPerfNow() - startedAt}ms`,
+    queryCount: 2,
+    page,
+    take: pageSize,
+    status,
+    hasTool: Boolean(tool),
+    hasUser: Boolean(user),
+    resultCount: items.length,
+    total
+  });
 
   return {
     items,
@@ -256,26 +339,39 @@ export async function getAdminJobsData(input: {
 }
 
 export async function getAdminLogsData(input: { page?: number; pageSize?: number } = {}) {
+  const startedAt = adminPerfNow();
   const page = normalizeAdminPage(input.page);
   const pageSize = normalizeAdminPageSize(input.pageSize);
 
   const [items, total] = await Promise.all([
-    prisma.adminLog.findMany({
-      orderBy: { createdAt: "desc" },
-      skip: getSkip(page, pageSize),
-      take: pageSize,
-      select: {
-        id: true,
-        action: true,
-        entityType: true,
-        entityId: true,
-        metadataJson: true,
-        createdAt: true,
-        adminUser: { select: { email: true } }
-      }
-    }),
-    prisma.adminLog.count()
+    measureAdminQuery(
+      "logs.list",
+      prisma.adminLog.findMany({
+        orderBy: { createdAt: "desc" },
+        skip: getSkip(page, pageSize),
+        take: pageSize,
+        select: {
+          id: true,
+          action: true,
+          entityType: true,
+          entityId: true,
+          metadataJson: true,
+          createdAt: true,
+          adminUser: { select: { email: true } }
+        }
+      }),
+      { page, take: pageSize }
+    ),
+    measureAdminQuery("logs.count", prisma.adminLog.count())
   ]);
+  logAdminPerf("admin.logs.data", {
+    duration: `${adminPerfNow() - startedAt}ms`,
+    queryCount: 2,
+    page,
+    take: pageSize,
+    resultCount: items.length,
+    total
+  });
 
   return {
     items,
@@ -284,30 +380,43 @@ export async function getAdminLogsData(input: { page?: number; pageSize?: number
 }
 
 export async function getAdminPaymentsData(input: { page?: number; pageSize?: number } = {}) {
+  const startedAt = adminPerfNow();
   const page = normalizeAdminPage(input.page);
   const pageSize = normalizeAdminPageSize(input.pageSize);
 
   const [items, total] = await Promise.all([
-    prisma.payment.findMany({
-      where: { deletedAt: null },
-      orderBy: { createdAt: "desc" },
-      skip: getSkip(page, pageSize),
-      take: pageSize,
-      select: {
-        id: true,
-        amount: true,
-        currency: true,
-        status: true,
-        stripeCheckoutSessionId: true,
-        stripePaymentIntentId: true,
-        creditsDelivered: true,
-        couponCode: true,
-        createdAt: true,
-        user: { select: { email: true } }
-      }
-    }),
-    prisma.payment.count({ where: { deletedAt: null } })
+    measureAdminQuery(
+      "payments.list",
+      prisma.payment.findMany({
+        where: { deletedAt: null },
+        orderBy: { createdAt: "desc" },
+        skip: getSkip(page, pageSize),
+        take: pageSize,
+        select: {
+          id: true,
+          amount: true,
+          currency: true,
+          status: true,
+          stripeCheckoutSessionId: true,
+          stripePaymentIntentId: true,
+          creditsDelivered: true,
+          couponCode: true,
+          createdAt: true,
+          user: { select: { email: true } }
+        }
+      }),
+      { page, take: pageSize }
+    ),
+    measureAdminQuery("payments.count", prisma.payment.count({ where: { deletedAt: null } }))
   ]);
+  logAdminPerf("admin.payments.data", {
+    duration: `${adminPerfNow() - startedAt}ms`,
+    queryCount: 2,
+    page,
+    take: pageSize,
+    resultCount: items.length,
+    total
+  });
 
   return {
     items,
@@ -316,24 +425,34 @@ export async function getAdminPaymentsData(input: { page?: number; pageSize?: nu
 }
 
 export async function getAdminAnalyticsData() {
+  const startedAt = adminPerfNow();
   const [completedJobs, failedJobs, creditsUsed, providerSplit, toolUsage, tools] = await Promise.all([
-    prisma.aiJob.count({ where: { deletedAt: null, status: "COMPLETED" } }),
-    prisma.aiJob.count({ where: { deletedAt: null, status: "FAILED" } }),
-    prisma.creditTransaction.aggregate({ where: { type: "USE" }, _sum: { amount: true } }),
-    prisma.aiJob.groupBy({
-      by: ["providerKey"],
-      where: { deletedAt: null },
-      _count: { _all: true }
-    }),
-    prisma.aiJob.groupBy({
-      by: ["toolId"],
-      where: { deletedAt: null },
-      _count: { _all: true }
-    }),
-    prisma.aiTool.findMany({
-      where: { deletedAt: null },
-      select: { id: true, name: true, slug: true, creditCost: true, providerKey: true, status: true }
-    })
+    measureAdminQuery("analytics.jobs.completed.count", prisma.aiJob.count({ where: { deletedAt: null, status: "COMPLETED" } })),
+    measureAdminQuery("analytics.jobs.failed.count", prisma.aiJob.count({ where: { deletedAt: null, status: "FAILED" } })),
+    measureAdminQuery("analytics.credits.used.aggregate", prisma.creditTransaction.aggregate({ where: { type: "USE" }, _sum: { amount: true } })),
+    measureAdminQuery(
+      "analytics.provider.split",
+      prisma.aiJob.groupBy({
+        by: ["providerKey"],
+        where: { deletedAt: null },
+        _count: { _all: true }
+      })
+    ),
+    measureAdminQuery(
+      "analytics.tool.usage",
+      prisma.aiJob.groupBy({
+        by: ["toolId"],
+        where: { deletedAt: null },
+        _count: { _all: true }
+      })
+    ),
+    measureAdminQuery(
+      "analytics.tools.list",
+      prisma.aiTool.findMany({
+        where: { deletedAt: null },
+        select: { id: true, name: true, slug: true, creditCost: true, providerKey: true, status: true }
+      })
+    )
   ]);
 
   const toolNameById = new Map(tools.map((tool) => [tool.id, tool]));
@@ -346,6 +465,13 @@ export async function getAdminAnalyticsData() {
     .sort((a, b) => b._count._all - a._count._all);
   const totalTerminalJobs = completedJobs + failedJobs;
 
+  logAdminPerf("admin.analytics.data", {
+    duration: `${adminPerfNow() - startedAt}ms`,
+    queryCount: 6,
+    resultCount: topTools.length,
+    providerCount: providerSplit.length
+  });
+
   return {
     completedJobs,
     failedJobs,
@@ -357,22 +483,25 @@ export async function getAdminAnalyticsData() {
 }
 
 export async function getToolEconomics() {
-  const tools = await prisma.aiTool.findMany({
-    where: { deletedAt: null },
-    orderBy: [{ status: "asc" }, { createdAt: "asc" }],
-    select: {
-      id: true,
-      slug: true,
-      version: true,
-      name: true,
-      category: true,
-      creditCost: true,
-      status: true,
-      providerKey: true,
-      updatedAt: true,
-      _count: { select: { jobs: true } }
-    }
-  });
+  const tools = await measureAdminQuery(
+    "toolEconomics.list",
+    prisma.aiTool.findMany({
+      where: { deletedAt: null },
+      orderBy: [{ status: "asc" }, { createdAt: "asc" }],
+      select: {
+        id: true,
+        slug: true,
+        version: true,
+        name: true,
+        category: true,
+        creditCost: true,
+        status: true,
+        providerKey: true,
+        updatedAt: true,
+        _count: { select: { jobs: true } }
+      }
+    })
+  );
 
   return sortLaunchToolsFirst(tools);
 }

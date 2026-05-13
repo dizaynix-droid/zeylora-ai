@@ -3,15 +3,28 @@ import { AdminSection, AdminStatusPill, AdminTable, formatAdminDate } from "@/co
 import { requireAdmin } from "@/lib/admin/auth";
 import { getAdminToolsData, LAUNCH_TOOL_SLUGS } from "@/lib/admin/data";
 import { updateToolEconomicsAction } from "@/lib/admin/actions";
+import { adminPerfNow, logAdminPerf } from "@/lib/admin/perf";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminToolsPage() {
+  const pageStartedAt = adminPerfNow();
+  const authStartedAt = adminPerfNow();
   await requireAdmin();
+  const authMs = adminPerfNow() - authStartedAt;
+  const dataStartedAt = adminPerfNow();
   const tools = await getAdminToolsData();
   const launchSlugSet = new Set<string>(LAUNCH_TOOL_SLUGS);
   const launchTools = tools.filter((tool) => launchSlugSet.has(tool.slug));
   const futureTools = tools.filter((tool) => !launchSlugSet.has(tool.slug));
+  logAdminPerf("page./admin/tools", {
+    authMs: `${authMs}ms`,
+    dataMs: `${adminPerfNow() - dataStartedAt}ms`,
+    totalMs: `${adminPerfNow() - pageStartedAt}ms`,
+    resultCount: tools.length,
+    launchCount: launchTools.length,
+    futureCount: futureTools.length
+  });
 
   return (
     <AppShell

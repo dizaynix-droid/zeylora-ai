@@ -2,12 +2,24 @@ import { AppShell } from "@/components/layout/app-shell";
 import { AdminMetricCard, AdminSection } from "@/components/admin/admin-ui";
 import { requireAdmin } from "@/lib/admin/auth";
 import { getAdminAnalyticsData } from "@/lib/admin/data";
+import { adminPerfNow, logAdminPerf } from "@/lib/admin/perf";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminAnalyticsPage() {
+  const pageStartedAt = adminPerfNow();
+  const authStartedAt = adminPerfNow();
   await requireAdmin();
+  const authMs = adminPerfNow() - authStartedAt;
+  const dataStartedAt = adminPerfNow();
   const data = await getAdminAnalyticsData();
+  logAdminPerf("page./admin/analytics", {
+    authMs: `${authMs}ms`,
+    dataMs: `${adminPerfNow() - dataStartedAt}ms`,
+    totalMs: `${adminPerfNow() - pageStartedAt}ms`,
+    topToolCount: data.topTools.length,
+    providerCount: data.providerSplit.length
+  });
 
   return (
     <AppShell area="admin" title="Kullanım analizi" description="Tool kullanımı, kredi ekonomisi, provider split ve hata oranı.">

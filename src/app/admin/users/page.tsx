@@ -3,6 +3,7 @@ import { AdminPaginationControls, AdminSection, AdminStatusPill, AdminTable, for
 import { requireAdmin } from "@/lib/admin/auth";
 import { getAdminUsersData, normalizeAdminPage } from "@/lib/admin/data";
 import { adjustUserCreditsAction } from "@/lib/admin/actions";
+import { adminPerfNow, logAdminPerf } from "@/lib/admin/perf";
 
 export const dynamic = "force-dynamic";
 
@@ -11,15 +12,28 @@ export default async function AdminUsersPage({
 }: {
   searchParams?: Promise<{ q?: string; filter?: string; page?: string }>;
 }) {
+  const pageStartedAt = adminPerfNow();
+  const authStartedAt = adminPerfNow();
   await requireAdmin();
+  const authMs = adminPerfNow() - authStartedAt;
   const params = await searchParams;
   const filter = params?.filter === "with-credits" || params?.filter === "with-jobs" || params?.filter === "recent"
     ? params.filter
     : "all";
   const query = params?.q || "";
   const page = normalizeAdminPage(params?.page);
+  const dataStartedAt = adminPerfNow();
   const data = await getAdminUsersData({ query, filter, page });
   const users = data.items;
+  logAdminPerf("page./admin/users", {
+    authMs: `${authMs}ms`,
+    dataMs: `${adminPerfNow() - dataStartedAt}ms`,
+    totalMs: `${adminPerfNow() - pageStartedAt}ms`,
+    page,
+    filter,
+    hasQuery: Boolean(query),
+    resultCount: users.length
+  });
 
   return (
     <AppShell

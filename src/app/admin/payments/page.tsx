@@ -2,6 +2,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { AdminPaginationControls, AdminSection, AdminStatusPill, AdminTable, formatAdminDate } from "@/components/admin/admin-ui";
 import { requireAdmin } from "@/lib/admin/auth";
 import { getAdminPaymentsData, getAdminPricingData, normalizeAdminPage } from "@/lib/admin/data";
+import { adminPerfNow, logAdminPerf } from "@/lib/admin/perf";
 
 export const dynamic = "force-dynamic";
 
@@ -10,10 +11,22 @@ export default async function AdminPaymentsPage({
 }: {
   searchParams?: Promise<{ page?: string }>;
 }) {
+  const pageStartedAt = adminPerfNow();
+  const authStartedAt = adminPerfNow();
   await requireAdmin();
+  const authMs = adminPerfNow() - authStartedAt;
   const params = await searchParams;
   const page = normalizeAdminPage(params?.page);
+  const dataStartedAt = adminPerfNow();
   const [packages, payments] = await Promise.all([getAdminPricingData(), getAdminPaymentsData({ page })]);
+  logAdminPerf("page./admin/payments", {
+    authMs: `${authMs}ms`,
+    dataMs: `${adminPerfNow() - dataStartedAt}ms`,
+    totalMs: `${adminPerfNow() - pageStartedAt}ms`,
+    page,
+    resultCount: payments.items.length,
+    packageCount: packages.length
+  });
   const checklist = [
     { label: "Stripe secret key", ready: Boolean(process.env.STRIPE_SECRET_KEY), note: "Required for checkout sessions." },
     { label: "Stripe webhook secret", ready: Boolean(process.env.STRIPE_WEBHOOK_SECRET), note: "Required for verified webhook delivery." },

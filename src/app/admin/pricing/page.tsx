@@ -3,12 +3,23 @@ import { AdminSection, AdminStatusPill, AdminTable, formatAdminDate } from "@/co
 import { requireAdmin } from "@/lib/admin/auth";
 import { getAdminPricingData } from "@/lib/admin/data";
 import { updateCreditPackageAction } from "@/lib/admin/actions";
+import { adminPerfNow, logAdminPerf } from "@/lib/admin/perf";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminPricingPage() {
+  const pageStartedAt = adminPerfNow();
+  const authStartedAt = adminPerfNow();
   await requireAdmin();
+  const authMs = adminPerfNow() - authStartedAt;
+  const dataStartedAt = adminPerfNow();
   const packages = await getAdminPricingData();
+  logAdminPerf("page./admin/pricing", {
+    authMs: `${authMs}ms`,
+    dataMs: `${adminPerfNow() - dataStartedAt}ms`,
+    totalMs: `${adminPerfNow() - pageStartedAt}ms`,
+    resultCount: packages.length
+  });
 
   return (
     <AppShell
