@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
+import { CheckoutButton } from "@/components/billing/checkout-button";
 import { Card } from "@/components/ui/card";
 import { getCreditPackagesForDisplay } from "@/lib/pricing/packages";
 import { createMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createMetadata({
   title: "Pricing",
-  description: "Preview Zeylora AI credit packs for future watermark-free exports, paid credits, and seller-focused AI photo workflows.",
+  description: "Buy Zeylora AI credits for watermark-free clean exports and seller-focused AI product photo workflows.",
   path: "/pricing"
 });
 
@@ -23,10 +24,10 @@ export default async function PricingPage() {
         <section className="section-shell">
           <p className="eyebrow">Pricing</p>
           <h1 className="mt-5 text-4xl font-black tracking-tight text-white md:text-6xl">
-            Start with credits. Scale into plans later.
+            Buy credits for clean product exports.
           </h1>
           <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-300">
-            Phase 1 prepares credit packages, Stripe-ready IDs, future coupons, and subscription-ready database structure.
+            Preview edits with Zeylora branding, then use credits to unlock watermark-free clean exports for your store, marketplace, or ad creative.
           </p>
 
           <div className="mt-8 grid gap-4 md:grid-cols-3">
@@ -39,9 +40,11 @@ export default async function PricingPage() {
                   {pack.totalCredits} credits{pack.bonusCredits ? ` (${pack.bonusCredits} bonus)` : ""}
                 </p>
                 <p className="mt-2 text-xs font-bold uppercase text-slate-500">one time credits</p>
-                <button className="mt-6 h-11 w-full rounded-full bg-cyan text-sm font-black text-ink transition hover:bg-cyan/90">
-                  Coming soon
-                </button>
+                <CheckoutButton
+                  packageId={pack.id}
+                  label="Buy credits"
+                  className="mt-6 inline-flex h-11 w-full items-center justify-center rounded-full bg-cyan text-sm font-black text-ink transition hover:bg-cyan/90"
+                />
               </Card>
             ))}
           </div>

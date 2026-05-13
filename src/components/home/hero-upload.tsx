@@ -17,6 +17,7 @@ import {
   Zap
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { CleanExportButton } from "@/components/jobs/clean-export-button";
 import { DownloadResultButton } from "@/components/jobs/download-result-button";
 import { Button } from "@/components/ui/button";
 import { trackingEvents } from "@/config/tracking";
@@ -860,18 +861,34 @@ export function HeroUpload() {
                       Apply {getHdUpscalePresetShortLabel(hdUpscalePreset)}
                     </button>
                   ) : (
-                    <DownloadResultButton
-                      href={jobId ? `/api/v1/jobs/${jobId}/download` : resultPreviewUrl}
-                      filename={getDownloadFilename(
-                        selectedToolConfig,
-                        appliedMarketplaceCropFormat ?? marketplaceCropFormat,
-                        appliedProductShadowPreset ?? productShadowPreset,
-                        appliedAiRelightPreset ?? aiRelightPreset,
-                        appliedHdUpscalePreset ?? hdUpscalePreset
-                      )}
-                      label={selectedToolConfig.downloadLabel}
-                      className="inline-flex h-12 items-center justify-center rounded-full bg-zeylora-brand px-4 text-sm font-black text-white shadow-glow"
-                    />
+                    <div className="grid gap-2">
+                      {jobId ? (
+                        <CleanExportButton
+                          jobId={jobId}
+                          creditsRequired={selectedToolConfig.creditCost}
+                          filename={getDownloadFilename(
+                            selectedToolConfig,
+                            appliedMarketplaceCropFormat ?? marketplaceCropFormat,
+                            appliedProductShadowPreset ?? productShadowPreset,
+                            appliedAiRelightPreset ?? aiRelightPreset,
+                            appliedHdUpscalePreset ?? hdUpscalePreset
+                          )}
+                          className="inline-flex h-12 items-center justify-center rounded-full bg-zeylora-brand px-4 text-sm font-black text-white shadow-glow"
+                        />
+                      ) : null}
+                      <DownloadResultButton
+                        href={jobId ? `/api/v1/jobs/${jobId}/download` : resultPreviewUrl}
+                        filename={getDownloadFilename(
+                          selectedToolConfig,
+                          appliedMarketplaceCropFormat ?? marketplaceCropFormat,
+                          appliedProductShadowPreset ?? productShadowPreset,
+                          appliedAiRelightPreset ?? aiRelightPreset,
+                          appliedHdUpscalePreset ?? hdUpscalePreset
+                        )}
+                        label="Download preview"
+                        className="inline-flex h-11 items-center justify-center rounded-full border border-white/15 px-4 text-sm font-black text-white transition hover:bg-white/10"
+                      />
+                    </div>
                   )}
                   <div className="grid grid-cols-2 gap-2">
                     {selectedTool === "background-remover" ? (
@@ -1471,18 +1488,34 @@ export function HeroUpload() {
                       Apply {getHdUpscalePresetShortLabel(hdUpscalePreset)}
                     </button>
                   ) : (
-                    <DownloadResultButton
-                      href={jobId ? `/api/v1/jobs/${jobId}/download` : resultPreviewUrl}
-                      filename={getDownloadFilename(
-                        selectedToolConfig,
-                        appliedMarketplaceCropFormat ?? marketplaceCropFormat,
-                        appliedProductShadowPreset ?? productShadowPreset,
-                        appliedAiRelightPreset ?? aiRelightPreset,
-                        appliedHdUpscalePreset ?? hdUpscalePreset
-                      )}
-                      label={selectedToolConfig.downloadLabel}
-                      className="inline-flex h-10 items-center justify-center rounded-full bg-zeylora-brand px-3 text-xs font-black text-white shadow-glow"
-                    />
+                    <div className="grid gap-2">
+                      {jobId ? (
+                        <CleanExportButton
+                          jobId={jobId}
+                          creditsRequired={selectedToolConfig.creditCost}
+                          filename={getDownloadFilename(
+                            selectedToolConfig,
+                            appliedMarketplaceCropFormat ?? marketplaceCropFormat,
+                            appliedProductShadowPreset ?? productShadowPreset,
+                            appliedAiRelightPreset ?? aiRelightPreset,
+                            appliedHdUpscalePreset ?? hdUpscalePreset
+                          )}
+                          className="inline-flex h-10 items-center justify-center rounded-full bg-zeylora-brand px-3 text-xs font-black text-white shadow-glow"
+                        />
+                      ) : null}
+                      <DownloadResultButton
+                        href={jobId ? `/api/v1/jobs/${jobId}/download` : resultPreviewUrl}
+                        filename={getDownloadFilename(
+                          selectedToolConfig,
+                          appliedMarketplaceCropFormat ?? marketplaceCropFormat,
+                          appliedProductShadowPreset ?? productShadowPreset,
+                          appliedAiRelightPreset ?? aiRelightPreset,
+                          appliedHdUpscalePreset ?? hdUpscalePreset
+                        )}
+                        label="Download preview"
+                        className="inline-flex h-10 items-center justify-center rounded-full border border-white/15 px-3 text-xs font-black text-white transition hover:bg-white/10"
+                      />
+                    </div>
                   )}
                 </div>
               </div>

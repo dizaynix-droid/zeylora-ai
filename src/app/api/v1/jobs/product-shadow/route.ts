@@ -18,6 +18,11 @@ import {
   reserveJobCredits
 } from "@/lib/jobs/credit-policy";
 import {
+  buildCleanExportStorageKey,
+  createCleanExportMetadata,
+  mergeCleanExportMetadata
+} from "@/lib/jobs/clean-export";
+import {
   createProductShadow,
   normalizeProductShadowPreset
 } from "@/lib/image/product-shadow";
@@ -133,7 +138,28 @@ export async function POST(request: Request) {
       jobId: job.id,
       filename: resultFilename
     });
+    const cleanStorageKey = buildCleanExportStorageKey({
+      userId: user.id,
+      jobId: job.id,
+      filename: resultFilename
+    });
     const cacheControl = getCacheControl("private");
+
+    await uploadPrivateObject({
+      key: cleanStorageKey,
+      body: shadowed.buffer,
+      contentType: "image/png",
+      cacheControl,
+      metadata: {
+        userId: user.id,
+        jobId: job.id,
+        sourceProvider: productShadowConfig.providerKey,
+        toolKey: productShadowConfig.toolKey,
+        shadowPreset,
+        exportMode: "paid_clean",
+        watermarkApplied: "false"
+      }
+    });
 
     await uploadPrivateObject({
       key: resultStorageKey,
@@ -165,7 +191,7 @@ export async function POST(request: Request) {
         visibility: MediaVisibility.PRIVATE,
         processingStatus: MediaProcessingStatus.STORED,
         cacheControl,
-        metadataJson: {
+        metadataJson: mergeCleanExportMetadata({
           source: "product_shadow",
           toolKey: productShadowConfig.toolKey,
           category: productShadowConfig.category,
@@ -186,7 +212,11 @@ export async function POST(request: Request) {
             placement: exportOutput.placement,
             watermarkType: exportOutput.watermarkType
           }
-        }
+        }, createCleanExportMetadata({
+          storageKey: cleanStorageKey,
+          filename: resultFilename,
+          fileSize: shadowed.buffer.length
+        }))
       },
       select: {
         id: true,

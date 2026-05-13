@@ -16,12 +16,12 @@ export type JobCreditPlan = {
 };
 
 export function createJobCreditPlan(user: AuthenticatedUser, creditCost: number): JobCreditPlan {
-  const canCharge = businessFoundation.credits.enforcementEnabled && user.creditBalance >= creditCost;
+  void businessFoundation;
 
   return {
-    exportMode: canCharge ? "paid_clean" : "free_watermarked",
+    exportMode: "free_watermarked",
     creditCost,
-    canCharge,
+    canCharge: false,
     charged: false,
     balanceBefore: user.creditBalance
   };

@@ -21,6 +21,11 @@ import {
   refundJobCredits,
   reserveJobCredits
 } from "@/lib/jobs/credit-policy";
+import {
+  buildCleanExportStorageKey,
+  createCleanExportMetadata,
+  mergeCleanExportMetadata
+} from "@/lib/jobs/clean-export";
 import { prepareExportBuffer } from "@/lib/media/watermark";
 import { getCacheControl } from "@/lib/storage/policy";
 import {
@@ -159,12 +164,34 @@ export async function POST(request: Request) {
     });
 
     const resultMediaId = randomUUID();
+    const resultFilename = "photo-enhancer.png";
     const resultStorageKey = buildResultStorageKey({
       userId: user.id,
       jobId: job.id,
-      filename: "photo-enhancer.png"
+      filename: resultFilename
+    });
+    const cleanStorageKey = buildCleanExportStorageKey({
+      userId: user.id,
+      jobId: job.id,
+      filename: resultFilename
     });
     const cacheControl = getCacheControl("private");
+
+    await uploadPrivateObject({
+      key: cleanStorageKey,
+      body: outputBuffer,
+      contentType: "image/png",
+      cacheControl,
+      metadata: {
+        userId: user.id,
+        jobId: job.id,
+        sourceProvider: enhancement.providerKey,
+        toolKey: photoEnhancerConfig.toolKey,
+        model: enhancement.model,
+        exportMode: "paid_clean",
+        watermarkApplied: "false"
+      }
+    });
 
     await uploadPrivateObject({
       key: resultStorageKey,
@@ -188,13 +215,13 @@ export async function POST(request: Request) {
         userId: user.id,
         type: MediaType.RESULT,
         storageKey: resultStorageKey,
-        originalFilename: "photo-enhancer.png",
+        originalFilename: resultFilename,
         mimeType: "image/png",
         fileSize: exportOutput.buffer.length,
         visibility: MediaVisibility.PRIVATE,
         processingStatus: MediaProcessingStatus.STORED,
         cacheControl,
-        metadataJson: {
+        metadataJson: mergeCleanExportMetadata({
           source: "photo_enhancer",
           toolKey: photoEnhancerConfig.toolKey,
           category: photoEnhancerConfig.category,
@@ -214,7 +241,11 @@ export async function POST(request: Request) {
             placement: exportOutput.placement,
             watermarkType: exportOutput.watermarkType
           }
-        }
+        }, createCleanExportMetadata({
+          storageKey: cleanStorageKey,
+          filename: resultFilename,
+          fileSize: outputBuffer.length
+        }))
       },
       select: {
         id: true,

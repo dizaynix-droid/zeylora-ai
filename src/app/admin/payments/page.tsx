@@ -31,8 +31,8 @@ export default async function AdminPaymentsPage({
     { label: "Stripe secret key", ready: Boolean(process.env.STRIPE_SECRET_KEY), note: "Required for checkout sessions." },
     { label: "Stripe webhook secret", ready: Boolean(process.env.STRIPE_WEBHOOK_SECRET), note: "Required for verified webhook delivery." },
     { label: "Active credit packages", ready: packages.some((pack) => pack.status === "ACTIVE"), note: "Starter / Creator / Pro Seller should be active." },
-    { label: "Checkout endpoint", ready: true, note: "/api/v1/payments/checkout" },
-    { label: "Webhook endpoint", ready: true, note: "/api/v1/payments/stripe/webhook" }
+    { label: "Checkout endpoint", ready: true, note: "/api/v1/billing/checkout" },
+    { label: "Webhook endpoint", ready: true, note: "/api/v1/billing/webhook" }
   ];
 
   return (

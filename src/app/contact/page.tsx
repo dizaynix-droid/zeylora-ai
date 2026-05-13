@@ -28,7 +28,7 @@ export default function ContactPage() {
           body: [
             "AI result quality can vary by image. Please include the input type and what looked wrong in the output.",
             "Uploads and exports use private storage and temporary signed URLs. Do not share signed links publicly if they contain sensitive images.",
-            "For future paid credit questions, include the payment email and order details once checkout is active."
+            "For paid credit questions, include the payment email, order details, and related job ID when available."
           ]
         }
       ]}

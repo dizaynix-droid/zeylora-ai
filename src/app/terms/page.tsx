@@ -5,7 +5,7 @@ import { createMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createMetadata({
   title: "Terms of Service",
-  description: "Terms for using Zeylora AI uploads, AI edits, free watermarked exports, and future paid credits.",
+  description: "Terms for using Zeylora AI uploads, AI edits, free watermarked previews, paid credits, and clean exports.",
   path: "/terms"
 });
 
@@ -40,8 +40,8 @@ export default function TermsPage() {
         {
           title: "Exports and branding",
           body: [
-            "Free exports may include Zeylora AI watermark branding. Watermark-free exports are planned for future paid credits or plans.",
-            "Do not remove or misrepresent Zeylora AI branding from free exports in a way that violates these terms or future plan rules."
+            "Free preview exports may include Zeylora AI watermark branding. Watermark-free clean exports require credits unless a promotion states otherwise.",
+            "Do not remove or misrepresent Zeylora AI branding from free previews in a way that violates these terms."
           ]
         },
         {

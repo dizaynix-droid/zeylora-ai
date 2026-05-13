@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Coins, CreditCard, Download, ImageIcon, Settings, Sparkles, UserCircle, Wand2 } from "lucide-react";
+import { CleanExportButton } from "@/components/jobs/clean-export-button";
 import { DownloadResultButton } from "@/components/jobs/download-result-button";
 import { Card } from "@/components/ui/card";
 import { futureTools } from "@/config/future-tools";
@@ -382,11 +383,18 @@ export function DashboardClient({
                     <p className="mt-2 text-xs font-semibold text-slate-500">Created {formatDate(job.createdAt)}</p>
                   </div>
                   {job.downloadUrl ? (
-                    <DownloadResultButton
-                      href={job.downloadUrl}
-                      label="Download export"
-                      className="inline-flex h-10 w-full items-center justify-center rounded-full bg-zeylora-brand px-4 text-sm font-black text-white shadow-glow lg:w-auto"
-                    />
+                    <div className="grid gap-2">
+                      <CleanExportButton
+                        jobId={job.id}
+                        creditsRequired={job.creditCost}
+                        className="inline-flex h-10 w-full items-center justify-center rounded-full bg-zeylora-brand px-4 text-sm font-black text-white shadow-glow lg:w-auto"
+                      />
+                      <DownloadResultButton
+                        href={job.downloadUrl}
+                        label="Download preview"
+                        className="inline-flex h-10 w-full items-center justify-center rounded-full border border-white/15 px-4 text-sm font-black text-white transition hover:bg-white/10 lg:w-auto"
+                      />
+                    </div>
                   ) : null}
                 </div>
               ))}
@@ -428,10 +436,16 @@ export function DashboardClient({
               </span>
               <div>
                 <p className="text-xs font-black uppercase text-cyan">Payments</p>
-                <h2 className="mt-1 text-xl font-black text-white">Payment foundation prepared</h2>
+                <h2 className="mt-1 text-xl font-black text-white">Buy credits for clean exports</h2>
                 <p className="mt-2 text-sm leading-6 text-slate-300">
-                  Starter, Creator, and Pro Seller credit packs are modeled. Stripe checkout and webhook routes are prepared for controlled launch testing.
+                  Credits unlock watermark-free exports for completed previews. Your watermarked preview downloads remain available for free.
                 </p>
+                <Link
+                  href="/pricing"
+                  className="mt-4 inline-flex h-10 items-center justify-center rounded-full bg-zeylora-brand px-4 text-sm font-black text-white shadow-glow"
+                >
+                  Buy credits
+                </Link>
               </div>
             </div>
           </Card>

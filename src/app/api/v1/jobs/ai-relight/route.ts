@@ -18,6 +18,11 @@ import {
   reserveJobCredits
 } from "@/lib/jobs/credit-policy";
 import {
+  buildCleanExportStorageKey,
+  createCleanExportMetadata,
+  mergeCleanExportMetadata
+} from "@/lib/jobs/clean-export";
+import {
   createAiRelight,
   normalizeAiRelightPreset
 } from "@/lib/image/ai-relight";
@@ -158,7 +163,29 @@ export async function POST(request: Request) {
       jobId: job.id,
       filename: resultFilename
     });
+    const cleanStorageKey = buildCleanExportStorageKey({
+      userId: user.id,
+      jobId: job.id,
+      filename: resultFilename
+    });
     const cacheControl = getCacheControl("private");
+
+    await uploadPrivateObject({
+      key: cleanStorageKey,
+      body: relit.buffer,
+      contentType: "image/png",
+      cacheControl,
+      metadata: {
+        userId: user.id,
+        jobId: job.id,
+        sourceProvider: aiRelightConfig.providerKey,
+        toolKey: aiRelightConfig.toolKey,
+        relightPreset: effectivePreset,
+        requestedPreset: relightPreset,
+        exportMode: "paid_clean",
+        watermarkApplied: "false"
+      }
+    });
 
     await uploadPrivateObject({
       key: resultStorageKey,
@@ -191,7 +218,7 @@ export async function POST(request: Request) {
         visibility: MediaVisibility.PRIVATE,
         processingStatus: MediaProcessingStatus.STORED,
         cacheControl,
-        metadataJson: {
+        metadataJson: mergeCleanExportMetadata({
           source: "ai_relight",
           toolKey: aiRelightConfig.toolKey,
           category: aiRelightConfig.category,
@@ -211,7 +238,11 @@ export async function POST(request: Request) {
             placement: exportOutput.placement,
             watermarkType: exportOutput.watermarkType
           }
-        }
+        }, createCleanExportMetadata({
+          storageKey: cleanStorageKey,
+          filename: resultFilename,
+          fileSize: relit.buffer.length
+        }))
       },
       select: {
         id: true,
