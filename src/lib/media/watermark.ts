@@ -23,6 +23,27 @@ export async function applyFreeExportWatermark(input: Buffer): Promise<Watermark
     };
   }
 
+  try {
+    return await applyPremiumPreviewWatermark(input);
+  } catch (error) {
+    logPreviewProtection("premium_center_preview_failed", {
+      errorMessage: error instanceof Error ? error.message : "Unknown preview watermark error.",
+      inputBytes: input.length
+    });
+
+    return createSafePreviewFallback(input, error);
+  }
+}
+
+async function applyPremiumPreviewWatermark(input: Buffer): Promise<WatermarkResult> {
+  if (!input?.length) {
+    throw new Error("Preview watermark input buffer is empty.");
+  }
+
+  logPreviewProtection("premium_center_preview_started", {
+    inputBytes: input.length
+  });
+
   const previewBuffer = await createProtectedPreviewBuffer(input);
   const image = sharp(previewBuffer, { failOn: "none" });
   const [metadata, luminance] = await Promise.all([
@@ -31,6 +52,17 @@ export async function applyFreeExportWatermark(input: Buffer): Promise<Watermark
   ]);
   const width = metadata.width ?? 1400;
   const height = metadata.height ?? 1000;
+
+  if (width < 8 || height < 8) {
+    throw new Error(`Preview watermark dimensions are too small: ${width}x${height}.`);
+  }
+
+  logPreviewProtection("premium_center_preview_metadata", {
+    width,
+    height,
+    previewBytes: previewBuffer.length
+  });
+
   const label = "ZEYLORA PREVIEW";
   const placement = "center";
   const markTone = luminance > 142
@@ -45,8 +77,12 @@ export async function applyFreeExportWatermark(input: Buffer): Promise<Watermark
   const gap = Math.round(fontSize * 0.48);
   const horizontalPadding = Math.round(fontSize * 0.78);
   const verticalPadding = Math.round(fontSize * 0.48);
-  const estimatedTextWidth = Math.round(label.length * fontSize * 0.56);
-  const badgeWidth = Math.min(width - 32, estimatedTextWidth + markSize + gap + horizontalPadding * 2);
+  const estimatedTextWidth = Math.round("Made with Zeylora AI".length * fontSize * 0.56);
+  const badgeWidth = clamp(
+    estimatedTextWidth + markSize + gap + horizontalPadding * 2,
+    Math.min(width, 48),
+    Math.max(Math.min(width - 16, estimatedTextWidth + markSize + gap + horizontalPadding * 2), 48)
+  );
   const badgeHeight = Math.max(markSize + verticalPadding, fontSize + verticalPadding * 2);
   const safeInsetX = Math.max(14, Math.round(width * 0.026));
   const safeInsetY = Math.max(14, Math.round(height * 0.028));
@@ -59,8 +95,16 @@ export async function applyFreeExportWatermark(input: Buffer): Promise<Watermark
   const centerText = "ZEYLORA PREVIEW";
   const centerSubText = "BRANDED PREVIEW EXPORT";
   const centerTextWidth = Math.round(centerText.length * centerFontSize * 0.58);
-  const centerBoxWidth = Math.min(Math.round(width * 0.86), Math.max(Math.round(width * 0.48), centerTextWidth + Math.round(centerFontSize * 1.3)));
-  const centerBoxHeight = Math.max(Math.round(centerFontSize * 1.65), centerFontSize + subFontSize + Math.round(shortEdge * 0.075));
+  const centerBoxWidth = clamp(
+    Math.max(Math.round(width * 0.48), centerTextWidth + Math.round(centerFontSize * 1.3)),
+    Math.min(width, 96),
+    Math.max(Math.round(width * 0.86), 96)
+  );
+  const centerBoxHeight = clamp(
+    Math.max(Math.round(centerFontSize * 1.65), centerFontSize + subFontSize + Math.round(shortEdge * 0.075)),
+    Math.min(height, 56),
+    Math.max(Math.round(height * 0.52), 56)
+  );
   const centerX = Math.round((width - centerBoxWidth) / 2);
   const centerY = Math.round((height - centerBoxHeight) / 2);
   const centerTextX = Math.round(width / 2);
@@ -129,6 +173,12 @@ export async function applyFreeExportWatermark(input: Buffer): Promise<Watermark
     </svg>
   `);
 
+  logPreviewProtection("premium_center_preview_overlay_created", {
+    width,
+    height,
+    overlayBytes: watermarkSvg.length
+  });
+
   const buffer = await sharp(previewBuffer, { failOn: "none" })
     .composite([{ input: watermarkSvg, blend: "over" }])
     .png({
@@ -137,6 +187,12 @@ export async function applyFreeExportWatermark(input: Buffer): Promise<Watermark
       palette: false
     })
     .toBuffer();
+
+  logPreviewProtection("premium_center_preview_composite_succeeded", {
+    outputBytes: buffer.length,
+    width,
+    height
+  });
 
   return {
     buffer,
@@ -159,11 +215,24 @@ export async function prepareExportBuffer(input: Buffer, exportMode: ExportMode)
     };
   }
 
-  const watermarked = await applyFreeExportWatermark(input);
-  return {
-    ...watermarked,
-    exportMode
-  };
+  try {
+    const watermarked = await applyFreeExportWatermark(input);
+    return {
+      ...watermarked,
+      exportMode
+    };
+  } catch (error) {
+    logPreviewProtection("prepare_export_failsafe_used", {
+      errorMessage: error instanceof Error ? error.message : "Unknown export preparation error.",
+      inputBytes: input.length
+    });
+
+    const fallback = await createLastResortPreview(input);
+    return {
+      ...fallback,
+      exportMode
+    };
+  }
 }
 
 async function createProtectedPreviewBuffer(input: Buffer) {
@@ -200,6 +269,105 @@ async function createProtectedPreviewBuffer(input: Buffer) {
     .toBuffer();
 }
 
+async function createSafePreviewFallback(input: Buffer, originalError: unknown): Promise<WatermarkResult> {
+  try {
+    logPreviewProtection("safe_preview_fallback_started", {
+      errorMessage: originalError instanceof Error ? originalError.message : "Unknown preview watermark error.",
+      inputBytes: input.length
+    });
+
+    const previewBuffer = await createProtectedPreviewBuffer(input);
+    const metadata = await sharp(previewBuffer, { failOn: "none" }).metadata();
+    const width = metadata.width ?? 1200;
+    const height = metadata.height ?? 900;
+    const fontSize = clamp(Math.round(Math.min(width, height) * 0.072), 36, 86);
+    const subFontSize = clamp(Math.round(fontSize * 0.26), 11, 20);
+    const overlay = Buffer.from(`
+      <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+        <rect x="${Math.round(width * 0.1)}" y="${Math.round(height * 0.42)}" width="${Math.round(width * 0.8)}" height="${Math.round(height * 0.16)}" rx="${Math.round(fontSize * 0.32)}" fill="#050712" fill-opacity="0.42"/>
+        <text x="${Math.round(width / 2)}" y="${Math.round(height * 0.505)}" text-anchor="middle"
+          font-family="Arial, Helvetica, sans-serif" font-size="${fontSize}" font-weight="900" fill="#FFFFFF" fill-opacity="0.32">ZEYLORA PREVIEW</text>
+        <text x="${Math.round(width / 2)}" y="${Math.round(height * 0.545)}" text-anchor="middle"
+          font-family="Arial, Helvetica, sans-serif" font-size="${subFontSize}" font-weight="700" fill="#20D3FF" fill-opacity="0.82">BRANDED PREVIEW EXPORT</text>
+      </svg>
+    `);
+
+    const buffer = await sharp(previewBuffer, { failOn: "none" })
+      .composite([{ input: overlay, blend: "over" }])
+      .png({
+        compressionLevel: 6,
+        adaptiveFiltering: true,
+        palette: false
+      })
+      .toBuffer();
+
+    logPreviewProtection("safe_preview_fallback_succeeded", {
+      width,
+      height,
+      outputBytes: buffer.length
+    });
+
+    return {
+      buffer,
+      applied: true,
+      label: "ZEYLORA PREVIEW",
+      placement: "center",
+      watermarkType: "premium_center_preview"
+    };
+  } catch (fallbackError) {
+    logPreviewProtection("safe_preview_fallback_failed", {
+      errorMessage: fallbackError instanceof Error ? fallbackError.message : "Unknown fallback preview error.",
+      inputBytes: input.length
+    });
+
+    return createLastResortPreview(input);
+  }
+}
+
+async function createLastResortPreview(input: Buffer): Promise<WatermarkResult> {
+  try {
+    const buffer = await sharp(input, { failOn: "none" })
+      .rotate()
+      .resize({
+        width: FREE_PREVIEW_MAX_LONG_EDGE,
+        height: FREE_PREVIEW_MAX_LONG_EDGE,
+        fit: "inside",
+        withoutEnlargement: true
+      })
+      .png({
+        compressionLevel: 6,
+        adaptiveFiltering: true,
+        palette: false
+      })
+      .toBuffer();
+
+    logPreviewProtection("last_resort_preview_succeeded", {
+      outputBytes: buffer.length
+    });
+
+    return {
+      buffer,
+      applied: false,
+      label: "Zeylora preview fallback",
+      placement: "center",
+      watermarkType: "none"
+    };
+  } catch (error) {
+    logPreviewProtection("last_resort_preview_failed_returning_original", {
+      errorMessage: error instanceof Error ? error.message : "Unknown last resort preview error.",
+      inputBytes: input.length
+    });
+
+    return {
+      buffer: input,
+      applied: false,
+      label: "Zeylora original fallback",
+      placement: "center",
+      watermarkType: "none"
+    };
+  }
+}
+
 async function getAverageLuminance(input: Buffer) {
   try {
     const { data } = await sharp(input, { failOn: "none" })
@@ -219,4 +387,16 @@ async function getAverageLuminance(input: Buffer) {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
+}
+
+function logPreviewProtection(event: string, payload: Record<string, unknown>) {
+  const safePayload = JSON.stringify(payload);
+  if (process.env.NODE_ENV === "development") {
+    console.info(`[preview-protection:${event}]`, safePayload);
+    return;
+  }
+
+  if (event.includes("failed") || event.includes("failsafe")) {
+    console.warn(`[preview-protection:${event}]`, safePayload);
+  }
 }
