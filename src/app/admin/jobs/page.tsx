@@ -5,13 +5,29 @@ import { getAdminJobsData } from "@/lib/admin/data";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminJobsPage() {
+export default async function AdminJobsPage({
+  searchParams
+}: {
+  searchParams?: Promise<{ status?: string; tool?: string; user?: string }>;
+}) {
   await requireAdmin();
-  const jobs = await getAdminJobsData();
+  const params = await searchParams;
+  const status = params?.status === "completed" || params?.status === "failed" ? params.status : "all";
+  const jobs = await getAdminJobsData({ status, tool: params?.tool, user: params?.user });
 
   return (
     <AppShell area="admin" title="AI işlem kayıtları" description="Tüm tool run, provider, hata ve export kayıtlarını izle.">
       <AdminSection title="Recent jobs" description="Silme yok; sorunlu kayıtlar incelenir ve soft-delete politikası korunur.">
+        <form className="mb-4 grid gap-2 rounded-2xl border border-white/10 bg-white/5 p-3 md:grid-cols-[180px_220px_1fr_auto]">
+          <select name="status" defaultValue={status} className="h-10 rounded-xl border border-white/10 bg-[#080d1f] px-3 text-sm font-bold text-white outline-none focus:border-cyan">
+            <option value="all">All statuses</option>
+            <option value="completed">Completed</option>
+            <option value="failed">Failed</option>
+          </select>
+          <input name="tool" defaultValue={params?.tool || ""} placeholder="Tool slug" className="h-10 rounded-xl border border-white/10 bg-[#080d1f] px-3 text-sm text-white outline-none focus:border-cyan" />
+          <input name="user" defaultValue={params?.user || ""} placeholder="User email" className="h-10 rounded-xl border border-white/10 bg-[#080d1f] px-3 text-sm text-white outline-none focus:border-cyan" />
+          <button className="h-10 rounded-full bg-cyan px-5 text-sm font-black text-ink transition hover:bg-cyan/90">Filter</button>
+        </form>
         <AdminTable>
           <table className="min-w-[1280px] w-full divide-y divide-white/10 text-sm">
             <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
@@ -33,10 +49,20 @@ export default async function AdminJobsPage() {
                   <td className="px-4 py-3 text-slate-300">{job.user?.email || "-"}</td>
                   <td className="px-4 py-3 text-slate-300">{job.providerKey}</td>
                   <td className="px-4 py-3 text-slate-300">{job.processingTimeMs ? `${job.processingTimeMs}ms` : "-"}</td>
-                  <td className="max-w-xs px-4 py-3 text-slate-400">{job.errorMessage || "-"}</td>
+                  <td className="max-w-sm px-4 py-3 text-slate-400">
+                    {job.errorMessage ? (
+                      <details>
+                        <summary className="cursor-pointer truncate text-rose-200">{job.errorMessage.slice(0, 72)}</summary>
+                        <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap rounded-xl bg-black/30 p-3 text-xs text-slate-300">{job.errorMessage}</pre>
+                      </details>
+                    ) : "-"}
+                  </td>
                   <td className="px-4 py-3 text-slate-400">{formatAdminDate(job.createdAt)}</td>
                 </tr>
               ))}
+              {jobs.length === 0 ? (
+                <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400">Bu filtreyle job bulunamadı.</td></tr>
+              ) : null}
             </tbody>
           </table>
         </AdminTable>

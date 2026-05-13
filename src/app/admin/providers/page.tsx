@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminProvidersPage() {
   await requireAdmin();
-  const providers = await prisma.providerSetting.findMany({
+  const providerSettings = await prisma.providerSetting.findMany({
     orderBy: { providerKey: "asc" },
     select: {
       providerKey: true,
@@ -18,32 +18,38 @@ export default async function AdminProvidersPage() {
       budgetEnforcementMode: true
     }
   });
+  const dbProviderMap = new Map(providerSettings.map((provider) => [provider.providerKey, provider]));
+  const runtimeProviders = [
+    { key: "replicate", name: "Replicate", configured: Boolean(process.env.REPLICATE_API_TOKEN) },
+    { key: "photoroom", name: "PhotoRoom", configured: Boolean(process.env.PHOTOROOM_API_KEY) },
+    { key: "removebg", name: "remove.bg", configured: Boolean(process.env.REMOVEBG_API_KEY) }
+  ];
 
   return (
     <AppShell area="admin" title="Sağlayıcı ayarları" description="PhotoRoom, Replicate ve gelecekteki provider bütçe kontrolleri.">
-      <AdminSection title="Provider budgets" description="API key değerleri gösterilmez. Bütçe ve pause/block politikaları burada izlenir.">
-        <div className="grid gap-3 md:grid-cols-2">
-          {providers.map((provider) => (
-            <div key={provider.providerKey} className="rounded-2xl border border-white/10 bg-white/5 p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="font-black text-white">{provider.name}</p>
-                  <p className="mt-1 text-sm text-slate-500">{provider.providerKey}</p>
+      <AdminSection title="Runtime providers" description="API key değerleri gösterilmez. Sadece configured/missing durumu ve bütçe placeholder’ı görünür.">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {runtimeProviders.map((provider) => {
+            const dbProvider = dbProviderMap.get(provider.key);
+            return (
+              <div key={provider.key} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-black text-white">{dbProvider?.name || provider.name}</p>
+                    <p className="mt-1 text-sm text-slate-500">{provider.key}</p>
+                  </div>
+                  <AdminStatusPill tone={provider.configured ? "good" : "warn"}>{provider.configured ? "Configured" : "Missing"}</AdminStatusPill>
                 </div>
-                <AdminStatusPill tone={provider.status === "ACTIVE" ? "good" : "neutral"}>{provider.status}</AdminStatusPill>
+                <p className="mt-4 text-sm text-slate-300">
+                  Used ${Number(dbProvider?.monthlyBudgetUsed || 0).toFixed(2)}
+                  {dbProvider?.monthlyBudgetLimit ? ` / $${Number(dbProvider.monthlyBudgetLimit).toFixed(2)}` : " / budget not set"}
+                </p>
+                <p className="mt-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
+                  {dbProvider?.budgetEnforcementMode || "NOTIFY_ONLY"}
+                </p>
               </div>
-              <p className="mt-4 text-sm text-slate-300">
-                Used ${Number(provider.monthlyBudgetUsed).toFixed(2)}
-                {provider.monthlyBudgetLimit ? ` / $${Number(provider.monthlyBudgetLimit).toFixed(2)}` : " / no limit"}
-              </p>
-              <p className="mt-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-500">{provider.budgetEnforcementMode}</p>
-            </div>
-          ))}
-          {providers.length === 0 ? (
-            <p className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-400">
-              Provider ayarı henüz seed edilmemiş. Runtime env değerleri çalışmaya devam eder.
-            </p>
-          ) : null}
+            );
+          })}
         </div>
       </AdminSection>
     </AppShell>

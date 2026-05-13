@@ -22,7 +22,8 @@ export async function getCreditPackagesForDisplay(): Promise<PublicCreditPackage
   try {
     const dbPackages = await prisma.creditPackage.findMany({
       where: {
-        deletedAt: null
+        deletedAt: null,
+        status: "ACTIVE"
       },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
       select: {
@@ -39,7 +40,7 @@ export async function getCreditPackagesForDisplay(): Promise<PublicCreditPackage
     });
 
     if (dbPackages.length > 0) {
-      return dbPackages.map((pack) => {
+      return dedupePackages(dbPackages.map((pack) => {
         const fallback = creditPackages.find((item) => item.name === pack.name || item.featureFlagKey === pack.featureFlagKey);
         const bonusCredits = getBonusCredits(pack.name, pack.credits);
 
@@ -59,7 +60,7 @@ export async function getCreditPackagesForDisplay(): Promise<PublicCreditPackage
           status: pack.status,
           sortOrder: pack.sortOrder
         };
-      });
+      }));
     }
   } catch (error) {
     if (process.env.NODE_ENV === "development") {
@@ -93,4 +94,16 @@ function getBonusCredits(name: string, totalCredits: number) {
 
 function slugify(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+}
+
+function dedupePackages(packages: PublicCreditPackage[]) {
+  const seen = new Map<string, PublicCreditPackage>();
+  for (const pack of packages) {
+    const key = pack.name.toLowerCase();
+    const existing = seen.get(key);
+    if (!existing || pack.sortOrder < existing.sortOrder) {
+      seen.set(key, pack);
+    }
+  }
+  return Array.from(seen.values()).sort((a, b) => a.sortOrder - b.sortOrder);
 }

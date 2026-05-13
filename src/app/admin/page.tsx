@@ -30,6 +30,24 @@ export default async function AdminPage() {
         <AdminMetricCard label="Export" value={data.metrics.recentExports} note="Completed job adedi" />
       </div>
 
+      <div className="mt-4 grid gap-2 md:grid-cols-5">
+        {[
+          ["Add credits", "/admin/users?filter=with-credits"],
+          ["View failed jobs", "/admin/jobs?status=failed"],
+          ["Edit pricing", "/admin/pricing"],
+          ["Tool status", "/admin/tools"],
+          ["Payments setup", "/admin/payments"]
+        ].map(([label, href]) => (
+          <a
+            key={label}
+            href={href}
+            className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm font-black text-white transition hover:border-cyan/30 hover:bg-cyan/10"
+          >
+            {label}
+          </a>
+        ))}
+      </div>
+
       <div className="mt-4">
         <AdminSection
           title="Son işlemler"
@@ -45,6 +63,7 @@ export default async function AdminPage() {
                   <th className="px-4 py-3">Kullanıcı</th>
                   <th className="px-4 py-3">Provider</th>
                   <th className="px-4 py-3">Kredi</th>
+                  <th className="px-4 py-3">Hata</th>
                   <th className="px-4 py-3">Tarih</th>
                 </tr>
               </thead>
@@ -56,11 +75,12 @@ export default async function AdminPage() {
                     <td className="px-4 py-3 text-slate-300">{job.user?.email || "-"}</td>
                     <td className="px-4 py-3 text-slate-300">{job.providerKey}</td>
                     <td className="px-4 py-3 text-slate-300">{job.creditCost}</td>
+                    <td className="max-w-xs truncate px-4 py-3 text-slate-400">{job.errorMessage || "-"}</td>
                     <td className="px-4 py-3 text-slate-400">{formatAdminDate(job.createdAt)}</td>
                   </tr>
                 ))}
                 {data.recentJobs.length === 0 ? (
-                  <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">Henüz işlem yok.</td></tr>
+                  <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400">Henüz işlem yok.</td></tr>
                 ) : null}
               </tbody>
             </table>

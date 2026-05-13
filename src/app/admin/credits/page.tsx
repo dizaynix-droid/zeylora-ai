@@ -15,18 +15,14 @@ export default async function AdminCreditsPage() {
       title="Kredi ekonomisi"
       description="Kredi hareketleri, manuel düzenlemeler, kullanım ve iade kayıtları."
     >
-      <div className="grid gap-4 md:grid-cols-4">
-        {data.totals.map((total) => (
-          <AdminMetricCard
-            key={total.type}
-            label={total.type}
-            value={total._sum.amount ?? 0}
-            note={`${total._count._all} transaction`}
-          />
-        ))}
+      <div className="grid gap-3 md:grid-cols-4">
+        <AdminMetricCard label="Credits issued" value={data.summary.issued} note="Purchase, refund, admin positive" />
+        <AdminMetricCard label="Credits used" value={data.summary.used} note="Paid clean export deductions" />
+        <AdminMetricCard label="Manual adjustments" value={data.summary.manualAdjustments} note="Admin credit changes" />
+        <AdminMetricCard label="Purchases" value={data.summary.purchases} note="Payment credits later" />
       </div>
 
-      <div className="mt-5">
+      <div className="mt-4">
         <AdminSection
           title="Son kredi hareketleri"
           description="Admin ayarları, paid clean export kesintileri, refund ve purchase kayıtları burada görünür."
@@ -55,7 +51,14 @@ export default async function AdminCreditsPage() {
                   </tr>
                 ))}
                 {data.transactions.length === 0 ? (
-                  <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">Kredi hareketi yok.</td></tr>
+                  <tr>
+                    <td colSpan={6} className="px-4 py-10 text-center">
+                      <p className="font-black text-white">Henüz kredi hareketi yok.</p>
+                      <p className="mt-2 text-sm text-slate-400">
+                        Kullanıcılara admin panelinden kredi ekleyince, paid clean export kesintileri veya refund/purchase işlemleri burada görünecek.
+                      </p>
+                    </td>
+                  </tr>
                 ) : null}
               </tbody>
             </table>
