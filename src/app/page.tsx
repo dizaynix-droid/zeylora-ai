@@ -6,8 +6,8 @@ import { SiteFooter } from "@/components/layout/site-footer";
 import { createMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createMetadata({
-  title: "AI Product Photo Editor",
-  description: "Zeylora AI helps ecommerce teams turn raw product photos into premium previews and clean credit exports with private uploads, AI editing, and dashboard history.",
+  title: "AI Product Photo Editor for Ecommerce Sellers",
+  description: "Zeylora AI is an ecommerce product studio for HD upscaling, AI relighting, photo enhancement, marketplace crops, cutouts, and seller-ready product visuals.",
   path: "/"
 });
 

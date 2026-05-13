@@ -14,17 +14,17 @@ type WaitlistResponse = {
 };
 
 const interestOptions = [
-  "Background Remover",
-  "Photo Enhancer",
   "HD Upscale",
+  "AI Relight",
+  "Photo Enhancer",
   "Marketplace Crop",
-  "Product Shadow",
-  "AI Relight"
+  "Background Remover",
+  "Product Shadow"
 ] as const;
 
 export function EarlyAccess() {
   const [email, setEmail] = useState("");
-  const [selectedTool, setSelectedTool] = useState<(typeof interestOptions)[number]>("Background Remover");
+  const [selectedTool, setSelectedTool] = useState<(typeof interestOptions)[number]>("HD Upscale");
   const [state, setState] = useState<WaitlistState>("idle");
   const [message, setMessage] = useState("Join early access for launch updates and clean export testing.");
 

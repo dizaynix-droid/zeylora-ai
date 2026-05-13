@@ -4,13 +4,13 @@ import { showcaseExamples } from "@/config/showcase";
 import { BeforeAfterSlider } from "./before-after-slider";
 
 const storyPoints = [
-  "Turn raw uploads into clean marketplace-ready product visuals.",
+  "Lead with HD Upscale, AI Relight, and Photo Enhancer for premium seller visuals.",
   "Preview transformations before committing to clean exports.",
-  "Use focused workflows for cutouts, lighting, shadows, framing, and HD detail.",
+  "Use support workflows for cropping, cutouts, and creative shadow looks.",
   "Keep downloads private with signed links and dashboard history."
 ] as const;
 
-const useCases = ["Sneakers", "Perfume", "Skincare", "Jewelry", "Watches", "Handbags"] as const;
+const useCases = ["Shopify", "Amazon", "Etsy", "TikTok Shop", "Perfume", "Skincare"] as const;
 
 export function ResultShowcase() {
   const featuredExamples = showcaseExamples.slice(0, 2);
@@ -23,13 +23,13 @@ export function ResultShowcase() {
           <div>
             <p className="eyebrow">
               <Sparkles size={14} />
-              Realistic result showcase
+              Ecommerce product studio
             </p>
             <h2 className="mt-4 text-3xl font-black leading-tight tracking-tight text-white md:text-5xl">
-              Every tool has a different job in the product photo workflow.
+              Lead with sharper, brighter, more premium product visuals.
             </h2>
             <p className="mt-4 max-w-xl text-base leading-8 text-slate-300">
-              Build ecommerce-ready assets for premium categories where lighting, framing, edge quality, and detail all affect conversion.
+              Zeylora is positioned as an AI Product Photo Editor for sellers: upscale low-res assets, relight dull photos, polish catalog shots, then use support tools for framing, cutouts, and creative depth.
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
               {useCases.map((useCase) => (

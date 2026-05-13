@@ -61,6 +61,7 @@ type JobResponse = {
 const homeToolOptions: Array<{
   key: HomeToolMode;
   name: string;
+  badge?: string;
   endpoint: string;
   processingLabel: string;
   creditCost: number;
@@ -69,6 +70,52 @@ const homeToolOptions: Array<{
   successMessage: string;
   resultNote: string;
 }> = [
+  {
+    key: "hd-upscale",
+    name: "HD Upscale",
+    badge: "Recommended",
+    endpoint: "/api/v1/jobs/hd-upscale",
+    processingLabel: "Upscaling image...",
+    creditCost: 2,
+    downloadLabel: "Download PNG",
+    downloadFilename: "zeylora-hd-upscale.png",
+    successMessage: "HD upscale created successfully",
+    resultNote: "Upscale blurry or low-resolution images into sharper, cleaner ecommerce-ready visuals. Very tiny text or missing detail may vary."
+  },
+  {
+    key: "ai-relight",
+    name: "AI Relight",
+    badge: "Popular",
+    endpoint: "/api/v1/jobs/ai-relight",
+    processingLabel: "Relighting product photo...",
+    creditCost: 1,
+    downloadLabel: "Download PNG",
+    downloadFilename: "zeylora-ai-relight.png",
+    successMessage: "Product photo relit successfully",
+    resultNote: "Transforms dull product photos into brighter, cleaner, premium studio-style visuals for Shopify, Amazon, Etsy, ads, and catalog pages. Luxury Glow is strongest; Dramatic may be moodier on dark products."
+  },
+  {
+    key: "photo-enhancer",
+    name: "Photo Enhancer",
+    endpoint: "/api/v1/jobs/photo-enhancer",
+    processingLabel: "Enhancing photo...",
+    creditCost: 3,
+    downloadLabel: "Download PNG/JPG",
+    downloadFilename: "zeylora-photo-enhancer.png",
+    successMessage: "Photo enhanced successfully",
+    resultNote: "Enhancement is strong for cosmetics, perfume, and catalog products. Very fine textures may smooth slightly depending on the source image."
+  },
+  {
+    key: "marketplace-crop",
+    name: "Marketplace Crop",
+    endpoint: "/api/v1/jobs/marketplace-crop",
+    processingLabel: "Framing product image...",
+    creditCost: 1,
+    downloadLabel: "Download PNG",
+    downloadFilename: "zeylora-marketplace-crop.png",
+    successMessage: "Marketplace crop created successfully",
+    resultNote: "Resize and frame product photos for Shopify, Amazon, Etsy, marketplace grids, story ads, and product launch creatives. The white frame preset is strongest for ecommerce marketplaces."
+  },
   {
     key: "background-remover",
     name: "Background Remover",
@@ -81,59 +128,16 @@ const homeToolOptions: Array<{
     resultNote: "Best for product photos, objects, and clean foregrounds. Complex human poses, hair, hands, and shoes may vary."
   },
   {
-    key: "photo-enhancer",
-    name: "Photo Enhancer",
-    endpoint: "/api/v1/jobs/photo-enhancer",
-    processingLabel: "Enhancing photo...",
-    creditCost: 3,
-    downloadLabel: "Download PNG/JPG",
-    downloadFilename: "zeylora-photo-enhancer.png",
-    successMessage: "Photo enhanced successfully",
-    resultNote: "Enhancement can improve clarity, compression, and apparent sharpness, but very small or heavily blurred details may vary."
-  },
-  {
-    key: "hd-upscale",
-    name: "HD Upscale",
-    endpoint: "/api/v1/jobs/hd-upscale",
-    processingLabel: "Upscaling image...",
-    creditCost: 2,
-    downloadLabel: "Download PNG",
-    downloadFilename: "zeylora-hd-upscale.png",
-    successMessage: "HD upscale created successfully",
-    resultNote: "Upscale blurry or low-resolution images into sharper, cleaner ecommerce-ready visuals. Very tiny text or missing detail may vary."
-  },
-  {
-    key: "marketplace-crop",
-    name: "Marketplace Crop",
-    endpoint: "/api/v1/jobs/marketplace-crop",
-    processingLabel: "Framing product image...",
-    creditCost: 1,
-    downloadLabel: "Download PNG",
-    downloadFilename: "zeylora-marketplace-crop.png",
-    successMessage: "Marketplace crop created successfully",
-    resultNote: "Resize and frame product photos for Shopify, Amazon, Etsy, marketplace grids, story ads, and product launch creatives."
-  },
-  {
     key: "product-shadow",
     name: "Product Shadow",
+    badge: "Beta look",
     endpoint: "/api/v1/jobs/product-shadow",
     processingLabel: "Adding studio shadow...",
     creditCost: 1,
     downloadLabel: "Download PNG",
     downloadFilename: "zeylora-product-shadow.png",
     successMessage: "Product shadow created successfully",
-    resultNote: "Best results with clean cutouts or transparent PNGs. Adds natural studio grounding for Shopify, Amazon, Etsy, catalog pages, and ads."
-  },
-  {
-    key: "ai-relight",
-    name: "AI Relight",
-    endpoint: "/api/v1/jobs/ai-relight",
-    processingLabel: "Relighting product photo...",
-    creditCost: 1,
-    downloadLabel: "Download PNG",
-    downloadFilename: "zeylora-ai-relight.png",
-    successMessage: "Product photo relit successfully",
-    resultNote: "Transforms dull product photos into brighter, cleaner, premium studio-style visuals for Shopify, Amazon, Etsy, ads, and catalog pages."
+    resultNote: "Best results with clean cutouts or transparent PNGs. Use as a creative catalog look for launch; realistic AI shadow upgrades can come later."
   }
 ];
 
@@ -184,22 +188,22 @@ const hdUpscalePresets: Array<{
 
 const heroProductStories = [
   {
-    name: "Perfume",
-    before: "/showcase/background-remover-before.png",
-    after: "/showcase/background-remover-after.png",
-    result: "Clean cutout"
-  },
-  {
     name: "Sneaker",
-    before: "/showcase/product-shadow-before.png",
-    after: "/showcase/product-shadow-after.png",
-    result: "Studio grounded"
+    before: "/showcase/hd-upscale-before.png",
+    after: "/showcase/hd-upscale-after.png",
+    result: "4x Ultra detail"
   },
   {
     name: "Skincare",
     before: "/showcase/ai-relight-before.png",
     after: "/showcase/ai-relight-after.png",
-    result: "Premium light"
+    result: "Luxury light"
+  },
+  {
+    name: "Perfume",
+    before: "/showcase/photo-enhancer-before.jpg",
+    after: "/showcase/photo-enhancer-after.png",
+    result: "Catalog polish"
   }
 ] as const;
 
@@ -225,7 +229,7 @@ export function HeroUpload() {
   const [appliedAiRelightPreset, setAppliedAiRelightPreset] = useState<AiRelightPreset | null>(null);
   const [hdUpscalePreset, setHdUpscalePreset] = useState<HdUpscalePreset>("2x-hd");
   const [appliedHdUpscalePreset, setAppliedHdUpscalePreset] = useState<HdUpscalePreset | null>(null);
-  const [selectedTool, setSelectedTool] = useState<HomeToolMode>("background-remover");
+  const [selectedTool, setSelectedTool] = useState<HomeToolMode>("hd-upscale");
   const [rating, setRating] = useState<ResultRating | null>(null);
   const hasActivePreview = Boolean(inputPreviewUrl || resultPreviewUrl || status === "failed");
   const isResultMode = status === "succeeded" && Boolean(inputPreviewUrl && resultPreviewUrl);
@@ -686,13 +690,13 @@ export function HeroUpload() {
             <>
               <p className="eyebrow">
                 <Sparkles size={14} />
-                AI product photo studio
+                AI Product Photo Editor / Ecommerce Studio
               </p>
               <h1 className="mt-5 max-w-4xl text-4xl font-black leading-tight tracking-tight text-white md:text-6xl lg:text-7xl">
-                Upload a product photo. Get a <span className="gradient-text">studio-ready</span> ecommerce visual.
+                Turn product photos into <span className="gradient-text">premium ecommerce</span> visuals.
               </h1>
               <p className="mt-5 max-w-2xl text-base leading-8 text-slate-300 md:text-lg">
-                Transform sneakers, perfume, skincare, jewelry, watches, handbags, and catalog assets with secure AI workflows built for sellers.
+                Upscale, relight, enhance, crop, remove backgrounds, and prepare seller-ready visuals for Shopify, Etsy, Amazon, and TikTok Shop.
               </p>
 
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">
@@ -748,8 +752,8 @@ export function HeroUpload() {
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-2 px-1 py-2">
-                      <p className="text-xs font-black uppercase text-white">{story.name}</p>
-                      <p className="text-[10px] font-black uppercase text-cyan">{story.result}</p>
+                    <p className="text-xs font-black uppercase text-white">{story.name}</p>
+                    <p className="text-[10px] font-black uppercase text-cyan">{story.result}</p>
                     </div>
                   </div>
                 ))}
@@ -1003,7 +1007,14 @@ export function HeroUpload() {
                         : "border border-white/10 bg-black/20 text-slate-300 hover:bg-white/10"
                     } disabled:cursor-not-allowed disabled:opacity-60`}
                   >
-                    {tool.name}
+                    <span>{tool.name}</span>
+                    {tool.badge ? (
+                      <span className={`mt-1 block text-[9px] uppercase ${
+                        tool.badge === "Beta look" ? "text-warning" : selectedTool === tool.key ? "text-ink/70" : "text-cyan"
+                      }`}>
+                        {tool.badge}
+                      </span>
+                    ) : null}
                   </button>
                 ))}
               </div>

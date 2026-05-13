@@ -6,7 +6,7 @@ import { creditPackages } from "@/config/pricing";
 
 const trustItems: Array<[string, string, LucideIcon]> = [
   ["Private uploads", "Images are stored privately and served through temporary signed links.", Lock],
-  ["Six live workflows", "Cutouts, enhancement, upscale, crop, shadows, and relighting in one studio.", Sparkles],
+  ["Six live workflows", "HD upscale, relight, enhancement, crop, cutout, and creative shadow tools in one studio.", Sparkles],
   ["Dashboard history", "Every completed edit stays available in your workspace.", History],
   ["Credit clean exports", "Credits unlock watermark-free exports for finished product assets.", CreditCard],
   ["Provider-backed processing", "AI workflows use established image providers and production-safe error handling.", ShieldCheck],
@@ -32,7 +32,7 @@ export function PlatformSections() {
               <p className="text-sm font-black uppercase text-cyan">Trust layer</p>
               <h2 className="mt-2 text-2xl font-black text-white">A secure product photo workspace for serious sellers.</h2>
               <p className="mt-2 text-sm leading-6 text-slate-300">
-                Upload privately, generate a preview, keep results in your dashboard, and export clean product assets with credits.
+                Upload privately, upscale or relight product photos, keep results in your dashboard, and export clean seller-ready assets with credits.
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -54,10 +54,10 @@ export function PlatformSections() {
           <div className="mb-8 max-w-2xl">
             <p className="eyebrow">Feature explanation</p>
             <h2 className="mt-4 text-3xl font-black tracking-tight text-white md:text-5xl">
-              Built for repeat ecommerce production.
+              Built for repeat ecommerce product-photo production.
             </h2>
             <p className="mt-4 text-sm leading-7 text-slate-300">
-              Zeylora is designed for sellers who need reliable product visuals, not one-off experiments.
+              Zeylora focuses on seller workflows first: sharpen low-res assets, improve lighting, polish catalog photos, then prepare channel-ready exports.
             </p>
           </div>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
