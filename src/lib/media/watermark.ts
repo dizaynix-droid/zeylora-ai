@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import sharp from "sharp";
 import { businessFoundation } from "@/config/business";
 import type { ExportMode } from "@/lib/jobs/credit-policy";
@@ -11,6 +13,12 @@ export type WatermarkResult = {
 };
 
 const FREE_PREVIEW_MAX_LONG_EDGE = 1600;
+const WATERMARK_FONT_FAMILY = "ZeyloraPreviewFont, DejaVu Sans, Arial, Helvetica, sans-serif";
+const WATERMARK_FONT_PATH = path.join(
+  process.cwd(),
+  "src/assets/noto-sans-v27-latin-regular.ttf"
+);
+let cachedWatermarkFontCss: string | null | undefined;
 
 export async function applyFreeExportWatermark(input: Buffer): Promise<WatermarkResult> {
   if (!businessFoundation.exports.freeWatermarkEnabled) {
@@ -110,10 +118,12 @@ async function applyPremiumPreviewWatermark(input: Buffer): Promise<WatermarkRes
   const centerTextX = Math.round(width / 2);
   const centerTextY = centerY + Math.round(centerBoxHeight * 0.47);
   const centerSubTextY = centerTextY + Math.round(centerFontSize * 0.46);
+  const fontCss = getWatermarkFontCss();
 
   const watermarkSvg = Buffer.from(`
     <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
       <defs>
+        ${fontCss}
         <linearGradient id="zeyloraMark" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stop-color="#20D3FF" stop-opacity="0.9"/>
           <stop offset="54%" stop-color="#8B5CF6" stop-opacity="0.88"/>
@@ -135,18 +145,16 @@ async function applyPremiumPreviewWatermark(input: Buffer): Promise<WatermarkRes
           fill="url(#zeyloraMark)" fill-opacity="${markTone.haloOpacity}"/>
         <text x="${centerTextX}" y="${centerTextY}"
           text-anchor="middle"
-          font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+          font-family="${WATERMARK_FONT_FAMILY}"
           font-size="${centerFontSize}"
-          font-weight="900"
-          letter-spacing="0"
+          font-weight="700"
           fill="${markTone.centerFill}"
           fill-opacity="${markTone.centerOpacity}">${centerText}</text>
         <text x="${centerTextX}" y="${centerSubTextY}"
           text-anchor="middle"
-          font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+          font-family="${WATERMARK_FONT_FAMILY}"
           font-size="${subFontSize}"
-          font-weight="850"
-          letter-spacing="0"
+          font-weight="700"
           fill="${markTone.centerFill}"
           fill-opacity="${Math.min(markTone.centerOpacity + 0.12, 0.42)}">${centerSubText}</text>
       </g>
@@ -156,18 +164,17 @@ async function applyPremiumPreviewWatermark(input: Buffer): Promise<WatermarkRes
         <circle cx="${markX + Math.round(markSize / 2)}" cy="${markY + Math.round(markSize / 2)}" r="${Math.round(markSize / 2)}" fill="url(#zeyloraMark)" fill-opacity="0.86"/>
         <text x="${markX + Math.round(markSize / 2)}" y="${markY + Math.round(markSize / 2) + Math.round(fontSize * 0.37)}"
           text-anchor="middle"
-          font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+          font-family="${WATERMARK_FONT_FAMILY}"
           font-size="${Math.round(fontSize * 0.96)}"
-          font-weight="900"
+          font-weight="700"
           fill="#FFFFFF"
           fill-opacity="0.96">Z</text>
       </g>
       <text x="${textX}" y="${textY}"
         text-anchor="start"
-        font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+        font-family="${WATERMARK_FONT_FAMILY}"
         font-size="${fontSize}"
-        font-weight="760"
-        letter-spacing="0"
+        font-weight="700"
         fill="#FFFFFF"
         fill-opacity="0.84">Made with Zeylora AI</text>
     </svg>
@@ -284,11 +291,14 @@ async function createSafePreviewFallback(input: Buffer, originalError: unknown):
     const subFontSize = clamp(Math.round(fontSize * 0.26), 11, 20);
     const overlay = Buffer.from(`
       <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          ${getWatermarkFontCss()}
+        </defs>
         <rect x="${Math.round(width * 0.1)}" y="${Math.round(height * 0.42)}" width="${Math.round(width * 0.8)}" height="${Math.round(height * 0.16)}" rx="${Math.round(fontSize * 0.32)}" fill="#050712" fill-opacity="0.42"/>
         <text x="${Math.round(width / 2)}" y="${Math.round(height * 0.505)}" text-anchor="middle"
-          font-family="Arial, Helvetica, sans-serif" font-size="${fontSize}" font-weight="900" fill="#FFFFFF" fill-opacity="0.32">ZEYLORA PREVIEW</text>
+          font-family="${WATERMARK_FONT_FAMILY}" font-size="${fontSize}" font-weight="700" fill="#FFFFFF" fill-opacity="0.32">ZEYLORA PREVIEW</text>
         <text x="${Math.round(width / 2)}" y="${Math.round(height * 0.545)}" text-anchor="middle"
-          font-family="Arial, Helvetica, sans-serif" font-size="${subFontSize}" font-weight="700" fill="#20D3FF" fill-opacity="0.82">BRANDED PREVIEW EXPORT</text>
+          font-family="${WATERMARK_FONT_FAMILY}" font-size="${subFontSize}" font-weight="700" fill="#20D3FF" fill-opacity="0.82">BRANDED PREVIEW EXPORT</text>
       </svg>
     `);
 
@@ -387,6 +397,33 @@ async function getAverageLuminance(input: Buffer) {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
+}
+
+function getWatermarkFontCss() {
+  if (cachedWatermarkFontCss !== undefined) {
+    return cachedWatermarkFontCss;
+  }
+
+  try {
+    const fontBase64 = readFileSync(WATERMARK_FONT_PATH).toString("base64");
+    cachedWatermarkFontCss = `
+      <style>
+        @font-face {
+          font-family: "ZeyloraPreviewFont";
+          src: url("data:font/truetype;charset=utf-8;base64,${fontBase64}") format("truetype");
+          font-weight: 400 900;
+          font-style: normal;
+        }
+      </style>
+    `;
+    return cachedWatermarkFontCss;
+  } catch (error) {
+    logPreviewProtection("watermark_font_embed_failed", {
+      errorMessage: error instanceof Error ? error.message : "Unknown font embed error."
+    });
+    cachedWatermarkFontCss = "";
+    return cachedWatermarkFontCss;
+  }
 }
 
 function logPreviewProtection(event: string, payload: Record<string, unknown>) {
