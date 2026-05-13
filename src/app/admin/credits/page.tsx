@@ -32,7 +32,7 @@ export default async function AdminCreditsPage() {
           description="Admin ayarları, paid clean export kesintileri, refund ve purchase kayıtları burada görünür."
         >
           <AdminTable>
-            <table className="min-w-[900px] w-full divide-y divide-white/10 text-sm">
+            <table className="min-w-[1180px] w-full divide-y divide-white/10 text-sm">
               <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
                 <tr>
                   <th className="px-4 py-3">Kullanıcı</th>

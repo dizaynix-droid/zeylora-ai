@@ -13,10 +13,10 @@ export function AdminMetricCard({
   note?: string;
 }) {
   return (
-    <Card className="p-5">
-      <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan">{label}</p>
-      <p className="mt-3 text-3xl font-black text-white">{value}</p>
-      {note ? <p className="mt-2 text-sm leading-6 text-slate-400">{note}</p> : null}
+    <Card className="p-4">
+      <p className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan">{label}</p>
+      <p className="mt-2 text-2xl font-black text-white md:text-3xl">{value}</p>
+      {note ? <p className="mt-1 text-xs leading-5 text-slate-400">{note}</p> : null}
     </Card>
   );
 }
@@ -33,15 +33,15 @@ export function AdminSection({
   action?: ReactNode;
 }) {
   return (
-    <Card className="p-5 md:p-6">
+    <Card className="p-4 md:p-5">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
-          <h2 className="text-xl font-black text-white">{title}</h2>
+          <h2 className="text-lg font-black text-white md:text-xl">{title}</h2>
           {description ? <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">{description}</p> : null}
         </div>
         {action}
       </div>
-      <div className="mt-5">{children}</div>
+      <div className="mt-4">{children}</div>
     </Card>
   );
 }
@@ -63,7 +63,7 @@ export function AdminStatusPill({ children, tone = "neutral" }: { children: Reac
 }
 
 export function AdminTable({ children }: { children: ReactNode }) {
-  return <div className="overflow-x-auto rounded-2xl border border-white/10">{children}</div>;
+  return <div className="w-full overflow-x-auto rounded-2xl border border-white/10 bg-[#080d1f]/55">{children}</div>;
 }
 
 export function AdminLinkButton({ href, children }: { href: string; children: ReactNode }) {

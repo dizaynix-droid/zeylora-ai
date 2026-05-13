@@ -13,7 +13,7 @@ export default async function AdminLogsPage() {
     <AppShell area="admin" title="Audit kayıtları" description="Önemli admin aksiyonları ve sistem değişiklikleri.">
       <AdminSection title="Admin audit trail" description="Kredi ve tool değişiklikleri burada kayıt altında tutulur.">
         <AdminTable>
-          <table className="min-w-[820px] w-full divide-y divide-white/10 text-sm">
+          <table className="min-w-[1040px] w-full divide-y divide-white/10 text-sm">
             <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
               <tr>
                 <th className="px-4 py-3">Admin</th>

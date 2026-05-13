@@ -13,7 +13,7 @@ export default async function AdminJobsPage() {
     <AppShell area="admin" title="AI işlem kayıtları" description="Tüm tool run, provider, hata ve export kayıtlarını izle.">
       <AdminSection title="Recent jobs" description="Silme yok; sorunlu kayıtlar incelenir ve soft-delete politikası korunur.">
         <AdminTable>
-          <table className="min-w-[980px] w-full divide-y divide-white/10 text-sm">
+          <table className="min-w-[1280px] w-full divide-y divide-white/10 text-sm">
             <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
               <tr>
                 <th className="px-4 py-3">Araç</th>

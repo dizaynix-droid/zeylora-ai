@@ -17,11 +17,11 @@ export default async function AdminPage() {
       title="Yönetim merkezi"
       description="Krediler, fiyatlama, kullanıcılar, araç ekonomisi ve lansman ayarları için güvenli operasyon paneli."
     >
-      <div className="mb-5 rounded-2xl border border-cyan/20 bg-cyan/10 p-4 text-sm font-semibold text-cyan">
+      <div className="mb-4 rounded-2xl border border-cyan/20 bg-cyan/10 px-4 py-3 text-sm font-semibold text-cyan">
         Admin girişi: {admin.email} ({admin.source === "role" ? "rol" : "email whitelist"})
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+      <div className="grid gap-3 md:grid-cols-3 2xl:grid-cols-6">
         <AdminMetricCard label="Kullanıcı" value={data.metrics.totalUsers} note="Toplam kayıtlı hesap" />
         <AdminMetricCard label="İşlem" value={data.metrics.totalJobs} note="Tüm AI job kayıtları" />
         <AdminMetricCard label="Tamamlanan" value={data.metrics.completedJobs} note="Başarılı export akışı" />
@@ -30,19 +30,20 @@ export default async function AdminPage() {
         <AdminMetricCard label="Export" value={data.metrics.recentExports} note="Completed job adedi" />
       </div>
 
-      <div className="mt-5 grid gap-5 xl:grid-cols-[1.2fr_.8fr]">
+      <div className="mt-4">
         <AdminSection
           title="Son işlemler"
           description="Job durumu, sağlayıcı, araç ve kullanıcı ilişkisini hızlıca kontrol et."
           action={<AdminLinkButton href="/admin/jobs">Tüm işlemler</AdminLinkButton>}
         >
           <AdminTable>
-            <table className="min-w-full divide-y divide-white/10 text-sm">
+            <table className="min-w-[1180px] w-full divide-y divide-white/10 text-sm">
               <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
                 <tr>
                   <th className="px-4 py-3">Araç</th>
                   <th className="px-4 py-3">Durum</th>
                   <th className="px-4 py-3">Kullanıcı</th>
+                  <th className="px-4 py-3">Provider</th>
                   <th className="px-4 py-3">Kredi</th>
                   <th className="px-4 py-3">Tarih</th>
                 </tr>
@@ -53,23 +54,26 @@ export default async function AdminPage() {
                     <td className="px-4 py-3 font-bold text-white">{job.tool.name}</td>
                     <td className="px-4 py-3"><JobStatusPill status={job.status} /></td>
                     <td className="px-4 py-3 text-slate-300">{job.user?.email || "-"}</td>
+                    <td className="px-4 py-3 text-slate-300">{job.providerKey}</td>
                     <td className="px-4 py-3 text-slate-300">{job.creditCost}</td>
                     <td className="px-4 py-3 text-slate-400">{formatAdminDate(job.createdAt)}</td>
                   </tr>
                 ))}
                 {data.recentJobs.length === 0 ? (
-                  <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">Henüz işlem yok.</td></tr>
+                  <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">Henüz işlem yok.</td></tr>
                 ) : null}
               </tbody>
             </table>
           </AdminTable>
         </AdminSection>
+      </div>
 
+      <div className="mt-4">
         <AdminSection
           title="Operasyon modülleri"
           description="Phase 2 admin temeli. Her modül genişletilebilir şekilde ayrıldı."
         >
-          <div className="grid gap-3">
+          <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
             {operationModules.map(({ title, description, Icon, href }) => (
               <a key={title} href={href} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-3 transition hover:bg-white/10">
                 <span className="grid size-10 place-items-center rounded-xl bg-cyan/10 text-cyan">

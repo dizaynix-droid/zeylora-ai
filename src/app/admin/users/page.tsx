@@ -21,7 +21,7 @@ export default async function AdminUsersPage() {
         description="Manuel kredi ekleme/çıkarma işlemleri audit log ve credit transaction olarak kaydedilir."
       >
         <AdminTable>
-          <table className="min-w-[980px] w-full divide-y divide-white/10 text-sm">
+          <table className="min-w-[1280px] w-full divide-y divide-white/10 text-sm">
             <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
               <tr>
                 <th className="px-4 py-3">Email</th>
