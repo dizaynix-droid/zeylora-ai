@@ -1,6 +1,8 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { getCurrentSessionUser } from "@/lib/auth/current-user";
+import { createClient } from "@/lib/supabase/server";
+import { adminPerfNow, logAdminPerf } from "@/lib/admin/perf";
 
 export type AdminSession = {
   id: string;
@@ -10,15 +12,69 @@ export type AdminSession = {
 };
 
 export async function requireAdmin(): Promise<AdminSession> {
-  const sessionUser = await getCurrentSessionUser();
+  const admin = await resolveAdminSession();
 
-  if (!sessionUser?.email) {
+  if (!admin) {
     redirect(`/auth/sign-in?next=${encodeURIComponent("/admin")}`);
   }
 
+  return admin;
+}
+
+const resolveAdminSession = cache(async (): Promise<AdminSession | null> => {
+  const startedAt = adminPerfNow();
+  const supabase = await createClient();
+
+  if (!supabase) {
+    logAdminPerf("admin.auth", {
+      totalMs: `${adminPerfNow() - startedAt}ms`,
+      status: "missing_supabase"
+    });
+    return null;
+  }
+
+  const claimsStartedAt = adminPerfNow();
+  const { data, error } = await supabase.auth.getClaims();
+  const claimsMs = adminPerfNow() - claimsStartedAt;
+  const claims = data?.claims;
+  const email = typeof claims?.email === "string" ? claims.email : null;
+  const id = typeof claims?.sub === "string" ? claims.sub : null;
+
+  if (error || !email || !id) {
+    logAdminPerf("admin.auth", {
+      claimsMs: `${claimsMs}ms`,
+      dbMs: "0ms",
+      totalMs: `${adminPerfNow() - startedAt}ms`,
+      status: "unauthenticated",
+      error: error?.name
+    });
+    return null;
+  }
+
+  const normalizedEmail = email.toLowerCase();
+  const isWhitelisted = getAdminEmailWhitelist().includes(normalizedEmail);
+
+  if (isWhitelisted) {
+    logAdminPerf("admin.auth", {
+      claimsMs: `${claimsMs}ms`,
+      dbMs: "0ms",
+      totalMs: `${adminPerfNow() - startedAt}ms`,
+      source: "email_whitelist",
+      dbSkipped: true
+    });
+
+    return {
+      id,
+      email,
+      role: "ADMIN",
+      source: "email_whitelist"
+    };
+  }
+
+  const dbStartedAt = adminPerfNow();
   const user = await prisma.user.findFirst({
     where: {
-      OR: [{ id: sessionUser.id }, { email: sessionUser.email }],
+      OR: [{ id }, { email }],
       deletedAt: null
     },
     select: {
@@ -28,11 +84,17 @@ export async function requireAdmin(): Promise<AdminSession> {
       status: true
     }
   });
-
-  const normalizedEmail = sessionUser.email.toLowerCase();
-  const isWhitelisted = getAdminEmailWhitelist().includes(normalizedEmail);
+  const dbMs = adminPerfNow() - dbStartedAt;
 
   if (user?.role === "ADMIN" && user.status === "ACTIVE") {
+    logAdminPerf("admin.auth", {
+      claimsMs: `${claimsMs}ms`,
+      dbMs: `${dbMs}ms`,
+      totalMs: `${adminPerfNow() - startedAt}ms`,
+      source: "role",
+      dbSkipped: false
+    });
+
     return {
       id: user.id,
       email: user.email,
@@ -41,21 +103,25 @@ export async function requireAdmin(): Promise<AdminSession> {
     };
   }
 
-  if (isWhitelisted) {
-    return {
-      id: user?.id ?? sessionUser.id,
-      email: user?.email ?? sessionUser.email,
-      role: "ADMIN",
-      source: "email_whitelist"
-    };
-  }
-
+  logAdminPerf("admin.auth", {
+    claimsMs: `${claimsMs}ms`,
+    dbMs: `${dbMs}ms`,
+    totalMs: `${adminPerfNow() - startedAt}ms`,
+    status: "forbidden",
+    dbSkipped: false
+  });
   redirect("/dashboard");
-}
+});
 
 export function getAdminEmailWhitelist() {
-  return (process.env.ZEYLORA_ADMIN_EMAILS || "")
+  if (!adminEmailWhitelist) {
+    adminEmailWhitelist = (process.env.ZEYLORA_ADMIN_EMAILS || "")
     .split(",")
     .map((email) => email.trim().toLowerCase())
     .filter(Boolean);
+  }
+
+  return adminEmailWhitelist;
 }
+
+let adminEmailWhitelist: string[] | null = null;
