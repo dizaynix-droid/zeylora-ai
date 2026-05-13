@@ -1,15 +1,33 @@
-import type { Metadata } from "next";
 import { LegalPage } from "@/components/legal/legal-page";
 import { appConfig } from "@/config/app";
-import { createMetadata } from "@/lib/seo";
+import { createCmsPageMetadata, getPublishedCmsPage } from "@/lib/cms/pages";
 
-export const metadata: Metadata = createMetadata({
-  title: "Terms of Service",
-  description: "Terms for using Zeylora AI uploads, AI edits, free watermarked previews, paid credits, and clean exports.",
-  path: "/terms"
-});
+const fallbackTitle = "Terms of Service";
+const fallbackDescription = "Terms for using Zeylora AI uploads, AI edits, free watermarked previews, paid credits, and clean exports.";
 
-export default function TermsPage() {
+export function generateMetadata() {
+  return createCmsPageMetadata({
+    slug: "terms",
+    fallbackTitle,
+    fallbackDescription,
+    path: "/terms"
+  });
+}
+
+export default async function TermsPage() {
+  const cmsPage = await getPublishedCmsPage("terms");
+  if (cmsPage) {
+    return (
+      <LegalPage
+        eyebrow="Terms"
+        title={cmsPage.title}
+        description={cmsPage.metaDescription}
+        bodyMarkdown={cmsPage.bodyMarkdown}
+        lastUpdated={cmsPage.updatedAt}
+      />
+    );
+  }
+
   return (
     <LegalPage
       eyebrow="Terms"

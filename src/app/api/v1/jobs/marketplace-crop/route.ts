@@ -84,7 +84,11 @@ export async function POST(request: Request) {
   }
 
   const tool = await ensureMarketplaceCropTool();
-  let creditPlan = createJobCreditPlan(user, marketplaceCropConfig.creditCost);
+  if (tool.status !== ToolStatus.ACTIVE) {
+    return NextResponse.json({ ok: false, error: "Marketplace Crop is not active yet." }, { status: 409 });
+  }
+  const toolCreditCost = tool.creditCost ?? marketplaceCropConfig.creditCost;
+  let creditPlan = createJobCreditPlan(user, toolCreditCost);
 
   const job = await prisma.aiJob.create({
     data: {
@@ -93,7 +97,7 @@ export async function POST(request: Request) {
       providerKey: marketplaceCropConfig.providerKey,
       status: JobStatus.PENDING,
       inputImageId: inputMedia.id,
-      creditCost: marketplaceCropConfig.creditCost,
+      creditCost: toolCreditCost,
       maxRetries: marketplaceCropConfig.maxRetries,
       toolVersion: tool.version
     }
@@ -103,7 +107,7 @@ export async function POST(request: Request) {
     inputMediaId: inputMedia.id,
     toolKey: marketplaceCropConfig.toolKey,
     targetFormat,
-    creditCost: marketplaceCropConfig.creditCost,
+    creditCost: toolCreditCost,
     creditEnforcementActive: true,
     exportMode: creditPlan.exportMode,
     creditBalanceBefore: creditPlan.balanceBefore
@@ -334,7 +338,6 @@ async function ensureMarketplaceCropTool() {
       }
     },
     update: {
-      status: ToolStatus.ACTIVE,
       deletedAt: null
     },
     create: {
@@ -375,7 +378,9 @@ async function ensureMarketplaceCropTool() {
     },
     select: {
       id: true,
-      version: true
+      version: true,
+      status: true,
+      creditCost: true
     }
   });
 }

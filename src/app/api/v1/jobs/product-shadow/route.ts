@@ -84,7 +84,11 @@ export async function POST(request: Request) {
   }
 
   const tool = await ensureProductShadowTool();
-  let creditPlan = createJobCreditPlan(user, productShadowConfig.creditCost);
+  if (tool.status !== ToolStatus.ACTIVE) {
+    return NextResponse.json({ ok: false, error: "Product Shadow is not active yet." }, { status: 409 });
+  }
+  const toolCreditCost = tool.creditCost ?? productShadowConfig.creditCost;
+  let creditPlan = createJobCreditPlan(user, toolCreditCost);
 
   const job = await prisma.aiJob.create({
     data: {
@@ -93,7 +97,7 @@ export async function POST(request: Request) {
       providerKey: productShadowConfig.providerKey,
       status: JobStatus.PENDING,
       inputImageId: inputMedia.id,
-      creditCost: productShadowConfig.creditCost,
+      creditCost: toolCreditCost,
       maxRetries: productShadowConfig.maxRetries,
       toolVersion: tool.version
     }
@@ -103,7 +107,7 @@ export async function POST(request: Request) {
     inputMediaId: inputMedia.id,
     toolKey: productShadowConfig.toolKey,
     shadowPreset,
-    creditCost: productShadowConfig.creditCost,
+    creditCost: toolCreditCost,
     creditEnforcementActive: true,
     exportMode: creditPlan.exportMode,
     creditBalanceBefore: creditPlan.balanceBefore
@@ -336,7 +340,6 @@ async function ensureProductShadowTool() {
       }
     },
     update: {
-      status: ToolStatus.ACTIVE,
       deletedAt: null
     },
     create: {
@@ -377,7 +380,9 @@ async function ensureProductShadowTool() {
     },
     select: {
       id: true,
-      version: true
+      version: true,
+      status: true,
+      creditCost: true
     }
   });
 }

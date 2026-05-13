@@ -30,10 +30,30 @@ export default async function PricingPage() {
             Preview edits with Zeylora branding, then use credits to unlock watermark-free clean exports for your store, marketplace, or ad creative.
           </p>
 
-          <div className="mt-8 grid gap-4 md:grid-cols-3">
+          <div className="mt-6 grid gap-3 md:grid-cols-3">
+            {[
+              ["Free preview", "Generate branded previews before spending credits."],
+              ["Clean export", "Credits are spent only when you unlock a watermark-free file."],
+              ["Re-downloads", "Unlocked clean exports can be downloaded again without another charge."]
+            ].map(([label, copy]) => (
+              <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.045] p-4">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan">{label}</p>
+                <p className="mt-2 text-sm leading-6 text-slate-300">{copy}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {creditPackages.map((pack) => (
               <Card key={pack.key} className={pack.highlight ? "premium-ring p-6" : "p-6"}>
-                <h2 className="text-2xl font-black text-white">{pack.name}</h2>
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="text-2xl font-black text-white">{pack.name}</h2>
+                  {pack.badgeText ? (
+                    <span className="rounded-full bg-cyan px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-ink">
+                      {pack.badgeText}
+                    </span>
+                  ) : null}
+                </div>
                 <p className="mt-3 min-h-12 text-sm leading-6 text-slate-300">{pack.description}</p>
                 <p className="mt-6 text-5xl font-black text-white">${pack.price}</p>
                 <p className="mt-2 font-bold text-cyan">
@@ -48,6 +68,24 @@ export default async function PricingPage() {
               </Card>
             ))}
           </div>
+
+          <Card className="mt-6 p-6">
+            <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-center">
+              <div>
+                <p className="text-sm font-black uppercase tracking-[0.16em] text-cyan">Need more credits?</p>
+                <h2 className="mt-2 text-2xl font-black text-white">Bulk credits for catalog teams and larger sellers.</h2>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
+                  For bigger Shopify, Amazon, Etsy, or TikTok Shop production runs, contact us for a custom credit package.
+                </p>
+              </div>
+              <a
+                href="/contact"
+                className="inline-flex h-11 items-center justify-center rounded-full border border-cyan/30 bg-cyan/10 px-5 text-sm font-black text-cyan transition hover:bg-cyan/15"
+              >
+                Contact us for bulk credits
+              </a>
+            </div>
+          </Card>
         </section>
       </main>
       <SiteFooter />

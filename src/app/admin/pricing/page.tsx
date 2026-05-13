@@ -2,7 +2,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { AdminSection, AdminStatusPill, AdminTable, formatAdminDate } from "@/components/admin/admin-ui";
 import { requireAdmin } from "@/lib/admin/auth";
 import { getAdminPricingData } from "@/lib/admin/data";
-import { updateCreditPackageAction } from "@/lib/admin/actions";
+import { syncLaunchCreditPackagesAction, updateCreditPackageAction } from "@/lib/admin/actions";
 import { adminPerfNow, logAdminPerf } from "@/lib/admin/perf";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +30,13 @@ export default async function AdminPricingPage() {
       <AdminSection
         title="Credit packs"
         description="Public pricing artık DB-backed paket yapısına hazır. Stripe price ID alanı ödeme entegrasyonu için saklanır."
+        action={
+          <form action={syncLaunchCreditPackagesAction}>
+            <button className="h-10 rounded-full border border-cyan/30 bg-cyan/10 px-4 text-sm font-black text-cyan transition hover:bg-cyan/15">
+              Sync launch packages
+            </button>
+          </form>
+        }
       >
         <AdminTable>
           <table className="min-w-[1180px] w-full divide-y divide-white/10 text-sm">
@@ -45,7 +52,7 @@ export default async function AdminPricingPage() {
             </thead>
             <tbody className="divide-y divide-white/10">
               {packages.map((pack) => {
-                const isDbRecord = !["starter", "creator", "pro-seller"].includes(pack.id);
+                const isDbRecord = !["starter", "creator", "pro-seller", "business"].includes(pack.id);
                 return (
                   <tr key={pack.id} className="align-top">
                     <td className="px-4 py-4">
@@ -62,6 +69,11 @@ export default async function AdminPricingPage() {
                         <form action={updateCreditPackageAction} className="grid gap-2">
                           <input type="hidden" name="packageId" value={pack.id} />
                           <input
+                            name="name"
+                            defaultValue={pack.name}
+                            className="h-10 rounded-xl border border-white/10 bg-white/5 px-3 text-sm font-bold text-white outline-none focus:border-cyan"
+                          />
+                          <input
                             name="credits"
                             type="number"
                             min="1"
@@ -76,6 +88,26 @@ export default async function AdminPricingPage() {
                             step="0.01"
                             defaultValue={Number(pack.price)}
                             className="h-10 rounded-xl border border-white/10 bg-white/5 px-3 text-sm font-bold text-white outline-none focus:border-cyan"
+                          />
+                          <input
+                            name="sortOrder"
+                            type="number"
+                            step="1"
+                            defaultValue={pack.sortOrder}
+                            className="h-10 rounded-xl border border-white/10 bg-white/5 px-3 text-sm font-bold text-white outline-none focus:border-cyan"
+                            placeholder="Sort order"
+                          />
+                          <input
+                            name="stripePriceId"
+                            defaultValue={pack.stripePriceId || ""}
+                            className="h-10 rounded-xl border border-white/10 bg-white/5 px-3 text-sm font-bold text-white outline-none focus:border-cyan"
+                            placeholder="stripe_price_id"
+                          />
+                          <input
+                            name="featureFlagKey"
+                            defaultValue={pack.featureFlagKey || ""}
+                            className="h-10 rounded-xl border border-white/10 bg-white/5 px-3 text-sm font-bold text-white outline-none focus:border-cyan"
+                            placeholder="pricing_pack_creator"
                           />
                           <select
                             name="status"

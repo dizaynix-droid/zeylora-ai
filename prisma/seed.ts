@@ -138,14 +138,26 @@ async function main() {
     }
   });
 
-  await prisma.creditPackage.createMany({
-    data: [
-      { name: "Starter", credits: 40, price: "9.00", currency: "usd", sortOrder: 1 },
-      { name: "Creator", credits: 120, price: "19.00", currency: "usd", sortOrder: 2 },
-      { name: "Pro Seller", credits: 320, price: "39.00", currency: "usd", sortOrder: 3 }
-    ],
-    skipDuplicates: true
-  });
+  for (const creditPackage of [
+    { name: "Starter", credits: 20, price: "19.00", currency: "usd", sortOrder: 1, featureFlagKey: "pricing_pack_starter" },
+    { name: "Creator", credits: 50, price: "39.00", currency: "usd", sortOrder: 2, featureFlagKey: "pricing_pack_creator" },
+    { name: "Pro Seller", credits: 120, price: "79.00", currency: "usd", sortOrder: 3, featureFlagKey: "pricing_pack_pro_seller" },
+    { name: "Business", credits: 260, price: "149.00", currency: "usd", sortOrder: 4, featureFlagKey: "pricing_pack_business" }
+  ]) {
+    const existing = await prisma.creditPackage.findFirst({
+      where: { name: creditPackage.name, deletedAt: null },
+      select: { id: true }
+    });
+
+    if (existing) {
+      await prisma.creditPackage.update({
+        where: { id: existing.id },
+        data: creditPackage
+      });
+    } else {
+      await prisma.creditPackage.create({ data: creditPackage });
+    }
+  }
 
   for (const tool of initialTools) {
     await prisma.aiTool.upsert({

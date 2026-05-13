@@ -1,15 +1,33 @@
-import type { Metadata } from "next";
 import { LegalPage } from "@/components/legal/legal-page";
 import { appConfig } from "@/config/app";
-import { createMetadata } from "@/lib/seo";
+import { createCmsPageMetadata, getPublishedCmsPage } from "@/lib/cms/pages";
 
-export const metadata: Metadata = createMetadata({
-  title: "Privacy Policy",
-  description: "How Zeylora AI handles uploads, AI processing, private storage, providers, and account data.",
-  path: "/privacy"
-});
+const fallbackTitle = "Privacy Policy";
+const fallbackDescription = "How Zeylora AI handles uploads, AI processing, private storage, providers, and account data.";
 
-export default function PrivacyPage() {
+export function generateMetadata() {
+  return createCmsPageMetadata({
+    slug: "privacy",
+    fallbackTitle,
+    fallbackDescription,
+    path: "/privacy"
+  });
+}
+
+export default async function PrivacyPage() {
+  const cmsPage = await getPublishedCmsPage("privacy");
+  if (cmsPage) {
+    return (
+      <LegalPage
+        eyebrow="Privacy"
+        title={cmsPage.title}
+        description={cmsPage.metaDescription}
+        bodyMarkdown={cmsPage.bodyMarkdown}
+        lastUpdated={cmsPage.updatedAt}
+      />
+    );
+  }
+
   return (
     <LegalPage
       eyebrow="Privacy"

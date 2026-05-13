@@ -178,7 +178,8 @@ export async function POST(request: Request) {
       { status: 409 }
     );
   }
-  let creditPlan = createJobCreditPlan(user, backgroundRemoverConfig.creditCost);
+  const toolCreditCost = tool.creditCost ?? backgroundRemoverConfig.creditCost;
+  let creditPlan = createJobCreditPlan(user, toolCreditCost);
 
   const job = await prisma.aiJob.create({
     data: {
@@ -187,7 +188,7 @@ export async function POST(request: Request) {
       providerKey: activeProviderKey,
       status: JobStatus.PENDING,
       inputImageId: inputMedia.id,
-      creditCost: backgroundRemoverConfig.creditCost,
+      creditCost: toolCreditCost,
       maxRetries: backgroundRemoverConfig.maxRetries,
       toolVersion: tool.version
     }
@@ -205,7 +206,7 @@ export async function POST(request: Request) {
 
   await createJobEvent(job.id, "job_created", "Background remover job created.", {
     inputMediaId: inputMedia.id,
-    creditCost: backgroundRemoverConfig.creditCost,
+    creditCost: toolCreditCost,
     creditEnforcementActive: true,
     exportMode: creditPlan.exportMode,
     creditBalanceBefore: creditPlan.balanceBefore

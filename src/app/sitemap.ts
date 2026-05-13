@@ -3,7 +3,7 @@ import { appConfig } from "@/config/app";
 import { initialTools } from "@/config/tools";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const staticRoutes = ["", "/pricing", "/tools", "/contact", "/privacy", "/terms", "/refund-policy"];
+  const staticRoutes = ["", "/pricing", "/tools", "/about", "/faq", "/contact", "/privacy", "/terms", "/refund-policy"];
   const now = new Date();
 
   return [

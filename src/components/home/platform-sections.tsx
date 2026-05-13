@@ -101,7 +101,7 @@ export function PlatformSections() {
           ))}
         </div>
 
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {creditPackages.map((pack) => (
             <Card
               key={pack.key}
@@ -109,8 +109,8 @@ export function PlatformSections() {
             >
               <div className="flex items-center justify-between">
                 <h3 className="text-xl font-black text-white">{pack.name}</h3>
-                {pack.highlight ? (
-                  <span className="rounded-full bg-cyan px-3 py-1 text-xs font-black text-ink">Popular</span>
+                {pack.badgeText ? (
+                  <span className="rounded-full bg-cyan px-3 py-1 text-xs font-black text-ink">{pack.badgeText}</span>
                 ) : null}
               </div>
               <p className="mt-3 text-sm leading-6 text-slate-300">{pack.description}</p>

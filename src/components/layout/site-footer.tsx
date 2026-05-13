@@ -5,6 +5,8 @@ import { brandIdentity } from "@/config/brand";
 import { marketingNav } from "@/config/navigation";
 
 const footerLinks = [
+  { label: "About", href: "/about" },
+  { label: "FAQ", href: "/faq" },
   { label: "Privacy", href: "/privacy" },
   { label: "Terms", href: "/terms" },
   { label: "Refund Policy", href: "/refund-policy" },

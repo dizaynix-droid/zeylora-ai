@@ -95,7 +95,8 @@ export async function POST(request: Request) {
   if (!tool) {
     return NextResponse.json({ ok: false, error: "Photo Enhancer is not active yet." }, { status: 409 });
   }
-  let creditPlan = createJobCreditPlan(user, photoEnhancerConfig.creditCost);
+  const toolCreditCost = tool.creditCost ?? photoEnhancerConfig.creditCost;
+  let creditPlan = createJobCreditPlan(user, toolCreditCost);
 
   const job = await prisma.aiJob.create({
     data: {
@@ -104,7 +105,7 @@ export async function POST(request: Request) {
       providerKey: photoEnhancerConfig.providerKey,
       status: JobStatus.PENDING,
       inputImageId: inputMedia.id,
-      creditCost: photoEnhancerConfig.creditCost,
+      creditCost: toolCreditCost,
       maxRetries: photoEnhancerConfig.maxRetries,
       toolVersion: tool.version
     }
@@ -113,7 +114,7 @@ export async function POST(request: Request) {
   await createJobEvent(job.id, "job_created", "Photo enhancer job created.", {
     inputMediaId: inputMedia.id,
     toolKey: photoEnhancerConfig.toolKey,
-    creditCost: photoEnhancerConfig.creditCost,
+    creditCost: toolCreditCost,
     creditEnforcementActive: true,
     exportMode: creditPlan.exportMode,
     creditBalanceBefore: creditPlan.balanceBefore

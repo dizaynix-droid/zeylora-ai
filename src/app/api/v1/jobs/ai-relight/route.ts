@@ -84,7 +84,11 @@ export async function POST(request: Request) {
   }
 
   const tool = await ensureAiRelightTool();
-  let creditPlan = createJobCreditPlan(user, aiRelightConfig.creditCost);
+  if (tool.status !== ToolStatus.ACTIVE) {
+    return NextResponse.json({ ok: false, error: "AI Relight is not active yet." }, { status: 409 });
+  }
+  const toolCreditCost = tool.creditCost ?? aiRelightConfig.creditCost;
+  let creditPlan = createJobCreditPlan(user, toolCreditCost);
 
   const job = await prisma.aiJob.create({
     data: {
@@ -93,7 +97,7 @@ export async function POST(request: Request) {
       providerKey: aiRelightConfig.providerKey,
       status: JobStatus.PENDING,
       inputImageId: inputMedia.id,
-      creditCost: aiRelightConfig.creditCost,
+      creditCost: toolCreditCost,
       maxRetries: aiRelightConfig.maxRetries,
       toolVersion: tool.version
     }
@@ -103,7 +107,7 @@ export async function POST(request: Request) {
     inputMediaId: inputMedia.id,
     toolKey: aiRelightConfig.toolKey,
     relightPreset,
-    creditCost: aiRelightConfig.creditCost,
+    creditCost: toolCreditCost,
     creditEnforcementActive: true,
     exportMode: creditPlan.exportMode,
     creditBalanceBefore: creditPlan.balanceBefore
@@ -370,7 +374,6 @@ async function ensureAiRelightTool() {
       }
     },
     update: {
-      status: ToolStatus.ACTIVE,
       deletedAt: null
     },
     create: {
@@ -411,7 +414,9 @@ async function ensureAiRelightTool() {
     },
     select: {
       id: true,
-      version: true
+      version: true,
+      status: true,
+      creditCost: true
     }
   });
 }

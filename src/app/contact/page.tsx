@@ -1,15 +1,33 @@
-import type { Metadata } from "next";
 import { LegalPage } from "@/components/legal/legal-page";
 import { appConfig } from "@/config/app";
-import { createMetadata } from "@/lib/seo";
+import { createCmsPageMetadata, getPublishedCmsPage } from "@/lib/cms/pages";
 
-export const metadata: Metadata = createMetadata({
-  title: "Contact",
-  description: "Contact Zeylora AI for support, privacy, refunds, provider issues, and launch questions.",
-  path: "/contact"
-});
+const fallbackTitle = "Contact";
+const fallbackDescription = "Contact Zeylora AI for support, privacy, refunds, provider issues, and launch questions.";
 
-export default function ContactPage() {
+export function generateMetadata() {
+  return createCmsPageMetadata({
+    slug: "contact",
+    fallbackTitle,
+    fallbackDescription,
+    path: "/contact"
+  });
+}
+
+export default async function ContactPage() {
+  const cmsPage = await getPublishedCmsPage("contact");
+  if (cmsPage) {
+    return (
+      <LegalPage
+        eyebrow="Contact"
+        title={cmsPage.title}
+        description={cmsPage.metaDescription}
+        bodyMarkdown={cmsPage.bodyMarkdown}
+        lastUpdated={cmsPage.updatedAt}
+      />
+    );
+  }
+
   return (
     <LegalPage
       eyebrow="Contact"

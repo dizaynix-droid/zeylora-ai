@@ -2,7 +2,7 @@ export type PricingBillingModel = "one_time_credits" | "subscription";
 export type PaymentProviderKey = "stripe" | "paddle" | "lemonsqueezy";
 
 export type CreditPackageConfig = {
-  key: "starter" | "creator" | "pro-seller";
+  key: "starter" | "creator" | "pro-seller" | "business";
   name: string;
   billingModel: PricingBillingModel;
   credits: number;
@@ -10,6 +10,7 @@ export type CreditPackageConfig = {
   price: number;
   currency: "USD";
   highlight: boolean;
+  badgeText?: string;
   description: string;
   audience: string;
   featureFlagKey: string;
@@ -21,13 +22,13 @@ export const creditPackages: CreditPackageConfig[] = [
     key: "starter",
     name: "Starter",
     billingModel: "one_time_credits",
-    credits: 40,
+    credits: 20,
     bonusCredits: 0,
-    price: 9,
+    price: 19,
     currency: "USD",
     highlight: false,
-    description: "Perfect for testing the studio with a few product photos.",
-    audience: "New sellers and light testing",
+    description: "A focused pack for testing premium product previews and exporting your first clean assets.",
+    audience: "New sellers and first product batches",
     featureFlagKey: "pricing_pack_starter",
     paymentProviderPriceIds: {}
   },
@@ -35,13 +36,14 @@ export const creditPackages: CreditPackageConfig[] = [
     key: "creator",
     name: "Creator",
     billingModel: "one_time_credits",
-    credits: 120,
-    bonusCredits: 10,
-    price: 19,
+    credits: 50,
+    bonusCredits: 0,
+    price: 39,
     currency: "USD",
     highlight: true,
-    description: "Best for creators, marketers, and frequent edits.",
-    audience: "Creators and small ecommerce teams",
+    badgeText: "Popular",
+    description: "A practical seller pack for recurring catalog edits, relights, crops, and clean exports.",
+    audience: "Shopify, Etsy, and TikTok Shop sellers",
     featureFlagKey: "pricing_pack_creator",
     paymentProviderPriceIds: {}
   },
@@ -49,14 +51,30 @@ export const creditPackages: CreditPackageConfig[] = [
     key: "pro-seller",
     name: "Pro Seller",
     billingModel: "one_time_credits",
-    credits: 320,
-    bonusCredits: 40,
-    price: 39,
+    credits: 120,
+    bonusCredits: 0,
+    price: 79,
     currency: "USD",
     highlight: false,
-    description: "For ecommerce sellers preparing larger product photo batches.",
-    audience: "High-volume product sellers",
+    badgeText: "Best Value",
+    description: "Built for larger product batches, marketplace listing refreshes, and ad creative production.",
+    audience: "Growing ecommerce stores",
     featureFlagKey: "pricing_pack_pro_seller",
+    paymentProviderPriceIds: {}
+  },
+  {
+    key: "business",
+    name: "Business",
+    billingModel: "one_time_credits",
+    credits: 260,
+    bonusCredits: 0,
+    price: 149,
+    currency: "USD",
+    highlight: false,
+    badgeText: "Scale",
+    description: "For operators and teams producing clean product visuals across marketplaces and paid channels.",
+    audience: "Agencies, catalog teams, and high-volume sellers",
+    featureFlagKey: "pricing_pack_business",
     paymentProviderPriceIds: {}
   }
 ] as const satisfies CreditPackageConfig[];

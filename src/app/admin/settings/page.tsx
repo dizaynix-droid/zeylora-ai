@@ -2,18 +2,40 @@ import { AppShell } from "@/components/layout/app-shell";
 import { AdminSection, AdminStatusPill } from "@/components/admin/admin-ui";
 import { businessFoundation } from "@/config/business";
 import { previewProtectionStrategy } from "@/config/preview-protection";
-import { updateMarketingTrackingSettingsAction } from "@/lib/admin/actions";
+import { updateMarketingTrackingSettingsAction, updateOperationalSettingsAction } from "@/lib/admin/actions";
 import { requireAdmin } from "@/lib/admin/auth";
 import { getMarketingTrackingSettings } from "@/lib/settings/marketing";
+import { getOperationalSettings } from "@/lib/settings/operations";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminSettingsPage() {
   await requireAdmin();
-  const tracking = await getMarketingTrackingSettings({ bypassCache: true });
+  const [tracking, operations] = await Promise.all([
+    getMarketingTrackingSettings({ bypassCache: true }),
+    getOperationalSettings({ bypassCache: true })
+  ]);
 
   return (
     <AppShell area="admin" title="Lansman ayarları" description="Preview, export, abuse protection ve launch configuration görünümü.">
+      <AdminSection title="Operational settings" description="Owner'ın sık değişen site ayarları. Public metadata/env fallback hâlâ korunur.">
+        <form action={updateOperationalSettingsAction} className="grid gap-4">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <TrackingInput label="Brand name" name="brandName" defaultValue={operations.brandName} placeholder="Zeylora AI" note="Admin-managed brand display value for future CMS-controlled surfaces." />
+            <TrackingInput label="Support email" name="supportEmail" defaultValue={operations.supportEmail} placeholder="support@zeylora.ai" note="Legal/contact and bulk-credit support address." />
+            <TrackingInput label="Default currency" name="defaultCurrency" defaultValue={operations.defaultCurrency} placeholder="USD" note="Default public pricing currency." />
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <ToggleSetting label="Maintenance mode" name="maintenanceMode" defaultChecked={operations.maintenanceMode} note="Future global maintenance switch." />
+            <ToggleSetting label="Clean exports" name="cleanExportsEnabled" defaultChecked={operations.cleanExportsEnabled} note="Controls future clean export availability." />
+            <ToggleSetting label="Checkout" name="checkoutEnabled" defaultChecked={operations.checkoutEnabled} note="Controls future paid checkout visibility." />
+          </div>
+          <button className="h-11 w-fit rounded-full bg-zeylora-brand px-5 text-sm font-black text-white shadow-glow transition hover:brightness-110">
+            Save operational settings
+          </button>
+        </form>
+      </AdminSection>
+      <div className="mt-5">
       <AdminSection title="Marketing & tracking" description="Reklam, analytics ve domain verification kodlarını kod değiştirmeden yönet. Sadece public tracking ID/meta content değerleri gir.">
         <form action={updateMarketingTrackingSettingsAction} className="grid gap-4">
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -57,6 +79,7 @@ export default async function AdminSettingsPage() {
           </div>
         </form>
       </AdminSection>
+      </div>
       <div className="mt-5">
       <AdminSection title="Export settings" description="Bu alan sonraki fazda DB-backed SiteSetting editörüne dönüşecek.">
         <div className="grid gap-3 md:grid-cols-2">
@@ -124,6 +147,28 @@ function TrackingTextarea({ label, name, defaultValue }: { label: string; name: 
 
 function TrackingStatus({ label, configured }: { label: string; configured: boolean }) {
   return <AdminStatusPill tone={configured ? "good" : "neutral"}>{label}: {configured ? "configured" : "missing"}</AdminStatusPill>;
+}
+
+function ToggleSetting({
+  label,
+  name,
+  defaultChecked,
+  note
+}: {
+  label: string;
+  name: string;
+  defaultChecked: boolean;
+  note: string;
+}) {
+  return (
+    <label className="rounded-2xl border border-white/10 bg-white/5 p-4">
+      <span className="flex items-center justify-between gap-3">
+        <span className="text-xs font-black uppercase tracking-[0.16em] text-cyan">{label}</span>
+        <input name={name} type="checkbox" defaultChecked={defaultChecked} className="size-4 accent-cyan" />
+      </span>
+      <span className="mt-2 block text-xs leading-5 text-slate-500">{note}</span>
+    </label>
+  );
 }
 
 function Setting({ label, value }: { label: string; value: string }) {

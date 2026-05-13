@@ -11,6 +11,7 @@ export type PublicCreditPackage = {
   price: number;
   currency: string;
   highlight: boolean;
+  badgeText?: string;
   description: string;
   audience: string;
   stripePriceId?: string | null;
@@ -54,6 +55,7 @@ export async function getCreditPackagesForDisplay(): Promise<PublicCreditPackage
           price: Number(pack.price),
           currency: pack.currency.toUpperCase(),
           highlight: Boolean(fallback?.highlight),
+          badgeText: fallback?.badgeText,
           description: fallback?.description ?? "Credit pack for clean watermark-free exports.",
           audience: fallback?.audience ?? "Product sellers and creators",
           stripePriceId: pack.stripePriceId,
@@ -78,6 +80,7 @@ export async function getCreditPackagesForDisplay(): Promise<PublicCreditPackage
     price: pack.price,
     currency: pack.currency,
     highlight: pack.highlight,
+    badgeText: pack.badgeText,
     description: pack.description,
     audience: pack.audience,
     stripePriceId: pack.paymentProviderPriceIds.stripe ?? null,

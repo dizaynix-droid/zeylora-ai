@@ -1,15 +1,33 @@
-import type { Metadata } from "next";
 import { LegalPage } from "@/components/legal/legal-page";
 import { appConfig } from "@/config/app";
-import { createMetadata } from "@/lib/seo";
+import { createCmsPageMetadata, getPublishedCmsPage } from "@/lib/cms/pages";
 
-export const metadata: Metadata = createMetadata({
-  title: "Refund Policy",
-  description: "Refund policy for Zeylora AI credit packs, paid clean exports, failed jobs, and support review.",
-  path: "/refund-policy"
-});
+const fallbackTitle = "Refund Policy";
+const fallbackDescription = "Refund policy for Zeylora AI credit packs, paid clean exports, failed jobs, and support review.";
 
-export default function RefundPolicyPage() {
+export function generateMetadata() {
+  return createCmsPageMetadata({
+    slug: "refund-policy",
+    fallbackTitle,
+    fallbackDescription,
+    path: "/refund-policy"
+  });
+}
+
+export default async function RefundPolicyPage() {
+  const cmsPage = await getPublishedCmsPage("refund-policy");
+  if (cmsPage) {
+    return (
+      <LegalPage
+        eyebrow="Refunds"
+        title={cmsPage.title}
+        description={cmsPage.metaDescription}
+        bodyMarkdown={cmsPage.bodyMarkdown}
+        lastUpdated={cmsPage.updatedAt}
+      />
+    );
+  }
+
   return (
     <LegalPage
       eyebrow="Refunds"
