@@ -1,6 +1,7 @@
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Card } from "@/components/ui/card";
+import type { ReactNode } from "react";
 
 type LegalSection = {
   title: string;
@@ -41,7 +42,7 @@ export function LegalPage({
           ) : null}
 
           <Card className="mt-8 p-5 md:p-8">
-            {bodyMarkdown ? <MarkdownLegalContent content={bodyMarkdown} /> : <StaticLegalSections sections={sections ?? []} />}
+            <MarkdownLegalContent content={bodyMarkdown || sectionsToMarkdown(sections ?? [])} />
           </Card>
         </section>
       </main>
@@ -50,47 +51,178 @@ export function LegalPage({
   );
 }
 
-function StaticLegalSections({ sections }: { sections: LegalSection[] }) {
-  return (
-    <div className="grid gap-8">
-      {sections.map((section) => (
-        <section key={section.title}>
-          <h2 className="text-xl font-black text-white">{section.title}</h2>
-          <div className="mt-3 grid gap-3">
-            {section.body.map((paragraph) => (
-              <p key={paragraph} className="text-sm leading-7 text-slate-300">
-                {paragraph}
-              </p>
-            ))}
-          </div>
-        </section>
-      ))}
-    </div>
-  );
-}
-
 function MarkdownLegalContent({ content }: { content: string }) {
-  const blocks = content.split(/\n{2,}/).map((block) => block.trim()).filter(Boolean);
+  const blocks = parseMarkdownBlocks(content);
 
   return (
-    <div className="grid gap-6">
+    <div className="mx-auto grid max-w-4xl gap-5">
       {blocks.map((block, index) => {
-        if (block.startsWith("## ")) {
-          return <h2 key={`${index}-${block}`} className="text-xl font-black text-white">{block.replace(/^##\s+/, "")}</h2>;
+        if (block.type === "heading") {
+          const HeadingTag = `h${block.level}` as "h1" | "h2" | "h3";
+          return (
+            <HeadingTag
+              key={`${index}-${block.text}`}
+              className={
+                block.level === 1
+                  ? "pt-1 text-2xl font-black tracking-tight text-white md:text-3xl"
+                  : block.level === 2
+                    ? "pt-2 text-xl font-black text-white md:text-2xl"
+                    : "pt-1 text-lg font-black text-white"
+              }
+            >
+              {renderInlineMarkdown(block.text)}
+            </HeadingTag>
+          );
         }
 
-        if (block.startsWith("- ")) {
+        if (block.type === "list") {
           return (
-            <ul key={`${index}-${block}`} className="grid gap-2 pl-5 text-sm leading-7 text-slate-300">
-              {block.split("\n").map((item) => (
-                <li key={item} className="list-disc">{item.replace(/^-\s+/, "")}</li>
+            <ul key={`${index}-${block.items.join("-")}`} className="grid gap-2 pl-5 text-sm leading-7 text-slate-300 md:text-base">
+              {block.items.map((item) => (
+                <li key={item} className="list-disc marker:text-cyan/80">
+                  {renderInlineMarkdown(item)}
+                </li>
               ))}
             </ul>
           );
         }
 
-        return <p key={`${index}-${block}`} className="text-sm leading-7 text-slate-300">{block}</p>;
+        return (
+          <p key={`${index}-${block.text}`} className="text-sm leading-7 text-slate-300 md:text-base md:leading-8">
+            {renderInlineMarkdown(block.text)}
+          </p>
+        );
       })}
     </div>
   );
+}
+
+type MarkdownBlock =
+  | { type: "heading"; level: 1 | 2 | 3; text: string }
+  | { type: "paragraph"; text: string }
+  | { type: "list"; items: string[] };
+
+function parseMarkdownBlocks(content: string): MarkdownBlock[] {
+  const normalized = normalizeMarkdown(content);
+  const lines = normalized.split("\n");
+  const blocks: MarkdownBlock[] = [];
+  let paragraph: string[] = [];
+  let listItems: string[] = [];
+
+  const flushParagraph = () => {
+    const text = paragraph.join(" ").replace(/\s+/g, " ").trim();
+    if (text) blocks.push({ type: "paragraph", text });
+    paragraph = [];
+  };
+
+  const flushList = () => {
+    if (listItems.length) blocks.push({ type: "list", items: listItems });
+    listItems = [];
+  };
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) {
+      flushParagraph();
+      flushList();
+      continue;
+    }
+
+    const heading = /^(#{1,3})\s+(.+)$/.exec(line);
+    if (heading) {
+      flushParagraph();
+      flushList();
+      blocks.push({
+        type: "heading",
+        level: Math.min(heading[1].length, 3) as 1 | 2 | 3,
+        text: heading[2].trim()
+      });
+      continue;
+    }
+
+    const bullet = /^[-*]\s+(.+)$/.exec(line);
+    if (bullet) {
+      flushParagraph();
+      listItems.push(bullet[1].trim());
+      continue;
+    }
+
+    flushList();
+    paragraph.push(line);
+  }
+
+  flushParagraph();
+  flushList();
+  return blocks;
+}
+
+function renderInlineMarkdown(text: string): ReactNode[] {
+  const nodes: ReactNode[] = [];
+  const pattern = /(\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(text))) {
+    if (match.index > lastIndex) {
+      nodes.push(text.slice(lastIndex, match.index));
+    }
+
+    const token = match[0];
+    if (token.startsWith("**")) {
+      nodes.push(
+        <strong key={`${match.index}-${token}`} className="font-black text-white">
+          {token.slice(2, -2)}
+        </strong>
+      );
+    } else {
+      const link = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(token);
+      if (link) {
+        const href = sanitizeMarkdownHref(link[2]);
+        nodes.push(
+          href ? (
+            <a
+              key={`${match.index}-${token}`}
+              href={href}
+              className="font-bold text-cyan underline decoration-cyan/30 underline-offset-4 transition hover:text-white"
+              rel={href.startsWith("http") ? "noopener noreferrer" : undefined}
+              target={href.startsWith("http") ? "_blank" : undefined}
+            >
+              {link[1]}
+            </a>
+          ) : (
+            link[1]
+          )
+        );
+      }
+    }
+
+    lastIndex = match.index + token.length;
+  }
+
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex));
+  }
+
+  return nodes;
+}
+
+function sanitizeMarkdownHref(rawHref: string) {
+  const href = rawHref.trim();
+  if (href.startsWith("/") || href.startsWith("#") || href.startsWith("mailto:")) return href;
+  if (/^https?:\/\//i.test(href)) return href;
+  return "";
+}
+
+function normalizeMarkdown(content: string) {
+  const hasEscapedNewlines = content.includes("\\n") && !content.includes("\n");
+  return (hasEscapedNewlines ? content.replace(/\\n/g, "\n") : content)
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .trim();
+}
+
+function sectionsToMarkdown(sections: LegalSection[]) {
+  return sections
+    .map((section) => [`## ${section.title}`, ...section.body].join("\n\n"))
+    .join("\n\n");
 }
