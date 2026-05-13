@@ -14,6 +14,16 @@ declare global {
     };
     plausible?: (event: string, options?: { props?: Record<string, unknown> }) => void;
     gtag?: (...args: unknown[]) => void;
+    fbq?: (...args: unknown[]) => void;
+    ttq?: { track?: (event: string, properties?: Record<string, unknown>) => void };
+    pintrk?: (...args: unknown[]) => void;
+    zeyloraTrack?: (event: string, properties?: Record<string, unknown>) => void;
+    zeyloraTrackSignup?: () => void;
+    zeyloraTrackLogin?: () => void;
+    zeyloraTrackPreviewGenerated?: () => void;
+    zeyloraTrackCleanExport?: () => void;
+    zeyloraTrackCheckoutStarted?: () => void;
+    zeyloraTrackPurchase?: (value?: number, currency?: string) => void;
   }
 }
 
@@ -39,6 +49,8 @@ export function trackEvent(payload: AnalyticsPayload) {
     window.gtag?.("event", payload.event, properties);
   }
 
+  fireMarketingPixels(payload.event, properties);
+
   if (process.env.NODE_ENV === "development") {
     console.info("[analytics-event]", { event: payload.event, properties });
   }
@@ -51,4 +63,31 @@ export function trackEvent(payload: AnalyticsPayload) {
       }
     })
   );
+}
+
+function fireMarketingPixels(event: string, properties: Record<string, unknown>) {
+  if (event === "page_view") {
+    window.fbq?.("track", "PageView");
+    return;
+  }
+
+  if (event === "signup") {
+    window.fbq?.("track", "CompleteRegistration", properties);
+  }
+
+  if (event === "checkout_started") {
+    window.fbq?.("track", "InitiateCheckout", properties);
+    window.ttq?.track?.("InitiateCheckout", properties);
+    window.pintrk?.("track", "checkout", properties);
+  }
+
+  if (event === "watermark_free_export") {
+    window.fbq?.("trackCustom", "CleanExport", properties);
+  }
+
+  if (event === "purchase") {
+    window.fbq?.("track", "Purchase", properties);
+    window.ttq?.track?.("CompletePayment", properties);
+    window.pintrk?.("track", "checkout", properties);
+  }
 }

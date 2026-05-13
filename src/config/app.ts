@@ -1,5 +1,5 @@
 export const appConfig = {
-  name: process.env.NEXT_PUBLIC_SITE_NAME || "Zeylora AI",
+  name: process.env.NEXT_PUBLIC_BRAND_NAME || process.env.NEXT_PUBLIC_SITE_NAME || "Zeylora AI",
   shortName: "Zeylora",
   description:
     "Zeylora AI is a cinematic AI photo editing platform for enhancing, restoring, transforming, and exporting professional-quality images with credits.",

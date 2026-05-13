@@ -5,6 +5,12 @@ import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin/auth";
 import { logAdminAction } from "@/lib/admin/audit";
 import { deleteDashboardCache } from "@/lib/dashboard/cache";
+import {
+  clearMarketingTrackingSettingsCache,
+  MARKETING_TRACKING_SETTING_KEY,
+  toMarketingTrackingJson,
+  type MarketingTrackingSettings
+} from "@/lib/settings/marketing";
 
 export async function adjustUserCreditsAction(formData: FormData) {
   const admin = await requireAdmin();
@@ -129,4 +135,59 @@ export async function updateCreditPackageAction(formData: FormData) {
   revalidatePath("/admin");
   revalidatePath("/admin/pricing");
   revalidatePath("/pricing");
+}
+
+export async function updateMarketingTrackingSettingsAction(formData: FormData) {
+  const admin = await requireAdmin();
+  const settings: MarketingTrackingSettings = {
+    ga4MeasurementId: getFormString(formData, "ga4MeasurementId"),
+    googleAdsConversionId: getFormString(formData, "googleAdsConversionId"),
+    googleAdsConversionLabel: getFormString(formData, "googleAdsConversionLabel"),
+    metaPixelId: getFormString(formData, "metaPixelId"),
+    tiktokPixelId: getFormString(formData, "tiktokPixelId"),
+    pinterestTagId: getFormString(formData, "pinterestTagId"),
+    googleSearchConsoleVerification: getFormString(formData, "googleSearchConsoleVerification"),
+    bingWebmasterVerification: getFormString(formData, "bingWebmasterVerification"),
+    facebookDomainVerification: getFormString(formData, "facebookDomainVerification"),
+    customHeadScript: getFormString(formData, "customHeadScript", 8000),
+    customBodyScript: getFormString(formData, "customBodyScript", 8000),
+    customScriptsEnabled: formData.get("customScriptsEnabled") === "on"
+  };
+
+  await prisma.siteSetting.upsert({
+    where: { key: MARKETING_TRACKING_SETTING_KEY },
+    update: { valueJson: toMarketingTrackingJson(settings) },
+    create: {
+      key: MARKETING_TRACKING_SETTING_KEY,
+      valueJson: toMarketingTrackingJson(settings)
+    }
+  });
+
+  clearMarketingTrackingSettingsCache();
+  await logAdminAction({
+    admin,
+    action: "settings.marketing_tracking.update",
+    entityType: "SiteSetting",
+    entityId: MARKETING_TRACKING_SETTING_KEY,
+    metadata: {
+      ga4: Boolean(settings.ga4MeasurementId),
+      googleAds: Boolean(settings.googleAdsConversionId),
+      metaPixel: Boolean(settings.metaPixelId),
+      tiktok: Boolean(settings.tiktokPixelId),
+      pinterest: Boolean(settings.pinterestTagId),
+      verificationTags: [
+        settings.googleSearchConsoleVerification ? "google" : null,
+        settings.bingWebmasterVerification ? "bing" : null,
+        settings.facebookDomainVerification ? "facebook" : null
+      ].filter(Boolean),
+      customScriptsEnabled: settings.customScriptsEnabled
+    }
+  });
+
+  revalidatePath("/", "layout");
+  revalidatePath("/admin/settings");
+}
+
+function getFormString(formData: FormData, key: string, maxLength = 240) {
+  return String(formData.get(key) || "").trim().slice(0, maxLength);
 }

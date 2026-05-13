@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { appConfig } from "@/config/app";
+import { MarketingBodyScripts, MarketingHeadTags } from "@/components/analytics/marketing-scripts";
 import { createMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createMetadata();
@@ -19,7 +20,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang={appConfig.defaultLocale}>
-      <body>{children}</body>
+      <head>
+        <MarketingHeadTags />
+      </head>
+      <body>
+        {children}
+        <MarketingBodyScripts />
+      </body>
     </html>
   );
 }

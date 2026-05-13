@@ -1,0 +1,112 @@
+import { unstable_noStore as noStore } from "next/cache";
+import type { Prisma } from "@prisma/client";
+import { prisma } from "@/lib/db";
+
+export const MARKETING_TRACKING_SETTING_KEY = "marketing_tracking";
+
+export type MarketingTrackingSettings = {
+  ga4MeasurementId: string;
+  googleAdsConversionId: string;
+  googleAdsConversionLabel: string;
+  metaPixelId: string;
+  tiktokPixelId: string;
+  pinterestTagId: string;
+  googleSearchConsoleVerification: string;
+  bingWebmasterVerification: string;
+  facebookDomainVerification: string;
+  customHeadScript: string;
+  customBodyScript: string;
+  customScriptsEnabled: boolean;
+};
+
+const emptyMarketingTrackingSettings: MarketingTrackingSettings = {
+  ga4MeasurementId: "",
+  googleAdsConversionId: "",
+  googleAdsConversionLabel: "",
+  metaPixelId: "",
+  tiktokPixelId: "",
+  pinterestTagId: "",
+  googleSearchConsoleVerification: "",
+  bingWebmasterVerification: "",
+  facebookDomainVerification: "",
+  customHeadScript: "",
+  customBodyScript: "",
+  customScriptsEnabled: false
+};
+
+let cachedSettings: { expiresAt: number; value: MarketingTrackingSettings } | null = null;
+const SETTINGS_CACHE_MS = 30_000;
+
+export async function getMarketingTrackingSettings(options: { bypassCache?: boolean } = {}) {
+  noStore();
+
+  if (!options.bypassCache && cachedSettings && cachedSettings.expiresAt > Date.now()) {
+    return cachedSettings.value;
+  }
+
+  try {
+    const setting = await prisma.siteSetting.findUnique({
+      where: { key: MARKETING_TRACKING_SETTING_KEY },
+      select: { valueJson: true }
+    });
+    const value = normalizeMarketingTrackingSettings(setting?.valueJson);
+    cachedSettings = {
+      expiresAt: Date.now() + SETTINGS_CACHE_MS,
+      value
+    };
+    return value;
+  } catch (error) {
+    if (process.env.NODE_ENV === "development") {
+      console.warn("[marketing-settings-fallback]", error instanceof Error ? error.message : error);
+    }
+    return emptyMarketingTrackingSettings;
+  }
+}
+
+export function normalizeMarketingTrackingSettings(value: unknown): MarketingTrackingSettings {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return emptyMarketingTrackingSettings;
+  }
+
+  const record = value as Record<string, unknown>;
+
+  return {
+    ga4MeasurementId: sanitizePublicId(record.ga4MeasurementId),
+    googleAdsConversionId: sanitizePublicId(record.googleAdsConversionId),
+    googleAdsConversionLabel: sanitizePublicId(record.googleAdsConversionLabel),
+    metaPixelId: sanitizePublicId(record.metaPixelId),
+    tiktokPixelId: sanitizePublicId(record.tiktokPixelId),
+    pinterestTagId: sanitizePublicId(record.pinterestTagId),
+    googleSearchConsoleVerification: sanitizeVerificationContent(record.googleSearchConsoleVerification),
+    bingWebmasterVerification: sanitizeVerificationContent(record.bingWebmasterVerification),
+    facebookDomainVerification: sanitizeVerificationContent(record.facebookDomainVerification),
+    customHeadScript: sanitizeCustomScript(record.customHeadScript),
+    customBodyScript: sanitizeCustomScript(record.customBodyScript),
+    customScriptsEnabled: record.customScriptsEnabled === true
+  };
+}
+
+export function toMarketingTrackingJson(settings: MarketingTrackingSettings): Prisma.InputJsonObject {
+  return {
+    ...settings
+  };
+}
+
+export function clearMarketingTrackingSettingsCache() {
+  cachedSettings = null;
+}
+
+function sanitizePublicId(value: unknown) {
+  if (typeof value !== "string") return "";
+  return value.trim().replace(/[<>"']/g, "").slice(0, 120);
+}
+
+function sanitizeVerificationContent(value: unknown) {
+  if (typeof value !== "string") return "";
+  return value.trim().replace(/[<>"]/g, "").slice(0, 240);
+}
+
+function sanitizeCustomScript(value: unknown) {
+  if (typeof value !== "string") return "";
+  return value.trim().slice(0, 8000);
+}
