@@ -19,17 +19,17 @@ export function AppShell({ title, description, area, children }: AppShellProps) 
   const isAdmin = area === "admin";
 
   return (
-    <main className={`min-h-screen bg-cinematic-depth ${area === "dashboard" ? "pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:pb-0" : ""}`}>
+    <main className={`min-h-screen overflow-x-hidden bg-cinematic-depth ${area === "dashboard" ? "pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:pb-0" : ""}`}>
       <div
         className={
           isAdmin
-            ? "mx-auto grid w-[min(100%-24px,1760px)] gap-5 py-4 md:w-[min(100%-32px,1760px)] md:py-6 xl:grid-cols-[250px_minmax(0,1fr)] xl:gap-6"
+            ? "mx-auto grid w-[calc(100%-24px)] max-w-[1760px] min-w-0 gap-5 py-4 md:w-[calc(100%-32px)] md:py-6 xl:grid-cols-[250px_minmax(0,1fr)] xl:gap-6"
             : "section-shell grid gap-4 py-4 md:py-8 lg:grid-cols-[260px_1fr] lg:gap-6"
         }
       >
         <aside className={area === "dashboard"
           ? "glass-panel fixed inset-x-3 bottom-3 z-40 h-fit rounded-2xl p-2 shadow-cinematic lg:sticky lg:inset-auto lg:top-6 lg:p-3"
-          : "glass-panel sticky top-2 z-40 h-fit rounded-2xl p-2 lg:top-6 lg:p-3"}
+          : "glass-panel sticky top-2 z-40 h-fit w-full max-w-full min-w-0 overflow-hidden rounded-2xl p-2 lg:top-6 lg:p-3"}
         >
           <Link href="/" className="hidden items-center gap-2 px-3 py-3 text-sm font-black text-white lg:flex">
             <Image
@@ -43,7 +43,7 @@ export function AppShell({ title, description, area, children }: AppShellProps) 
           </Link>
           <nav className={area === "dashboard"
             ? "grid grid-cols-5 gap-1 overflow-x-auto lg:mt-2 lg:grid-cols-1 lg:overflow-visible"
-            : "flex gap-1 overflow-x-auto pb-1 lg:mt-2 lg:grid lg:grid-cols-1 lg:overflow-visible lg:pb-0"}
+            : "flex w-full min-w-0 max-w-full gap-1 overflow-x-auto overscroll-x-contain pb-1 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] lg:mt-2 lg:grid lg:grid-cols-1 lg:overflow-visible lg:pb-0"}
           >
             {nav.map((item) => (
               <Link
@@ -81,12 +81,12 @@ export function AppShell({ title, description, area, children }: AppShellProps) 
           ) : null}
         </aside>
 
-        <section className="min-w-0">
+        <section className="min-w-0 overflow-hidden">
           <div className={isAdmin ? "mb-5 flex flex-col gap-3 2xl:flex-row 2xl:items-end 2xl:justify-between" : "mb-6"}>
             <div>
             <p className="eyebrow">{area === "admin" ? adminTr.shell.eyebrow : "Zeylora Workspace"}</p>
             <h1 className={isAdmin ? "mt-3 text-3xl font-black tracking-tight text-white md:text-4xl" : "mt-3 text-2xl font-black tracking-tight text-white md:mt-4 md:text-5xl"}>{title}</h1>
-            <p className={isAdmin ? "mt-2 max-w-4xl text-sm leading-6 text-slate-300 md:text-base" : "mt-2 max-w-2xl text-sm leading-6 text-slate-300 md:mt-3 md:text-base md:leading-7"}>{description}</p>
+            <p className={isAdmin ? "mt-2 max-w-4xl break-words text-sm leading-6 text-slate-300 md:text-base" : "mt-2 max-w-2xl text-sm leading-6 text-slate-300 md:mt-3 md:text-base md:leading-7"}>{description}</p>
             </div>
           </div>
           {children}
