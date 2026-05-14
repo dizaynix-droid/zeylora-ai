@@ -144,6 +144,7 @@ export default async function AdminReportsPage({
           </AdminTable>
         </AdminSection>
 
+        <div id="expenses">
         <AdminSection title="Manuel gider ekle" description="Reklam, SEO, sağlayıcı, yazılım, domain ve hosting giderlerini buradan işle.">
           <form action={upsertBusinessExpenseAction} className="grid gap-3">
             <input name="title" placeholder="Gider başlığı" className={inputClass} />
@@ -163,6 +164,7 @@ export default async function AdminReportsPage({
             </button>
           </form>
         </AdminSection>
+        </div>
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-2">

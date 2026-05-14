@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { creditPackages } from "@/config/pricing";
 import { adminPerfNow, logAdminPerf, measureAdminQuery } from "@/lib/admin/perf";
+import { getOperationalSettings } from "@/lib/settings/operations";
 import type { ExpenseCategory, Prisma } from "@prisma/client";
 
 const ADMIN_PAGE_SIZE = 25;
@@ -49,8 +50,16 @@ export async function getAdminOverviewData() {
 
 async function buildAdminOverviewData() {
   const startedAt = adminPerfNow();
+  const todayStart = startOfDay(new Date());
+  const todayEnd = endOfDay(new Date());
+  const yesterdayStart = startOfDay(new Date(todayStart.getTime() - 86_400_000));
+  const yesterdayEnd = endOfDay(yesterdayStart);
+  const last7Start = startOfDay(new Date(todayStart.getTime() - 6 * 86_400_000));
+  const last30Start = startOfDay(new Date(todayStart.getTime() - 29 * 86_400_000));
+  const monthStart = new Date(todayStart.getFullYear(), todayStart.getMonth(), 1);
+  const broadStart = new Date(Math.min(last30Start.getTime(), monthStart.getTime()));
   const cardsStartedAt = adminPerfNow();
-  const cardsPromise = Promise.all([
+  const overviewPromise = Promise.all([
     measureAdminQuery("overview.cards.users.count", prisma.user.count({ where: { deletedAt: null } })),
     measureAdminQuery(
       "overview.cards.jobs.statusGroup",
@@ -61,21 +70,94 @@ async function buildAdminOverviewData() {
       })
     ),
     measureAdminQuery(
-      "overview.cards.credits.used",
-      prisma.creditTransaction.aggregate({
-        where: { type: "USE" },
-        _sum: { amount: true }
+      "overview.payments.recent",
+      prisma.payment.findMany({
+        where: {
+          deletedAt: null,
+          status: "PAID",
+          createdAt: { gte: broadStart, lte: todayEnd }
+        },
+        select: { amount: true, creditsDelivered: true, createdAt: true }
       })
-    )
-  ]).then(([totalUsers, jobStatusCounts, creditsUsed]) => {
+    ),
+    measureAdminQuery(
+      "overview.jobs.completed.recent",
+      prisma.aiJob.findMany({
+        where: {
+          deletedAt: null,
+          status: "COMPLETED",
+          createdAt: { gte: broadStart, lte: todayEnd }
+        },
+        select: {
+          id: true,
+          providerKey: true,
+          createdAt: true,
+          tool: { select: { estimatedCostPerRun: true } }
+        }
+      })
+    ),
+    measureAdminQuery(
+      "overview.jobs.failed.today",
+      prisma.aiJob.count({
+        where: {
+          deletedAt: null,
+          status: "FAILED",
+          createdAt: { gte: todayStart, lte: todayEnd }
+        }
+      })
+    ),
+    measureAdminQuery(
+      "overview.credits.used.recent",
+      prisma.creditTransaction.findMany({
+        where: {
+          type: "USE",
+          createdAt: { gte: broadStart, lte: todayEnd }
+        },
+        select: { amount: true, createdAt: true }
+      })
+    ),
+    measureAdminQuery(
+      "overview.expenses.recent",
+      prisma.businessExpense.findMany({
+        where: {
+          deletedAt: null,
+          expenseDate: { gte: broadStart, lte: todayEnd }
+        },
+        select: { amount: true, expenseDate: true }
+      })
+    ),
+    measureAdminQuery(
+      "overview.tickets.open",
+      prisma.ticket.count({ where: { deletedAt: null, status: "OPEN" } })
+    ),
+    getAdminProvidersData(),
+    measureAdminQuery(
+      "overview.tools.activeCostWarnings",
+      prisma.aiTool.findMany({
+        where: { deletedAt: null, status: "ACTIVE" },
+        select: { name: true, slug: true, providerKey: true, estimatedCostPerRun: true }
+      })
+    ),
+    getOperationalSettings()
+  ]).then(([totalUsers, jobStatusCounts, payments, completedJobsInRange, failedJobsToday, creditUses, expenses, openTickets, providers, activeTools, operations]) => {
+    const providerDefaults = new Map(providers.map((provider) => [provider.providerKey, provider]));
     const completedJobs = getStatusCount(jobStatusCounts, "COMPLETED");
     const failedJobs = getStatusCount(jobStatusCounts, "FAILED");
     const totalJobs = jobStatusCounts.reduce((sum, item) => sum + item._count._all, 0);
+    const today = summarizeOverviewRange({ start: todayStart, end: todayEnd, payments, completedJobs: completedJobsInRange, creditUses, expenses, providerDefaults });
+    const yesterday = summarizeOverviewRange({ start: yesterdayStart, end: yesterdayEnd, payments, completedJobs: completedJobsInRange, creditUses, expenses, providerDefaults });
+    const last7 = summarizeOverviewRange({ start: last7Start, end: todayEnd, payments, completedJobs: completedJobsInRange, creditUses, expenses, providerDefaults });
+    const last30 = summarizeOverviewRange({ start: last30Start, end: todayEnd, payments, completedJobs: completedJobsInRange, creditUses, expenses, providerDefaults });
+    const thisMonth = summarizeOverviewRange({ start: monthStart, end: todayEnd, payments, completedJobs: completedJobsInRange, creditUses, expenses, providerDefaults });
+    const missingActiveCostTargets = buildMissingActiveCostWarnings(activeTools, providerDefaults);
+    const missingEnvProviders = providers.filter((provider) => provider.status === "ACTIVE" && !provider.configured);
 
     logAdminPerf("overview.cards", {
       duration: `${adminPerfNow() - cardsStartedAt}ms`,
-      queryCount: 3,
-      statusBuckets: jobStatusCounts.length
+      queryCount: 11,
+      statusBuckets: jobStatusCounts.length,
+      paymentCount: payments.length,
+      completedJobsInRange: completedJobsInRange.length
     });
 
     return {
@@ -83,7 +165,16 @@ async function buildAdminOverviewData() {
       totalJobs,
       completedJobs,
       failedJobs,
-      creditsUsed
+      failedJobsToday,
+      openTickets,
+      today,
+      yesterday,
+      last7,
+      last30,
+      thisMonth,
+      missingActiveCostTargets,
+      missingEnvProviders,
+      operations
     };
   });
   const recentJobsPromise = measureAdminQuery(
@@ -107,26 +198,29 @@ async function buildAdminOverviewData() {
     { take: 10 }
   );
 
-  const [{ totalUsers, totalJobs, completedJobs, failedJobs, creditsUsed }, recentJobs] = await Promise.all([
-    cardsPromise,
+  const [overview, recentJobs] = await Promise.all([
+    overviewPromise,
     recentJobsPromise
   ]);
   logAdminPerf("admin.overview.data", {
     duration: `${adminPerfNow() - startedAt}ms`,
-    queryCount: 4,
+    queryCount: 12,
     cacheHit: false,
     resultCount: recentJobs.length
   });
 
   return {
     metrics: {
-      totalUsers,
-      totalJobs,
-      completedJobs,
-      failedJobs,
-      creditsUsed: Math.abs(creditsUsed._sum.amount ?? 0),
-      recentExports: completedJobs
+      totalUsers: overview.totalUsers,
+      totalJobs: overview.totalJobs,
+      completedJobs: overview.completedJobs,
+      failedJobs: overview.failedJobs,
+      failedJobsToday: overview.failedJobsToday,
+      openTickets: overview.openTickets,
+      creditsUsed: overview.today.creditsUsed,
+      recentExports: overview.completedJobs
     },
+    cockpit: overview,
     recentJobs
   };
 }
@@ -619,10 +713,10 @@ export type AdminReportGrouping = "daily" | "weekly" | "monthly";
 
 const EXPENSE_CATEGORIES = ["ADS", "SEO", "PROVIDER", "SOFTWARE", "DESIGN", "DOMAIN", "HOSTING", "OTHER"] as const;
 const PROVIDER_RUNTIME_DEFAULTS = [
-  { providerKey: "replicate", name: "Replicate", providerType: "replicate", envKeyName: "REPLICATE_API_TOKEN", priority: 10 },
-  { providerKey: "photoroom", name: "PhotoRoom", providerType: "photoroom", envKeyName: "PHOTOROOM_API_KEY", priority: 20 },
-  { providerKey: "removebg", name: "remove.bg", providerType: "removebg", envKeyName: "REMOVEBG_API_KEY", priority: 30 },
-  { providerKey: "local-sharp", name: "Local Sharp", providerType: "local-sharp", envKeyName: "", priority: 40 }
+  { providerKey: "replicate", name: "Replicate", providerType: "replicate", envKeyName: "REPLICATE_API_TOKEN", priority: 10, defaultStatus: "ACTIVE" },
+  { providerKey: "photoroom", name: "PhotoRoom", providerType: "photoroom", envKeyName: "PHOTOROOM_API_KEY", priority: 20, defaultStatus: "ACTIVE" },
+  { providerKey: "removebg", name: "remove.bg", providerType: "removebg", envKeyName: "REMOVEBG_API_KEY", priority: 30, defaultStatus: "INACTIVE" },
+  { providerKey: "local-sharp", name: "Local Sharp", providerType: "local-sharp", envKeyName: "", priority: 40, defaultStatus: "ACTIVE" }
 ] as const;
 
 export async function getAdminProvidersData() {
@@ -661,7 +755,8 @@ export async function getAdminProvidersData() {
         providerType: db?.providerType || runtime.providerType,
         envKeyName: db?.envKeyName ?? runtime.envKeyName,
         configured: runtime.envKeyName ? Boolean(process.env[runtime.envKeyName]) : true,
-        status: db?.status || "INACTIVE",
+        status: db?.status || runtime.defaultStatus,
+        dbBacked: Boolean(db),
         dailyBudgetLimit: db?.dailyBudgetLimit || null,
         monthlyBudgetLimit: db?.monthlyBudgetLimit || null,
         monthlyBudgetUsed: db?.monthlyBudgetUsed || 0,
@@ -679,6 +774,7 @@ export async function getAdminProvidersData() {
       .map((provider) => ({
         ...provider,
         configured: provider.envKeyName ? Boolean(process.env[provider.envKeyName]) : false,
+        dbBacked: true,
         source: "db" as const
       }))
   ].sort((a, b) => a.priority - b.priority || a.providerKey.localeCompare(b.providerKey));
@@ -1126,6 +1222,36 @@ function createAdminCacheEntry<T>(value: T, ttlMs: number): AdminCacheEntry<T> {
 
 function getStatusCount<T extends { status: string; _count: { _all: number } }>(items: T[], status: string) {
   return items.find((item) => item.status === status)?._count._all ?? 0;
+}
+
+function summarizeOverviewRange(input: {
+  start: Date;
+  end: Date;
+  payments: Array<{ amount: unknown; creditsDelivered: number; createdAt: Date }>;
+  completedJobs: Array<{ providerKey: string | null; createdAt: Date; tool: { estimatedCostPerRun: unknown } | null }>;
+  creditUses: Array<{ amount: number; createdAt: Date }>;
+  expenses: Array<{ amount: unknown; expenseDate: Date }>;
+  providerDefaults: Map<string, { estimatedCostPerRun: unknown }>;
+}) {
+  const inRange = (date: Date) => date >= input.start && date <= input.end;
+  const payments = input.payments.filter((payment) => inRange(payment.createdAt));
+  const completedJobs = input.completedJobs.filter((job) => inRange(job.createdAt));
+  const creditUses = input.creditUses.filter((credit) => inRange(credit.createdAt));
+  const expenses = input.expenses.filter((expense) => inRange(expense.expenseDate));
+  const revenue = payments.reduce((sum, payment) => sum + decimalToNumber(payment.amount), 0);
+  const providerCost = completedJobs.reduce((sum, job) => sum + getJobEstimatedCost(job, input.providerDefaults), 0);
+  const manualExpenses = expenses.reduce((sum, expense) => sum + decimalToNumber(expense.amount), 0);
+
+  return {
+    revenue,
+    paymentCount: payments.length,
+    creditsSold: payments.reduce((sum, payment) => sum + (payment.creditsDelivered || 0), 0),
+    creditsUsed: Math.abs(creditUses.reduce((sum, credit) => sum + credit.amount, 0)),
+    cleanExports: creditUses.length,
+    providerCost,
+    manualExpenses,
+    netProfit: revenue - providerCost - manualExpenses
+  };
 }
 
 function normalizeReportRange(value: unknown): AdminReportRangeKey {

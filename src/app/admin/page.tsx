@@ -25,29 +25,49 @@ export default async function AdminPage() {
   return (
     <AppShell
       area="admin"
-      title="Yönetim merkezi"
-      description="Krediler, fiyatlama, kullanıcılar, araç ekonomisi ve lansman ayarları için güvenli operasyon paneli."
+      title="İş kokpiti"
+      description="Gelir, kâr, ödeme, kredi ve acil operasyon sinyalleri için owner dashboard."
     >
       <div className="mb-4 rounded-2xl border border-cyan/20 bg-cyan/10 px-4 py-3 text-sm font-semibold text-cyan">
         Admin girişi: {admin.email} ({admin.source === "role" ? "rol" : "email whitelist"})
       </div>
 
-      <div className="grid gap-3 md:grid-cols-3 2xl:grid-cols-6">
-        <AdminMetricCard label="Kullanıcı" value={data.metrics.totalUsers} note="Toplam kayıtlı hesap" />
-        <AdminMetricCard label="İşlem" value={data.metrics.totalJobs} note="Tüm AI job kayıtları" />
-        <AdminMetricCard label="Tamamlanan" value={data.metrics.completedJobs} note="Başarılı export akışı" />
-        <AdminMetricCard label="Hatalı" value={data.metrics.failedJobs} note="İncelenecek job sayısı" />
-        <AdminMetricCard label="Kredi Kullanımı" value={data.metrics.creditsUsed} note="Harcanan toplam kredi" />
-        <AdminMetricCard label="Export" value={data.metrics.recentExports} note="Tamamlanan işlem adedi" />
+      <div className="grid gap-3 md:grid-cols-3 2xl:grid-cols-5">
+        <AdminMetricCard label="Bugünkü gelir" value={formatCurrency(data.cockpit.today.revenue)} note={trendNote(data.cockpit.today.revenue, data.cockpit.yesterday.revenue)} />
+        <AdminMetricCard label="Bugünkü ödeme" value={data.cockpit.today.paymentCount} note={`Dünkü gelir: ${formatCurrency(data.cockpit.yesterday.revenue)}`} />
+        <AdminMetricCard label="Bugünkü net kâr" value={formatCurrency(data.cockpit.today.netProfit)} note="Gelir - provider maliyeti - gider" />
+        <AdminMetricCard label="Bu ay gelir" value={formatCurrency(data.cockpit.thisMonth.revenue)} note={`Son 7 gün: ${formatCurrency(data.cockpit.last7.revenue)}`} />
+        <AdminMetricCard label="Bu ay net kâr" value={formatCurrency(data.cockpit.thisMonth.netProfit)} note={`Son 30 gün: ${formatCurrency(data.cockpit.last30.revenue)}`} />
       </div>
 
-      <div className="mt-4 grid gap-2 md:grid-cols-5">
+      <div className="mt-3 grid gap-3 md:grid-cols-3 2xl:grid-cols-5">
+        <AdminMetricCard label="Bugün satılan kredi" value={data.cockpit.today.creditsSold} note="Başarılı ödemelerden" />
+        <AdminMetricCard label="Bugün kullanılan kredi" value={data.cockpit.today.creditsUsed} note="Clean export kullanımı" />
+        <AdminMetricCard label="Açık ticket" value={data.cockpit.openTickets} note="Owner yanıtı bekleyen talepler" />
+        <AdminMetricCard label="Bugün hatalı iş" value={data.cockpit.failedJobsToday} note="İncelenmesi gereken job" />
+        <AdminMetricCard label="Bugün clean export" value={data.cockpit.today.cleanExports} note="Kredi kesilen export sayısı" />
+      </div>
+
+      <div className="mt-4 grid gap-2 rounded-2xl border border-white/10 bg-white/[0.035] p-3 md:grid-cols-2 xl:grid-cols-3">
+        {buildAlerts(data).map((alert) => (
+          <a
+            key={alert.href + alert.label}
+            href={alert.href}
+            className={`rounded-2xl border px-4 py-3 text-sm font-black transition ${alert.tone === "bad" ? "border-rose-400/30 bg-rose-400/10 text-rose-100 hover:bg-rose-400/15" : alert.tone === "warn" ? "border-amber/30 bg-amber/10 text-amber hover:bg-amber/15" : "border-emerald/25 bg-emerald/10 text-emerald hover:bg-emerald/15"}`}
+          >
+            {alert.label}
+          </a>
+        ))}
+      </div>
+
+      <div className="mt-4 grid gap-2 md:grid-cols-3 2xl:grid-cols-6">
         {[
-          ["Kredi ekle", "/admin/users?filter=with-credits"],
-          ["Hatalı işleri gör", "/admin/jobs?status=failed"],
-          ["Fiyatlamayı düzenle", "/admin/pricing"],
-          ["Araç durumları", "/admin/tools"],
-          ["Raporlar", "/admin/reports"]
+          ["Raporları aç", "/admin/reports"],
+          ["Fiyatları düzenle", "/admin/pricing"],
+          ["Gider ekle", "/admin/reports#expenses"],
+          ["Ticketları aç", "/admin/tickets"],
+          ["Araç maliyetleri", "/admin/tools"],
+          ["Ödeme ayarları", "/admin/payments"]
         ].map(([label, href]) => (
           <a
             key={label}
@@ -136,6 +156,66 @@ const operationModules: Array<{
   { title: "Audit", description: "Admin aksiyonları ve sistem kayıtları.", Icon: ShieldCheck, href: "/admin/logs" },
   { title: "Raporlar", description: "Gelir, gider, sağlayıcı maliyeti ve kâr/zarar takibi.", Icon: Activity, href: "/admin/reports" }
 ];
+
+function buildAlerts(data: Awaited<ReturnType<typeof getAdminOverviewData>>) {
+  const alerts: Array<{ label: string; href: string; tone: "good" | "warn" | "bad" }> = [];
+
+  if (data.cockpit.missingActiveCostTargets.length) {
+    alerts.push({
+      label: `${data.cockpit.missingActiveCostTargets.length} aktif araç/provider maliyeti eksik`,
+      href: "/admin/tools",
+      tone: "warn"
+    });
+  }
+  if (data.cockpit.failedJobsToday > 0) {
+    alerts.push({
+      label: `${data.cockpit.failedJobsToday} hatalı job inceleme bekliyor`,
+      href: "/admin/jobs?status=failed",
+      tone: "bad"
+    });
+  }
+  if (data.cockpit.openTickets > 0) {
+    alerts.push({
+      label: `${data.cockpit.openTickets} açık ticket var`,
+      href: "/admin/tickets?status=OPEN",
+      tone: "warn"
+    });
+  }
+  if (!data.cockpit.operations.checkoutEnabled) {
+    alerts.push({ label: "Checkout kapalı", href: "/admin/settings", tone: "warn" });
+  }
+  if (!data.cockpit.operations.cleanExportsEnabled) {
+    alerts.push({ label: "Clean export kapalı", href: "/admin/settings", tone: "warn" });
+  }
+  if (data.cockpit.missingEnvProviders.length) {
+    alerts.push({
+      label: `${data.cockpit.missingEnvProviders.length} aktif provider ENV eksik`,
+      href: "/admin/providers",
+      tone: "bad"
+    });
+  }
+
+  if (!alerts.length) {
+    alerts.push({ label: "Acil operasyon uyarısı yok", href: "/admin/reports", tone: "good" });
+  }
+
+  return alerts;
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 2
+  }).format(value);
+}
+
+function trendNote(today: number, yesterday: number) {
+  if (today === 0 && yesterday === 0) return "Düne göre veri yok";
+  if (yesterday === 0) return "Düne göre yeni gelir";
+  const change = ((today - yesterday) / yesterday) * 100;
+  return `${change >= 0 ? "Yukarı" : "Aşağı"} ${Math.abs(change).toFixed(1)}% vs dün`;
+}
 
 function JobStatusPill({ status }: { status: string }) {
   if (status === "COMPLETED") return <AdminStatusPill tone="good">Tamamlandı</AdminStatusPill>;

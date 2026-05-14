@@ -50,6 +50,7 @@ export default async function AdminProvidersPage({
 
       <div className="mb-4 rounded-2xl border border-cyan/20 bg-cyan/10 px-4 py-3 text-sm font-semibold leading-6 text-cyan">
         API anahtarları Vercel Environment Variables içinde saklanır. Bu sayfa secret değerlerini göstermez veya DB’ye yazmaz; sadece env key adını ve var/yok durumunu kontrol eder.
+        Durum alanı şu an operasyon/raporlama içindir; provider yürütme akışını otomatik kapatmaz.
       </div>
 
       <AdminSection title="Yeni sağlayıcı ekle" description="Yeni provider veya local işlem motoru için operasyon kaydı oluştur.">
@@ -104,6 +105,7 @@ export default async function AdminProvidersPage({
                     <td className="px-4 py-4">
                       <p className="font-black text-white">{provider.name}</p>
                       <p className="mt-1 text-xs text-slate-500">{provider.providerKey} • {provider.providerType}</p>
+                      <p className="mt-2 text-xs font-bold text-slate-500">{provider.dbBacked ? "DB kaydı var" : "Runtime varsayılanı; kaydetmeden DB’ye yazılmaz"}</p>
                       <p className="mt-2 text-xs leading-5 text-slate-400">{provider.notes || "Not yok"}</p>
                     </td>
                     <td className="px-4 py-4">
@@ -124,7 +126,7 @@ export default async function AdminProvidersPage({
                       {formatMoney(provider.estimatedCostPerRun, provider.estimatedCostCurrency)}
                       <p className="mt-1 text-xs text-slate-500">Tool maliyeti varsa bunu ezer.</p>
                     </td>
-                    <td className="px-4 py-4 text-slate-400">{provider.updatedAt ? formatAdminDate(provider.updatedAt) : "DB kaydı yok"}</td>
+                    <td className="px-4 py-4 text-slate-400">{provider.updatedAt ? formatAdminDate(provider.updatedAt) : "Henüz kaydedilmedi"}</td>
                     <td className="px-4 py-4">
                       <form action={upsertProviderSettingAction} className="grid min-w-[460px] gap-2">
                         <input type="hidden" name="providerId" value={provider.id} />
