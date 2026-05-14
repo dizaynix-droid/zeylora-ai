@@ -3,7 +3,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { AdminSection, AdminStatusPill, AdminTable, formatAdminDate } from "@/components/admin/admin-ui";
 import { upsertProviderSettingAction } from "@/lib/admin/actions";
 import { requireAdmin } from "@/lib/admin/auth";
-import { getAdminProvidersData } from "@/lib/admin/data";
+import { getAdminProviderMonitoringData } from "@/lib/admin/data";
 import { adminPerfNow, logAdminPerf } from "@/lib/admin/perf";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +26,7 @@ export default async function AdminProvidersPage({
   const authMs = adminPerfNow() - authStartedAt;
   const params = await searchParams;
   const dataStartedAt = adminPerfNow();
-  const providers = await getAdminProvidersData();
+  const providers = await getAdminProviderMonitoringData();
 
   logAdminPerf("page./admin/providers", {
     authMs: `${authMs}ms`,
@@ -51,6 +51,25 @@ export default async function AdminProvidersPage({
       <div className="mb-4 rounded-2xl border border-cyan/20 bg-cyan/10 px-4 py-3 text-sm font-semibold leading-6 text-cyan">
         API anahtarları Vercel Environment Variables içinde saklanır. Bu sayfa secret değerlerini göstermez veya DB’ye yazmaz; sadece env key adını ve var/yok durumunu kontrol eder.
         Durum alanı şu an operasyon/raporlama içindir; provider yürütme akışını otomatik kapatmaz.
+      </div>
+
+      <div className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {providers.map((provider) => (
+          <div key={provider.providerKey} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="font-black text-white">{provider.name}</p>
+                <p className="mt-1 text-xs text-slate-500">{provider.providerKey}</p>
+              </div>
+              <Health status={provider.health} />
+            </div>
+            <div className="mt-3 grid grid-cols-3 gap-2 text-xs font-bold text-slate-400">
+              <span>Job: <b className="text-white">{provider.jobsToday}</b></span>
+              <span>Hata: <b className="text-rose-200">{provider.failedToday}</b></span>
+              <span>Maliyet: <b className="text-amber">${provider.estimatedCostToday.toFixed(4)}</b></span>
+            </div>
+          </div>
+        ))}
       </div>
 
       <AdminSection title="Yeni sağlayıcı ekle" description="Yeni provider veya local işlem motoru için operasyon kaydı oluştur.">
@@ -192,6 +211,12 @@ function ProviderStatus({ status }: { status: string }) {
   if (status === "ACTIVE") return <AdminStatusPill tone="good">Aktif</AdminStatusPill>;
   if (status === "SUSPENDED") return <AdminStatusPill tone="warn">Duraklatıldı</AdminStatusPill>;
   return <AdminStatusPill tone="bad">Devre dışı</AdminStatusPill>;
+}
+
+function Health({ status }: { status: string }) {
+  if (status === "HEALTHY") return <AdminStatusPill tone="good">Sağlıklı</AdminStatusPill>;
+  if (status === "DEGRADED") return <AdminStatusPill tone="warn">Dikkat</AdminStatusPill>;
+  return <AdminStatusPill tone="bad">Kapalı</AdminStatusPill>;
 }
 
 function recordStatusToForm(status: string) {

@@ -727,6 +727,45 @@ export async function pauseAllProvidersAction() {
   redirect("/admin/system?saved=providers-paused");
 }
 
+export async function requestWebhookReprocessAction(formData: FormData) {
+  const admin = await requireAdmin();
+  const webhookLogId = getFormString(formData, "webhookLogId", 120);
+  if (!webhookLogId) redirect("/admin/payments?error=invalid-webhook");
+
+  const log = await prisma.webhookLog.findUnique({
+    where: { id: webhookLogId },
+    select: { id: true, source: true, eventType: true, status: true, externalEventId: true }
+  });
+
+  if (!log || log.source !== "stripe") {
+    redirect("/admin/payments?error=webhook-not-found");
+  }
+
+  await prisma.webhookLog.update({
+    where: { id: log.id },
+    data: {
+      status: "reprocess_requested",
+      errorMessage: null
+    }
+  });
+
+  await logAdminAction({
+    admin,
+    action: "webhook.reprocess_requested",
+    entityType: "WebhookLog",
+    entityId: log.id,
+    metadata: {
+      source: log.source,
+      eventType: log.eventType,
+      externalEventId: log.externalEventId,
+      previousStatus: log.status
+    }
+  });
+
+  revalidatePath("/admin/payments");
+  redirect("/admin/payments?saved=webhook-reprocess-requested");
+}
+
 function getFormString(formData: FormData, key: string, maxLength = 240) {
   return String(formData.get(key) || "").trim().slice(0, maxLength);
 }

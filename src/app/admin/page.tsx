@@ -184,6 +184,12 @@ function buildAlerts(data: Awaited<ReturnType<typeof getAdminOverviewData>>) {
   if (!data.cockpit.operations.checkoutEnabled) {
     alerts.push({ label: "Checkout kapalı", href: "/admin/settings", tone: "warn" });
   }
+  if (!data.cockpit.operations.uploadsEnabled) {
+    alerts.push({ label: "Upload kapalı", href: "/admin/settings", tone: "bad" });
+  }
+  if (!data.cockpit.operations.previewEnabled) {
+    alerts.push({ label: "Preview kapalı", href: "/admin/settings", tone: "bad" });
+  }
   if (!data.cockpit.operations.cleanExportsEnabled) {
     alerts.push({ label: "Clean export kapalı", href: "/admin/settings", tone: "warn" });
   }

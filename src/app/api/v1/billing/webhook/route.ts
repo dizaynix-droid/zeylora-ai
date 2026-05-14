@@ -170,14 +170,6 @@ export async function POST(request: Request) {
       }
     }
 
-    await prisma.webhookLog.create({
-      data: {
-        source: "stripe",
-        eventType: event.type,
-        payloadJson: event as unknown as Prisma.InputJsonObject,
-        status: "processed"
-      }
-    });
     await prisma.webhookLog.update({
       where: { id: webhookLog.id },
       data: {

@@ -16,6 +16,8 @@ export const adminTr = {
     analytics: "Analizler",
     reports: "Raporlar",
     settings: "Ayarlar",
+    system: "Sistem",
+    qa: "QA Checklist",
     logs: "Kayıtlar",
     tickets: "Destek/Ticketlar"
   },

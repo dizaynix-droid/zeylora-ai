@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { creditPackages } from "@/config/pricing";
 import { adminPerfNow, logAdminPerf, measureAdminQuery } from "@/lib/admin/perf";
 import { getOperationalSettings } from "@/lib/settings/operations";
+import { getMarketingTrackingSettings } from "@/lib/settings/marketing";
 import type { ExpenseCategory, Prisma } from "@prisma/client";
 
 const ADMIN_PAGE_SIZE = 25;
@@ -583,6 +584,93 @@ export async function getAdminPaymentsData(input: { page?: number; pageSize?: nu
   };
 }
 
+export async function getAdminPaymentDiagnosticsData() {
+  const [lastWebhook, webhookEvents, lastSuccessfulPayment, failedPaymentCount, duplicatePayments] = await Promise.all([
+    measureAdminQuery(
+      "payments.diagnostics.lastWebhook",
+      prisma.webhookLog.findFirst({
+        where: { source: "stripe" },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          externalEventId: true,
+          eventType: true,
+          status: true,
+          errorMessage: true,
+          paymentId: true,
+          userId: true,
+          createdAt: true,
+          processedAt: true
+        }
+      })
+    ),
+    measureAdminQuery(
+      "payments.diagnostics.webhooks",
+      prisma.webhookLog.findMany({
+        where: { source: "stripe" },
+        orderBy: { createdAt: "desc" },
+        take: 25,
+        select: {
+          id: true,
+          externalEventId: true,
+          eventType: true,
+          status: true,
+          errorMessage: true,
+          paymentId: true,
+          userId: true,
+          createdAt: true,
+          processedAt: true
+        }
+      }),
+      { take: 25 }
+    ),
+    measureAdminQuery(
+      "payments.diagnostics.lastPaid",
+      prisma.payment.findFirst({
+        where: { deletedAt: null, status: "PAID" },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          amount: true,
+          currency: true,
+          creditsDelivered: true,
+          stripeCheckoutSessionId: true,
+          createdAt: true,
+          user: { select: { email: true } }
+        }
+      })
+    ),
+    measureAdminQuery(
+      "payments.diagnostics.failedCount",
+      prisma.payment.count({ where: { deletedAt: null, status: { in: ["FAILED", "CANCELLED"] } } })
+    ),
+    measureAdminQuery(
+      "payments.diagnostics.duplicateSessions",
+      prisma.payment.groupBy({
+        by: ["stripeCheckoutSessionId"],
+        where: { stripeCheckoutSessionId: { not: null } },
+        _count: { _all: true },
+        having: { stripeCheckoutSessionId: { _count: { gt: 1 } } },
+        orderBy: { _count: { stripeCheckoutSessionId: "desc" } },
+        take: 1
+      })
+    )
+  ]);
+
+  return {
+    stripeSecretConfigured: Boolean(process.env.STRIPE_SECRET_KEY),
+    stripeWebhookConfigured: Boolean(process.env.STRIPE_WEBHOOK_SECRET),
+    checkoutEndpointReady: true,
+    webhookEndpointReady: true,
+    idempotencyReady: true,
+    duplicateSessionRisk: duplicatePayments.length > 0,
+    lastWebhook,
+    webhookEvents,
+    lastSuccessfulPayment,
+    failedPaymentCount
+  };
+}
+
 export async function getAdminAnalyticsData() {
   const cached = getAdminCache(adminAnalyticsCache);
   if (cached) {
@@ -792,6 +880,120 @@ export async function getAdminProvidersData() {
 }
 
 export type AdminProvidersData = Awaited<ReturnType<typeof getAdminProvidersData>>;
+
+export async function getAdminProviderMonitoringData() {
+  const todayStart = startOfDay(new Date());
+  const [providers, jobGroups] = await Promise.all([
+    getAdminProvidersData(),
+    measureAdminQuery(
+      "providers.monitoring.todayJobs",
+      prisma.aiJob.groupBy({
+        by: ["providerKey", "status"],
+        where: { deletedAt: null, createdAt: { gte: todayStart } },
+        _count: { _all: true },
+        _sum: { estimatedCostAtRun: true }
+      })
+    )
+  ]);
+
+  return providers.map((provider) => {
+    const rows = jobGroups.filter((row) => row.providerKey === provider.providerKey);
+    const completed = rows.find((row) => row.status === "COMPLETED")?._count._all ?? 0;
+    const failed = rows.find((row) => row.status === "FAILED")?._count._all ?? 0;
+    const total = rows.reduce((sum, row) => sum + row._count._all, 0);
+    const estimatedCostToday = rows.reduce((sum, row) => sum + decimalToNumber(row._sum.estimatedCostAtRun), 0);
+    const failureRate = total > 0 ? failed / total : 0;
+    const health = provider.status !== "ACTIVE" ? "DISABLED" : !provider.configured || failureRate >= 0.25 ? "DEGRADED" : "HEALTHY";
+
+    return {
+      ...provider,
+      jobsToday: total,
+      completedToday: completed,
+      failedToday: failed,
+      estimatedCostToday,
+      failureRate,
+      health
+    };
+  });
+}
+
+export async function getAdminSystemData() {
+  const [operations, providers, recentAdminActions, recentSecurityEvents] = await Promise.all([
+    getOperationalSettings({ bypassCache: true }),
+    getAdminProviderMonitoringData(),
+    measureAdminQuery(
+      "system.recentAdminActions",
+      prisma.adminLog.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 8,
+        select: { id: true, action: true, entityType: true, createdAt: true, adminUser: { select: { email: true } } }
+      })
+    ),
+    measureAdminQuery(
+      "system.recentSecurityEvents",
+      prisma.adminLog.findMany({
+        where: {
+          OR: [
+            { action: { startsWith: "analytics.rate_limited" } },
+            { action: { startsWith: "analytics.abuse_blocked" } },
+            { action: { startsWith: "security." } }
+          ]
+        },
+        orderBy: { createdAt: "desc" },
+        take: 8,
+        select: { id: true, action: true, metadataJson: true, createdAt: true }
+      })
+    )
+  ]);
+
+  return {
+    operations,
+    providers,
+    recentAdminActions,
+    recentSecurityEvents,
+    env: {
+      nodeEnv: process.env.NODE_ENV || "development",
+      siteUrl: process.env.NEXT_PUBLIC_SITE_URL || "",
+      database: Boolean(process.env.DATABASE_URL),
+      directUrl: Boolean(process.env.DIRECT_URL),
+      r2: Boolean(process.env.R2_BUCKET_NAME && process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY),
+      supabase: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
+      stripe: Boolean(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET),
+      resend: Boolean(process.env.RESEND_API_KEY),
+      postmark: Boolean(process.env.POSTMARK_SERVER_TOKEN),
+      smtp: Boolean(process.env.SMTP_HOST)
+    },
+    deployment: {
+      vercelEnv: process.env.VERCEL_ENV || "local",
+      vercelGitCommitSha: process.env.VERCEL_GIT_COMMIT_SHA || "",
+      deployTimestamp: process.env.NEXT_PUBLIC_DEPLOY_TIMESTAMP || ""
+    }
+  };
+}
+
+export async function getAdminQaData() {
+  const [operations, providers, tracking, recentEvents] = await Promise.all([
+    getOperationalSettings({ bypassCache: true }),
+    getAdminProviderMonitoringData(),
+    getMarketingTrackingSettings({ bypassCache: true }),
+    measureAdminQuery(
+      "qa.recentAnalyticsEvents",
+      prisma.adminLog.findMany({
+        where: { entityType: "AnalyticsEvent" },
+        orderBy: { createdAt: "desc" },
+        take: 12,
+        select: { id: true, action: true, metadataJson: true, createdAt: true }
+      })
+    )
+  ]);
+
+  return {
+    operations,
+    providers,
+    tracking,
+    recentEvents
+  };
+}
 
 export async function getAdminReportsData(input: {
   range?: string;

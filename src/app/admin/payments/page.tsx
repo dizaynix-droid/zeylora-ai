@@ -1,7 +1,8 @@
 import { AppShell } from "@/components/layout/app-shell";
 import { AdminPaginationControls, AdminSection, AdminStatusPill, AdminTable, formatAdminDate } from "@/components/admin/admin-ui";
+import { requestWebhookReprocessAction } from "@/lib/admin/actions";
 import { requireAdmin } from "@/lib/admin/auth";
-import { getAdminPaymentsData, getAdminPricingData, normalizeAdminPage } from "@/lib/admin/data";
+import { getAdminPaymentDiagnosticsData, getAdminPaymentsData, getAdminPricingData, normalizeAdminPage } from "@/lib/admin/data";
 import { adminPerfNow, logAdminPerf } from "@/lib/admin/perf";
 
 export const dynamic = "force-dynamic";
@@ -18,25 +19,38 @@ export default async function AdminPaymentsPage({
   const params = await searchParams;
   const page = normalizeAdminPage(params?.page);
   const dataStartedAt = adminPerfNow();
-  const [packages, payments] = await Promise.all([getAdminPricingData(), getAdminPaymentsData({ page })]);
+  const [packages, payments, diagnostics] = await Promise.all([
+    getAdminPricingData(),
+    getAdminPaymentsData({ page }),
+    getAdminPaymentDiagnosticsData()
+  ]);
   logAdminPerf("page./admin/payments", {
     authMs: `${authMs}ms`,
     dataMs: `${adminPerfNow() - dataStartedAt}ms`,
     totalMs: `${adminPerfNow() - pageStartedAt}ms`,
     page,
     resultCount: payments.items.length,
-    packageCount: packages.length
+    packageCount: packages.length,
+    webhookEvents: diagnostics.webhookEvents.length
   });
   const checklist = [
-    { label: "Stripe secret key", ready: Boolean(process.env.STRIPE_SECRET_KEY), note: "Checkout session için gerekli." },
-    { label: "Stripe webhook secret", ready: Boolean(process.env.STRIPE_WEBHOOK_SECRET), note: "Webhook doğrulaması için gerekli." },
+    { label: "Stripe secret key", ready: diagnostics.stripeSecretConfigured, note: "Checkout session için gerekli." },
+    { label: "Stripe webhook secret", ready: diagnostics.stripeWebhookConfigured, note: "Webhook doğrulaması için gerekli." },
     { label: "Aktif kredi paketleri", ready: packages.some((pack) => pack.status === "ACTIVE"), note: "Public paketlerin aktif olması gerekir." },
-    { label: "Checkout endpoint", ready: true, note: "/api/v1/billing/checkout" },
-    { label: "Webhook endpoint", ready: true, note: "/api/v1/billing/webhook" }
+    { label: "Checkout endpoint", ready: diagnostics.checkoutEndpointReady, note: "/api/v1/billing/checkout" },
+    { label: "Webhook endpoint", ready: diagnostics.webhookEndpointReady, note: "/api/v1/billing/webhook" },
+    { label: "Duplicate koruması", ready: diagnostics.idempotencyReady && !diagnostics.duplicateSessionRisk, note: "Stripe event id ve payment status ile çift kredi önlenir." }
   ];
 
   return (
     <AppShell area="admin" title="Ödeme hazırlığı" description="Stripe checkout, webhook ve kredi teslimatı için operasyon kontrol listesi.">
+      <div className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <DiagnosticCard label="Son webhook" value={diagnostics.lastWebhook?.eventType || "Yok"} note={diagnostics.lastWebhook ? `${diagnostics.lastWebhook.status} · ${formatAdminDate(diagnostics.lastWebhook.createdAt)}` : "Henüz Stripe event gelmedi"} tone={diagnostics.lastWebhook?.status === "failed" ? "bad" : "neutral"} />
+        <DiagnosticCard label="Son başarılı ödeme" value={diagnostics.lastSuccessfulPayment ? `${diagnostics.lastSuccessfulPayment.amount.toString()} ${diagnostics.lastSuccessfulPayment.currency.toUpperCase()}` : "$0.00"} note={diagnostics.lastSuccessfulPayment?.user.email || "Başarılı ödeme yok"} tone={diagnostics.lastSuccessfulPayment ? "good" : "neutral"} />
+        <DiagnosticCard label="Hatalı/iptal ödeme" value={diagnostics.failedPaymentCount} note="FAILED + CANCELLED kayıtları" tone={diagnostics.failedPaymentCount > 0 ? "warn" : "good"} />
+        <DiagnosticCard label="Idempotency" value={diagnostics.duplicateSessionRisk ? "Risk" : "Hazır"} note="Aynı session/event iki kez kredi yazmamalı" tone={diagnostics.duplicateSessionRisk ? "bad" : "good"} />
+      </div>
+
       <AdminSection title="Ödeme kurulum kontrolü" description="Secret değerleri gösterilmez; sadece hazır/eksik durumu gösterilir.">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {checklist.map((item) => (
@@ -52,6 +66,51 @@ export default async function AdminPaymentsPage({
           ))}
         </div>
       </AdminSection>
+
+      <div className="mt-4">
+        <AdminSection title="Stripe webhook event kayıtları" description="Son 25 webhook. Secret/payload token gösterilmez; sadece operasyon durumu görünür.">
+          <AdminTable>
+            <table className="min-w-[1080px] w-full divide-y divide-white/10 text-sm">
+              <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
+                <tr>
+                  <th className="px-4 py-3">Event</th>
+                  <th className="px-4 py-3">Stripe event id</th>
+                  <th className="px-4 py-3">Durum</th>
+                  <th className="px-4 py-3">Bağlantı</th>
+                  <th className="px-4 py-3">Tarih</th>
+                  <th className="px-4 py-3">Kontrol</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/10">
+                {diagnostics.webhookEvents.map((event) => (
+                  <tr key={event.id}>
+                    <td className="px-4 py-3 font-black text-white">{event.eventType}</td>
+                    <td className="px-4 py-3 text-xs text-slate-400">{event.externalEventId || "-"}</td>
+                    <td className="px-4 py-3"><WebhookStatus status={event.status} /></td>
+                    <td className="px-4 py-3 text-xs text-slate-400">{event.paymentId || event.userId || "-"}</td>
+                    <td className="px-4 py-3 text-slate-400">{formatAdminDate(event.createdAt)}</td>
+                    <td className="px-4 py-3">
+                      {event.status === "failed" ? (
+                        <form action={requestWebhookReprocessAction}>
+                          <input type="hidden" name="webhookLogId" value={event.id} />
+                          <button className="h-9 rounded-full border border-amber/30 bg-amber/10 px-3 text-xs font-black text-amber">
+                            Reprocess iste
+                          </button>
+                        </form>
+                      ) : (
+                        <span className="text-xs text-slate-500">{event.errorMessage || "İşlem gerekmez"}</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {diagnostics.webhookEvents.length === 0 ? (
+                  <tr><td colSpan={6} className="px-4 py-8 text-center text-sm font-bold text-slate-400">Webhook kaydı yok.</td></tr>
+                ) : null}
+              </tbody>
+            </table>
+          </AdminTable>
+        </AdminSection>
+      </div>
 
       <div className="mt-4">
         <AdminSection
@@ -108,6 +167,28 @@ export default async function AdminPaymentsPage({
       </div>
     </AppShell>
   );
+}
+
+function DiagnosticCard({ label, value, note, tone }: { label: string; value: string | number; note: string; tone: "good" | "bad" | "warn" | "neutral" }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan">{label}</p>
+          <p className="mt-2 text-2xl font-black text-white">{value}</p>
+          <p className="mt-1 text-xs leading-5 text-slate-400">{note}</p>
+        </div>
+        <AdminStatusPill tone={tone}>{tone === "good" ? "İyi" : tone === "bad" ? "Risk" : tone === "warn" ? "Uyarı" : "Bilgi"}</AdminStatusPill>
+      </div>
+    </div>
+  );
+}
+
+function WebhookStatus({ status }: { status: string }) {
+  if (status === "processed") return <AdminStatusPill tone="good">İşlendi</AdminStatusPill>;
+  if (status === "failed") return <AdminStatusPill tone="bad">Hatalı</AdminStatusPill>;
+  if (status === "reprocess_requested") return <AdminStatusPill tone="warn">Tekrar işlem istendi</AdminStatusPill>;
+  return <AdminStatusPill>{status}</AdminStatusPill>;
 }
 
 function PaymentStatus({ status }: { status: string }) {
