@@ -179,6 +179,7 @@ export default async function AdminReportsPage({
               <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
                 <tr>
                   <th className="px-4 py-3">Araç</th>
+                  <th className="px-4 py-3">Tier</th>
                   <th className="px-4 py-3">Sağlayıcı</th>
                   <th className="px-4 py-3">İşlem</th>
                   <th className="px-4 py-3">Run maliyeti</th>
@@ -186,6 +187,7 @@ export default async function AdminReportsPage({
                   <th className="px-4 py-3">Maliyet</th>
                   <th className="px-4 py-3">Tahmini gelir</th>
                   <th className="px-4 py-3">Tahmini kâr</th>
+                  <th className="px-4 py-3">Marj</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/10">
@@ -195,6 +197,7 @@ export default async function AdminReportsPage({
                       <p className="font-black text-white">{row.name}</p>
                       {row.missingCost ? <p className="text-xs font-bold text-amber">Maliyet girilmemiş</p> : null}
                     </td>
+                    <td className="px-4 py-3 text-slate-300">{row.qualityTier}</td>
                     <td className="px-4 py-3 text-slate-300">{row.provider}</td>
                     <td className="px-4 py-3 text-slate-300">{row.runs}</td>
                     <td className="px-4 py-3 text-slate-300">{formatCurrency(row.costPerRun)}</td>
@@ -202,9 +205,10 @@ export default async function AdminReportsPage({
                     <td className="px-4 py-3 text-amber">{formatCurrency(row.estimatedCost)}</td>
                     <td className="px-4 py-3 text-emerald">{formatCurrency(row.estimatedRevenue)}</td>
                     <td className="px-4 py-3 font-black text-white">{formatCurrency(row.estimatedProfit)}</td>
+                    <td className="px-4 py-3 text-slate-300">{row.marginPercent === null ? "-" : `${row.marginPercent.toFixed(1)}%`}</td>
                   </tr>
                 ))}
-                {data.toolUsage.length === 0 ? <EmptyRow colSpan={8} message="Tamamlanan işlem yok." /> : null}
+                {data.toolUsage.length === 0 ? <EmptyRow colSpan={10} message="Tamamlanan işlem yok." /> : null}
               </tbody>
             </table>
           </AdminTable>

@@ -314,6 +314,9 @@ export async function getAdminToolsData() {
         slug: true,
         version: true,
         name: true,
+        publicName: true,
+        internalKey: true,
+        qualityTier: true,
         category: true,
         creditCost: true,
         status: true,
@@ -321,6 +324,9 @@ export async function getAdminToolsData() {
         estimatedCostPerRun: true,
         estimatedCostCurrency: true,
         estimatedCostProvider: true,
+        featured: true,
+        recommended: true,
+        displayOrder: true,
         updatedAt: true,
         _count: { select: { jobs: true } }
       }
@@ -1124,6 +1130,11 @@ export async function getAdminReportsData(input: {
         select: {
           id: true,
           providerKey: true,
+          providerKeySnapshot: true,
+          qualityTierSnapshot: true,
+          toolInternalKeySnapshot: true,
+          toolNameSnapshot: true,
+          creditsChargedSnapshot: true,
           createdAt: true,
           creditCost: true,
           estimatedCostAtRun: true,
@@ -1156,6 +1167,8 @@ export async function getAdminReportsData(input: {
         select: {
           id: true,
           providerKey: true,
+          providerKeySnapshot: true,
+          qualityTierSnapshot: true,
           createdAt: true,
           errorMessage: true,
           tool: { select: { name: true, slug: true } }
@@ -1455,6 +1468,11 @@ type AdminCacheEntry<T> = {
 
 type CostedJob = {
   providerKey: string | null;
+  providerKeySnapshot?: string | null;
+  qualityTierSnapshot?: string | null;
+  toolInternalKeySnapshot?: string | null;
+  toolNameSnapshot?: string | null;
+  creditsChargedSnapshot?: number | null;
   creditCost?: number;
   estimatedCostAtRun?: unknown;
   estimatedRevenueAtRun?: unknown;
@@ -1583,6 +1601,11 @@ function buildReportSeries(input: {
 function buildToolUsageReport(
   completedJobs: Array<{
     providerKey: string | null;
+    providerKeySnapshot?: string | null;
+    qualityTierSnapshot?: string | null;
+    toolInternalKeySnapshot?: string | null;
+    toolNameSnapshot?: string | null;
+    creditsChargedSnapshot?: number | null;
     creditCost?: number;
     estimatedCostAtRun?: unknown;
     estimatedRevenueAtRun?: unknown;
@@ -1600,17 +1623,18 @@ function buildToolUsageReport(
 ) {
   const byTool = new Map<
     string,
-    { slug: string; name: string; provider: string; runs: number; credits: number; costPerRun: number; estimatedCost: number; estimatedRevenue: number; estimatedProfit: number; averageProfit: number; missingCost: boolean }
+    { slug: string; name: string; qualityTier: string; provider: string; runs: number; credits: number; costPerRun: number; estimatedCost: number; estimatedRevenue: number; estimatedProfit: number; averageProfit: number; marginPercent: number | null; missingCost: boolean }
   >();
 
   for (const job of completedJobs) {
-    const slug = job.tool?.slug || "unknown";
+    const slug = job.toolInternalKeySnapshot || job.tool?.slug || "unknown";
     const existing =
       byTool.get(slug) ||
       {
         slug,
-        name: job.tool?.name || "Bilinmeyen araç",
-        provider: job.tool?.estimatedCostProvider || job.providerKey || "-",
+        name: job.toolNameSnapshot || job.tool?.name || "Bilinmeyen araç",
+        qualityTier: getQualityTierLabel(job.qualityTierSnapshot),
+        provider: job.tool?.estimatedCostProvider || job.providerKeySnapshot || job.providerKey || "-",
         runs: 0,
         credits: 0,
         costPerRun: getJobEstimatedCost(job, providerDefaults),
@@ -1618,18 +1642,20 @@ function buildToolUsageReport(
         estimatedRevenue: 0,
         estimatedProfit: 0,
         averageProfit: 0,
+        marginPercent: null,
         missingCost: false
       };
     const cost = getJobEstimatedCost(job, providerDefaults);
     const revenue = getJobEstimatedRevenue(job, estimatedCreditUsdValue);
     const profit = getJobEstimatedProfit(job, providerDefaults, estimatedCreditUsdValue);
     existing.runs += 1;
-    existing.credits += job.creditCost ?? job.tool?.creditCost ?? 0;
+    existing.credits += job.creditsChargedSnapshot ?? job.creditCost ?? job.tool?.creditCost ?? 0;
     existing.costPerRun = cost;
     existing.estimatedCost += cost;
     existing.estimatedRevenue += revenue;
     existing.estimatedProfit += profit;
     existing.averageProfit = existing.runs > 0 ? existing.estimatedProfit / existing.runs : 0;
+    existing.marginPercent = existing.estimatedRevenue > 0 ? (existing.estimatedProfit / existing.estimatedRevenue) * 100 : null;
     existing.missingCost ||= cost <= 0;
     byTool.set(slug, existing);
   }
@@ -1639,7 +1665,7 @@ function buildToolUsageReport(
 
 function buildProviderUsageReport(
   completedJobs: Array<CostedJob>,
-  failedJobs: Array<{ providerKey: string | null }>,
+  failedJobs: Array<{ providerKey: string | null; providerKeySnapshot?: string | null }>,
   providerDefaults: Map<string, { name?: string; estimatedCostPerRun: unknown; monthlyBudgetLimit?: unknown; dailyBudgetLimit?: unknown; monthlyBudgetUsed?: unknown; budgetEnforcementMode?: string }>
 ) {
   const byProvider = new Map<
@@ -1667,14 +1693,14 @@ function buildProviderUsageReport(
   };
 
   for (const job of completedJobs) {
-    const provider = ensureProvider(job.providerKey || "unknown");
+    const provider = ensureProvider(job.providerKeySnapshot || job.providerKey || "unknown");
     const cost = getJobEstimatedCost(job, providerDefaults);
     provider.completedJobs += 1;
     provider.estimatedCost += cost;
     provider.missingCost ||= cost <= 0;
   }
   for (const job of failedJobs) {
-    ensureProvider(job.providerKey || "unknown").failedJobs += 1;
+    ensureProvider(job.providerKeySnapshot || job.providerKey || "unknown").failedJobs += 1;
   }
 
   return Array.from(byProvider.values()).sort((a, b) => b.estimatedCost - a.estimatedCost || b.completedJobs - a.completedJobs);
@@ -1707,14 +1733,14 @@ function getJobEstimatedCost(
   }
   const toolCost = decimalToNumber(job.tool?.estimatedCostPerRun);
   if (toolCost > 0) return toolCost;
-  return decimalToNumber(providerDefaults.get(job.providerKey || "")?.estimatedCostPerRun);
+  return decimalToNumber(providerDefaults.get(job.providerKeySnapshot || job.providerKey || "")?.estimatedCostPerRun);
 }
 
 function getJobEstimatedRevenue(job: CostedJob, estimatedCreditUsdValue: number) {
   if (job.estimatedRevenueAtRun !== null && job.estimatedRevenueAtRun !== undefined) {
     return decimalToNumber(job.estimatedRevenueAtRun);
   }
-  return (job.creditCost ?? job.tool?.creditCost ?? 0) * estimatedCreditUsdValue;
+  return (job.creditsChargedSnapshot ?? job.creditCost ?? job.tool?.creditCost ?? 0) * estimatedCreditUsdValue;
 }
 
 function getJobEstimatedProfit(
@@ -1805,6 +1831,14 @@ function decimalToNumber(value: unknown) {
   if (typeof value === "string") return Number(value) || 0;
   if (typeof value === "object" && "toString" in value) return Number(value.toString()) || 0;
   return 0;
+}
+
+function getQualityTierLabel(tier?: string | null) {
+  if (tier === "hq") return "High Quality";
+  if (tier === "pro") return "Pro";
+  if (tier === "creative") return "Creative";
+  if (tier === "standard") return "Standard";
+  return "Eski kayıt";
 }
 
 export function normalizeAdminPage(value: unknown) {

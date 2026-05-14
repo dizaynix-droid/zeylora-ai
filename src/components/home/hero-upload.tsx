@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   CheckCircle2,
@@ -21,6 +21,7 @@ import { CleanExportButton } from "@/components/jobs/clean-export-button";
 import { DownloadResultButton } from "@/components/jobs/download-result-button";
 import { Button } from "@/components/ui/button";
 import { trackingEvents } from "@/config/tracking";
+import { getQualityTierLabel, resolveToolEconomy } from "@/config/tool-economy";
 import { trackEvent } from "@/lib/analytics/events";
 
 type FlowStatus = "idle" | "selected" | "uploading" | "processing" | "succeeded" | "failed";
@@ -235,6 +236,15 @@ export function HeroUpload() {
   const hasActivePreview = Boolean(inputPreviewUrl || resultPreviewUrl || status === "failed");
   const isResultMode = status === "succeeded" && Boolean(inputPreviewUrl && resultPreviewUrl);
   const selectedToolConfig = homeToolOptions.find((tool) => tool.key === selectedTool) ?? homeToolOptions[0];
+  const selectedEconomy = useMemo(
+    () => resolveToolEconomy({
+      toolSlug: getEconomyToolSlug(selectedTool),
+      qualityMode,
+      preset: getEconomyPreset(selectedTool, marketplaceCropFormat, productShadowPreset, aiRelightPreset, hdUpscalePreset),
+      providerKey: selectedTool === "background-remover" && qualityMode === "high" ? "photoroom" : undefined
+    }),
+    [aiRelightPreset, hdUpscalePreset, marketplaceCropFormat, productShadowPreset, qualityMode, selectedTool]
+  );
   const canRunExistingSource = Boolean(
     uploadedMediaId &&
     inputPreviewUrl &&
@@ -674,7 +684,7 @@ export function HeroUpload() {
                     </p>
                   </div>
                   <p className="rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs font-black uppercase text-cyan">
-                    {selectedToolConfig.name}
+                    {selectedEconomy.publicName} · {getQualityTierLabel(selectedEconomy.qualityTier)} · {selectedEconomy.creditCost} credits
                   </p>
                 </div>
                 <BeforeAfterResultSlider
@@ -865,7 +875,7 @@ export function HeroUpload() {
                       {jobId ? (
                         <CleanExportButton
                           jobId={jobId}
-                          creditsRequired={selectedToolConfig.creditCost}
+                          creditsRequired={selectedEconomy.creditCost}
                           filename={getDownloadFilename(
                             selectedToolConfig,
                             appliedMarketplaceCropFormat ?? marketplaceCropFormat,
@@ -1492,7 +1502,7 @@ export function HeroUpload() {
                       {jobId ? (
                         <CleanExportButton
                           jobId={jobId}
-                          creditsRequired={selectedToolConfig.creditCost}
+                          creditsRequired={selectedEconomy.creditCost}
                           filename={getDownloadFilename(
                             selectedToolConfig,
                             appliedMarketplaceCropFormat ?? marketplaceCropFormat,
@@ -1554,6 +1564,10 @@ export function HeroUpload() {
                   Selected tool
                 </p>
                 <p className="mt-2 font-black text-white">{selectedToolConfig.name}</p>
+                <p className="mt-1 text-xs font-bold text-cyan">
+                  {getQualityTierLabel(selectedEconomy.qualityTier)} · {selectedEconomy.creditCost} credits
+                  {selectedEconomy.highQuality ? " · High quality provider" : ""}
+                </p>
               </div>
               <div className={`rounded-2xl border border-white/10 bg-white/[0.08] ${isResultMode ? "p-3" : "p-4"}`}>
                 <p className="flex items-center gap-2 text-xs font-bold uppercase text-slate-400">
@@ -1768,6 +1782,25 @@ function getHdUpscaleFilenamePart(preset: HdUpscalePreset) {
   if (preset === "sharp-catalog") return "sharp-catalog";
   if (preset === "social-cleanup") return "social-cleanup";
   return "2x-hd";
+}
+
+function getEconomyToolSlug(tool: HomeToolMode) {
+  if (tool === "photo-enhancer") return "ai-photo-enhancer";
+  return tool;
+}
+
+function getEconomyPreset(
+  tool: HomeToolMode,
+  cropFormat: MarketplaceCropFormat,
+  shadowPreset: ProductShadowPreset,
+  relightPreset: AiRelightPreset,
+  upscalePreset: HdUpscalePreset
+) {
+  if (tool === "marketplace-crop") return cropFormat;
+  if (tool === "product-shadow") return shadowPreset;
+  if (tool === "ai-relight") return relightPreset;
+  if (tool === "hd-upscale") return upscalePreset;
+  return undefined;
 }
 
 function getResultBeforeLabel(tool: HomeToolMode) {

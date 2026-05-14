@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/admin/auth";
 import { getAdminToolsData, LAUNCH_TOOL_SLUGS } from "@/lib/admin/data";
 import { updateToolEconomicsAction } from "@/lib/admin/actions";
 import { adminPerfNow, logAdminPerf } from "@/lib/admin/perf";
+import { getQualityTierLabel } from "@/config/tool-economy";
 
 export const dynamic = "force-dynamic";
 
@@ -51,10 +52,13 @@ export default async function AdminToolsPage({
             <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
               <tr>
                 <th className="px-4 py-3">Araç</th>
+                <th className="px-4 py-3">Tier</th>
                 <th className="px-4 py-3">Kategori</th>
                 <th className="px-4 py-3">Sağlayıcı</th>
+                <th className="px-4 py-3">Kredi</th>
                 <th className="px-4 py-3">İşlem</th>
                 <th className="px-4 py-3">Tahmini maliyet</th>
+                <th className="px-4 py-3">Tahmini marj</th>
                 <th className="px-4 py-3">Son güncelleme</th>
                 <th className="px-4 py-3">Kontrol</th>
               </tr>
@@ -65,15 +69,19 @@ export default async function AdminToolsPage({
                   <td className="px-4 py-3">
                     <p className="font-black text-white">{tool.name}</p>
                     <p className="text-xs text-slate-500">{tool.slug} v{tool.version}</p>
+                    {getOptionalToolString(tool, "internalKey") ? <p className="text-xs text-cyan">{getOptionalToolString(tool, "internalKey")}</p> : null}
                     <div className="mt-2 flex gap-2"><AdminStatusPill tone="good">Canlı araç</AdminStatusPill><ToolStatus status={tool.status} /></div>
                   </td>
+                  <td className="px-4 py-3 text-slate-300">{getQualityTierLabel(getOptionalToolString(tool, "qualityTier"))}</td>
                   <td className="px-4 py-3 text-slate-300">{tool.category}</td>
                   <td className="px-4 py-3 text-slate-300">{tool.providerKey}</td>
+                  <td className="px-4 py-3 font-black text-white">{tool.creditCost}</td>
                   <td className="px-4 py-3 text-slate-300">{"_count" in tool ? tool._count.jobs : 0}</td>
                   <td className="px-4 py-3 text-slate-300">
                     {toMoney(tool.estimatedCostPerRun)} {tool.estimatedCostCurrency?.toUpperCase() || "USD"}
                     <p className="text-xs text-slate-500">{tool.estimatedCostProvider || tool.providerKey || "Sağlayıcı yok"}</p>
                   </td>
+                  <td className="px-4 py-3 text-slate-300">{toEstimatedMargin(tool.creditCost, tool.estimatedCostPerRun)}</td>
                   <td className="px-4 py-3 text-slate-400">{formatAdminDate("updatedAt" in tool ? tool.updatedAt : new Date())}</td>
                   <td className="px-4 py-3">
                     <form action={updateToolEconomicsAction} className="grid min-w-[420px] grid-cols-2 gap-2 xl:grid-cols-6">
@@ -172,4 +180,18 @@ function toMoney(value: unknown) {
 function toCostInput(value: unknown) {
   const amount = Number(value?.toString?.() || value || 0);
   return amount ? String(amount) : "";
+}
+
+function toEstimatedMargin(credits: number, cost: unknown) {
+  const estimatedCreditValue = 0.7;
+  const revenue = credits * estimatedCreditValue;
+  const runCost = Number(cost?.toString?.() || cost || 0);
+  const margin = revenue - runCost;
+  return `$${margin.toFixed(4)}`;
+}
+
+function getOptionalToolString(tool: unknown, key: "internalKey" | "qualityTier") {
+  if (!tool || typeof tool !== "object" || !(key in tool)) return null;
+  const value = (tool as Record<string, unknown>)[key];
+  return typeof value === "string" ? value : null;
 }

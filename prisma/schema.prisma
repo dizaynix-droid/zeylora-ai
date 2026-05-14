@@ -205,6 +205,9 @@ model AiTool {
   slug                     String
   version                  Int        @default(1)
   name                     String
+  publicName               String?
+  internalKey              String?
+  qualityTier              String?
   category                 String
   description              String
   creditCost               Int
@@ -223,6 +226,9 @@ model AiTool {
   fallbackProviderKeysJson Json?
   retryPolicyJson          Json?
   experimentKey            String?
+  featured                 Boolean    @default(false)
+  recommended              Boolean    @default(false)
+  displayOrder             Int        @default(100)
   deletedAt                DateTime?
   createdAt                DateTime   @default(now())
   updatedAt                DateTime   @updatedAt
@@ -230,6 +236,9 @@ model AiTool {
   jobs AiJob[]
 
   @@unique([slug, version])
+  @@index([internalKey])
+  @@index([qualityTier, providerKey])
+  @@index([displayOrder])
   @@index([slug, status])
   @@index([providerKey])
 }
@@ -271,6 +280,11 @@ model AiJob {
   estimatedCostSource  String?
   estimatedRevenueAtRun Decimal? @db.Decimal(10, 4)
   estimatedProfitAtRun Decimal?  @db.Decimal(10, 4)
+  toolNameSnapshot     String?
+  toolInternalKeySnapshot String?
+  qualityTierSnapshot  String?
+  providerKeySnapshot  String?
+  creditsChargedSnapshot Int?
   errorMessage         String?
   providerResponseJson Json?
   processingTimeMs     Int?
@@ -298,6 +312,8 @@ model AiJob {
   @@index([createdAt])
   @@index([createdAt, status, toolId, providerKey])
   @@index([completedAt, estimatedCostSource])
+  @@index([qualityTierSnapshot, providerKeySnapshot])
+  @@index([completedAt, qualityTierSnapshot])
 }
 
 model Ticket {

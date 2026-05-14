@@ -17,6 +17,7 @@ import {
   type BackgroundRemovalProviderKey,
   type BackgroundRemovalQualityMode
 } from "@/config/ai-tools";
+import { resolveToolEconomy } from "@/config/tool-economy";
 import { checkRateLimit, rateLimitResponse } from "@/lib/abuse/rate-limit";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db";
@@ -129,6 +130,11 @@ export async function POST(request: Request) {
   const qualityMode = normalizeQualityMode(body?.qualityMode);
   const activeProviderKey = getProviderForQualityMode(qualityMode);
   const effectiveQualityMode = activeProviderKey === "replicate" && qualityMode === "high" ? "standard" : qualityMode;
+  const economy = resolveToolEconomy({
+    toolSlug: backgroundRemoverConfig.slug,
+    qualityMode: effectiveQualityMode,
+    providerKey: activeProviderKey
+  });
 
   if (!body?.inputMediaId) {
     return NextResponse.json(
@@ -180,7 +186,7 @@ export async function POST(request: Request) {
       { status: 409 }
     );
   }
-  const toolCreditCost = tool.creditCost ?? backgroundRemoverConfig.creditCost;
+  const toolCreditCost = economy.creditCost;
   let creditPlan = createJobCreditPlan(user, toolCreditCost);
 
   const job = await prisma.aiJob.create({
@@ -191,6 +197,11 @@ export async function POST(request: Request) {
       status: JobStatus.PENDING,
       inputImageId: inputMedia.id,
       creditCost: toolCreditCost,
+      toolNameSnapshot: economy.publicName,
+      toolInternalKeySnapshot: economy.internalKey,
+      qualityTierSnapshot: economy.qualityTier,
+      providerKeySnapshot: economy.providerKey,
+      creditsChargedSnapshot: toolCreditCost,
       maxRetries: backgroundRemoverConfig.maxRetries,
       toolVersion: tool.version
     }
@@ -305,7 +316,7 @@ export async function POST(request: Request) {
     let outputBuffer = attempt.outputBuffer ?? await downloadOutput(attempt.outputUrl);
     let qualityReport = inspectBackgroundRemovalQuality(outputBuffer);
 
-    if (shouldRetryWithQualityFallback(qualityReport, attempt)) {
+    if (qualityMode === "high" && shouldRetryWithQualityFallback(qualityReport, attempt)) {
       await createJobEvent(job.id, "quality_fallback_started", "Result quality looked weak; trying a higher quality segmentation model.", {
         originalModel: attempt.model,
         originalQualityTier: attempt.qualityTier,
@@ -447,11 +458,23 @@ export async function POST(request: Request) {
       }
     });
 
-    const costSnapshot = await buildJobCostSnapshotUpdate(job.id);
+    const completedEconomy = resolveToolEconomy({
+      toolSlug: backgroundRemoverConfig.slug,
+      qualityMode: attempt.qualityTier,
+      providerKey: attempt.providerKey
+    });
+    const costSnapshot = await buildJobCostSnapshotUpdate(job.id, {
+      providerKey: attempt.providerKey,
+      qualityTier: completedEconomy.qualityTier,
+      internalKey: completedEconomy.internalKey,
+      publicName: completedEconomy.publicName,
+      creditCost: toolCreditCost
+    });
     const completedJob = await prisma.aiJob.update({
       where: { id: job.id },
       data: {
         status: JobStatus.COMPLETED,
+        providerKey: attempt.providerKey,
         outputImageId: outputMedia.id,
         providerRequestId: attempt.providerRequestId,
         providerResponseJson: toPrismaJson(attempt.rawResponse),

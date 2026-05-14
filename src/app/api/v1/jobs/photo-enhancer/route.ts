@@ -9,6 +9,7 @@ import {
 } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { photoEnhancerConfig } from "@/config/ai-tools";
+import { resolveToolEconomy } from "@/config/tool-economy";
 import { checkRateLimit, rateLimitResponse } from "@/lib/abuse/rate-limit";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import {
@@ -64,6 +65,10 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json().catch(() => null)) as JobRequest | null;
+  const economy = resolveToolEconomy({
+    toolSlug: photoEnhancerConfig.slug,
+    providerKey: photoEnhancerConfig.providerKey
+  });
 
   if (!body?.inputMediaId) {
     return NextResponse.json({ ok: false, error: "inputMediaId is required." }, { status: 400 });
@@ -97,17 +102,22 @@ export async function POST(request: Request) {
   if (!tool) {
     return NextResponse.json({ ok: false, error: "Photo Enhancer is not active yet." }, { status: 409 });
   }
-  const toolCreditCost = tool.creditCost ?? photoEnhancerConfig.creditCost;
+  const toolCreditCost = economy.creditCost;
   let creditPlan = createJobCreditPlan(user, toolCreditCost);
 
   const job = await prisma.aiJob.create({
     data: {
       userId: user.id,
       toolId: tool.id,
-      providerKey: photoEnhancerConfig.providerKey,
+      providerKey: economy.providerKey,
       status: JobStatus.PENDING,
       inputImageId: inputMedia.id,
       creditCost: toolCreditCost,
+      toolNameSnapshot: economy.publicName,
+      toolInternalKeySnapshot: economy.internalKey,
+      qualityTierSnapshot: economy.qualityTier,
+      providerKeySnapshot: economy.providerKey,
+      creditsChargedSnapshot: toolCreditCost,
       maxRetries: photoEnhancerConfig.maxRetries,
       toolVersion: tool.version
     }
@@ -258,11 +268,22 @@ export async function POST(request: Request) {
       }
     });
 
-    const costSnapshot = await buildJobCostSnapshotUpdate(job.id);
+    const completedEconomy = resolveToolEconomy({
+      toolSlug: photoEnhancerConfig.slug,
+      providerKey: enhancement.providerKey
+    });
+    const costSnapshot = await buildJobCostSnapshotUpdate(job.id, {
+      providerKey: enhancement.providerKey,
+      qualityTier: completedEconomy.qualityTier,
+      internalKey: completedEconomy.internalKey,
+      publicName: completedEconomy.publicName,
+      creditCost: toolCreditCost
+    });
     const completedJob = await prisma.aiJob.update({
       where: { id: job.id },
       data: {
         status: JobStatus.COMPLETED,
+        providerKey: enhancement.providerKey,
         outputImageId: outputMedia.id,
         providerRequestId: enhancement.providerRequestId,
         providerResponseJson: toPrismaJson(enhancement.rawResponse),
