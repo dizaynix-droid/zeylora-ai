@@ -1,22 +1,29 @@
+import { sendTransactionalEmail } from "@/lib/email/resend";
+import type { EmailTemplateKey } from "@/lib/email/templates";
+
 export type TransactionalEmailEvent =
   | "payment_successful"
   | "credits_added"
-  | "job_completed"
-  | "job_failed_refunded"
-  | "low_credits"
+  | "password_reset"
+  | "mfa_enabled"
+  | "ticket_reply"
+  | "failed_payment"
   | "welcome";
 
 export type EmailEventInput = {
   userId?: string;
-  eventType: TransactionalEmailEvent;
-  templateKey: string;
+  recipientEmail: string;
+  templateKey: EmailTemplateKey;
+  idempotencyKey?: string;
   payload?: Record<string, unknown>;
 };
 
 export async function enqueueEmailEvent(input: EmailEventInput) {
-  // Queue/provider integration belongs in a later phase; keep callers stable now.
-  return {
-    status: "pending" as const,
-    ...input
-  };
+  return sendTransactionalEmail({
+    templateKey: input.templateKey,
+    to: input.recipientEmail,
+    userId: input.userId,
+    idempotencyKey: input.idempotencyKey,
+    payload: input.payload
+  });
 }

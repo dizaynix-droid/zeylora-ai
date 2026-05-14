@@ -4,6 +4,7 @@ import { trackingEvents } from "@/config/tracking";
 import { trackServerEvent } from "@/lib/analytics/server";
 import { deleteDashboardCache } from "@/lib/dashboard/cache";
 import { prisma } from "@/lib/db";
+import { sendTransactionalEmail } from "@/lib/email/resend";
 import { getStripeClient, getStripeWebhookSecret } from "@/lib/payments/stripe";
 
 export const runtime = "nodejs";
@@ -102,7 +103,7 @@ export async function POST(request: Request) {
           }
 
           const balanceAfter = user.creditBalance + credits;
-          const [paidPayment] = await Promise.all([
+          const [paidPayment, updatedUser] = await Promise.all([
             tx.payment.update({
               where: { id: payment.id },
               data: {
@@ -117,7 +118,7 @@ export async function POST(request: Request) {
             tx.user.update({
               where: { id: userId },
               data: { creditBalance: balanceAfter },
-              select: { id: true }
+              select: { id: true, email: true }
             })
           ]);
 
@@ -145,7 +146,7 @@ export async function POST(request: Request) {
             }
           });
 
-          return { credited: true as const, paymentId: paidPayment.id, balanceAfter };
+          return { credited: true as const, paymentId: paidPayment.id, balanceAfter, email: updatedUser.email };
         });
 
         if (processed.credited) {
@@ -153,6 +154,27 @@ export async function POST(request: Request) {
           deleteDashboardCache(`dashboard:transactions:${userId}`);
           trackServerEvent(trackingEvents.checkoutCompleted, { provider: "stripe", paymentId, credits });
           trackServerEvent(trackingEvents.purchase, { provider: "stripe", paymentId, credits });
+          await sendTransactionalEmail({
+            templateKey: "payment_success",
+            to: processed.email,
+            userId,
+            idempotencyKey: `payment-success:${processed.paymentId}`,
+            payload: {
+              credits,
+              amount: formatStripeAmount(session.amount_total, session.currency),
+              packageName: session.metadata?.packageName || "Credit pack"
+            }
+          });
+          await sendTransactionalEmail({
+            templateKey: "credits_added",
+            to: processed.email,
+            userId,
+            idempotencyKey: `credits-added:${processed.paymentId}`,
+            payload: {
+              credits,
+              packageName: session.metadata?.packageName || "Credit pack"
+            }
+          });
         }
       }
     } else if (event.type === "checkout.session.expired") {
@@ -193,4 +215,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ ok: false, error: "Webhook processing failed." }, { status: 500 });
   }
+}
+
+function formatStripeAmount(amount: number | null | undefined, currency: string | null | undefined) {
+  if (!amount || !currency) return undefined;
+  return `${(amount / 100).toFixed(2)} ${currency.toUpperCase()}`;
 }

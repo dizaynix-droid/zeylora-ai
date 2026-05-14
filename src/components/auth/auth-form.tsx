@@ -89,9 +89,22 @@ export function AuthForm({ authStatus, authError, next = "/dashboard" }: { authS
     }
 
     if (mode === "signup" && !result.data.session) {
+      void fetch("/api/v1/email/welcome", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email })
+      }).catch(() => null);
       setStatus("success");
       setMessage("Account created. Check your email if confirmation is enabled, then sign in with your password.");
       return;
+    }
+
+    if (mode === "signup") {
+      void fetch("/api/v1/email/welcome", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email })
+      }).catch(() => null);
     }
 
     const safeNextPath = getSafeNextPath(next);
@@ -265,6 +278,12 @@ async function handlePasswordReset(
     setMessage(error.message);
     return;
   }
+
+  void fetch("/api/v1/email/password-reset", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: email.trim() })
+  }).catch(() => null);
 
   setStatus("success");
   setMessage("Check your email for a secure password reset link.");

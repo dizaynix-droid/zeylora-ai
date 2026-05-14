@@ -113,6 +113,7 @@ export function MfaSettingsPanel() {
       if (verify.error) throw verify.error;
 
       setMessage("Two-factor authentication has been enabled.");
+      void fetch("/api/v1/email/mfa-enabled", { method: "POST" }).catch(() => null);
       await refreshStatus();
     } catch (error) {
       setStatus("setup");

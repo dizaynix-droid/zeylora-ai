@@ -7,6 +7,7 @@ import { requireAdmin } from "@/lib/admin/auth";
 import { logAdminAction } from "@/lib/admin/audit";
 import { getCurrentUserFromSession } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db";
+import { sendTransactionalEmail } from "@/lib/email/resend";
 import {
   createTicketMessage,
   isTicketCategory,
@@ -101,7 +102,7 @@ export async function adminReplyToTicketAction(formData: FormData) {
 
   const ticket = await prisma.ticket.findFirst({
     where: { id: ticketId, deletedAt: null },
-    select: { id: true }
+    select: { id: true, subject: true, userId: true, user: { select: { email: true } } }
   });
   if (!ticket) redirect("/admin/tickets?error=missing");
 
@@ -118,6 +119,17 @@ export async function adminReplyToTicketAction(formData: FormData) {
     action: "ticket.reply",
     entityType: "Ticket",
     entityId: ticket.id
+  });
+
+  await sendTransactionalEmail({
+    templateKey: "ticket_reply",
+    to: ticket.user.email,
+    userId: ticket.userId,
+    idempotencyKey: `ticket-reply:${ticket.id}:${Date.now()}`,
+    payload: {
+      ticketSubject: ticket.subject,
+      ticketMessage: message.slice(0, 1200)
+    }
   });
 
   revalidatePath("/admin/tickets");

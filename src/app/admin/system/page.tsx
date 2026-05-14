@@ -105,8 +105,23 @@ export default async function AdminSystemPage({
         <AdminSection title="Email/notification hazırlığı" description="Şu an spam göndermemek için mimari hazır, gönderim ayardan kontrollü açılır.">
           <div className="grid gap-3">
             <Info label="Email gönderimi" value={data.operations.emailsEnabled ? "Aktif" : "Kapalı"} />
+            <Info label="Resend" value={data.email.resendConfigured ? "Yapılandırıldı" : "RESEND_API_KEY eksik"} />
+            <Info label="From" value={data.email.fromConfigured ? process.env.EMAIL_FROM || "Tanımlı" : "EMAIL_FROM eksik"} />
             <Info label="Support email" value={data.operations.supportEmail} />
             <Info label="Billing email" value={data.operations.billingEmail} />
+            <Info
+              label="Son başarılı email"
+              value={data.email.lastSuccessfulEmail ? `${data.email.lastSuccessfulEmail.templateKey} · ${formatAdminDate(data.email.lastSuccessfulEmail.sentAt || data.email.lastSuccessfulEmail.createdAt)}` : "Henüz yok"}
+            />
+            <Info
+              label="Başarısız email"
+              value={`${data.email.failedEmailCount} adet${data.email.lastFailedEmail?.errorMessage ? ` · ${data.email.lastFailedEmail.errorMessage}` : ""}`}
+            />
+            <form action="/api/v1/email/test" method="post">
+              <button className="h-11 w-full rounded-full bg-zeylora-brand text-sm font-black text-white shadow-glow transition hover:brightness-110">
+                Admin test email gönder
+              </button>
+            </form>
             <div className="grid gap-2">
               {emailProviderPlaceholders.map((provider) => (
                 <div key={provider.key} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3">

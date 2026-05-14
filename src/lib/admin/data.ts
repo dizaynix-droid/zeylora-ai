@@ -943,7 +943,7 @@ export async function getAdminProviderMonitoringData() {
 }
 
 export async function getAdminSystemData() {
-  const [operations, providers, recentAdminActions, recentSecurityEvents] = await Promise.all([
+  const [operations, providers, recentAdminActions, recentSecurityEvents, lastSuccessfulEmail, lastFailedEmail, failedEmailCount] = await Promise.all([
     getOperationalSettings({ bypassCache: true }),
     getAdminProviderMonitoringData(),
     measureAdminQuery(
@@ -968,6 +968,26 @@ export async function getAdminSystemData() {
         take: 8,
         select: { id: true, action: true, metadataJson: true, createdAt: true }
       })
+    ),
+    measureAdminQuery(
+      "system.email.lastSuccessful",
+      prisma.emailEvent.findFirst({
+        where: { status: "SENT" },
+        orderBy: { sentAt: "desc" },
+        select: { id: true, templateKey: true, recipientEmail: true, provider: true, sentAt: true, createdAt: true }
+      })
+    ),
+    measureAdminQuery(
+      "system.email.lastFailed",
+      prisma.emailEvent.findFirst({
+        where: { status: "FAILED" },
+        orderBy: { updatedAt: "desc" },
+        select: { id: true, templateKey: true, recipientEmail: true, provider: true, errorMessage: true, updatedAt: true, createdAt: true }
+      })
+    ),
+    measureAdminQuery(
+      "system.email.failedCount",
+      prisma.emailEvent.count({ where: { status: "FAILED" } })
     )
   ]);
 
@@ -976,6 +996,14 @@ export async function getAdminSystemData() {
     providers,
     recentAdminActions,
     recentSecurityEvents,
+    email: {
+      resendConfigured: Boolean(process.env.RESEND_API_KEY),
+      fromConfigured: Boolean(process.env.EMAIL_FROM),
+      supportEmail: process.env.SUPPORT_EMAIL || "support@zeylora.ai",
+      lastSuccessfulEmail,
+      lastFailedEmail,
+      failedEmailCount
+    },
     env: {
       nodeEnv: process.env.NODE_ENV || "development",
       siteUrl: process.env.NEXT_PUBLIC_SITE_URL || "",
