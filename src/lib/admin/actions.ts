@@ -196,6 +196,92 @@ export async function deleteBusinessExpenseAction(formData: FormData) {
   redirect(`/admin/reports?deleted=${encodeURIComponent(expense.title)}`);
 }
 
+export async function upsertProviderSettingAction(formData: FormData) {
+  const admin = await requireAdmin();
+  const providerId = getFormString(formData, "providerId", 120);
+  const providerKey = normalizeProviderKey(getFormString(formData, "providerKey", 80));
+  const name = getFormString(formData, "name", 120);
+  const providerType = getFormString(formData, "providerType", 40) || "other";
+  const envKeyName = getEnvKeyName(getFormString(formData, "envKeyName", 120));
+  const status = getProviderRecordStatus(getFormString(formData, "status", 40));
+  const dailyBudgetLimit = Number(formData.get("dailyBudgetLimit") || 0);
+  const monthlyBudgetLimit = Number(formData.get("monthlyBudgetLimit") || 0);
+  const estimatedCostPerRun = Number(formData.get("estimatedCostPerRun") || 0);
+  const estimatedCostCurrency = getFormString(formData, "estimatedCostCurrency", 8).toLowerCase() || "usd";
+  const budgetEnforcementMode = getProviderBudgetMode(getFormString(formData, "budgetEnforcementMode", 40));
+  const priority = Number(formData.get("priority") || 100);
+  const notes = getFormString(formData, "notes", 1000);
+
+  if (
+    !providerKey ||
+    !name ||
+    !status ||
+    !budgetEnforcementMode ||
+    !Number.isFinite(dailyBudgetLimit) ||
+    dailyBudgetLimit < 0 ||
+    !Number.isFinite(monthlyBudgetLimit) ||
+    monthlyBudgetLimit < 0 ||
+    !Number.isFinite(estimatedCostPerRun) ||
+    estimatedCostPerRun < 0 ||
+    !Number.isInteger(priority)
+  ) {
+    redirect("/admin/providers?error=invalid");
+  }
+
+  const data = {
+    providerKey,
+    name,
+    providerType,
+    envKeyName: envKeyName || null,
+    status,
+    dailyBudgetLimit: dailyBudgetLimit > 0 ? dailyBudgetLimit : null,
+    monthlyBudgetLimit: monthlyBudgetLimit > 0 ? monthlyBudgetLimit : null,
+    estimatedCostPerRun: estimatedCostPerRun > 0 ? estimatedCostPerRun : null,
+    estimatedCostCurrency,
+    budgetEnforcementMode,
+    priority,
+    notes: notes || null,
+    configJson: {}
+  };
+
+  const provider = providerId
+    ? await prisma.providerSetting.update({
+        where: { id: providerId },
+        data,
+        select: { id: true, providerKey: true, name: true }
+      })
+    : await prisma.providerSetting.upsert({
+        where: { providerKey },
+        update: data,
+        create: data,
+        select: { id: true, providerKey: true, name: true }
+      });
+
+  await logAdminAction({
+    admin,
+    action: providerId ? "provider.update" : "provider.upsert",
+    entityType: "ProviderSetting",
+    entityId: provider.id,
+    metadata: {
+      providerKey: provider.providerKey,
+      name: provider.name,
+      providerType,
+      envKeyName,
+      status,
+      dailyBudgetLimit,
+      monthlyBudgetLimit,
+      estimatedCostPerRun,
+      estimatedCostCurrency,
+      budgetEnforcementMode,
+      priority
+    }
+  });
+
+  revalidatePath("/admin/providers");
+  revalidatePath("/admin/reports");
+  redirect(`/admin/providers?saved=${encodeURIComponent(provider.providerKey)}`);
+}
+
 export async function updateCreditPackageAction(formData: FormData) {
   const admin = await requireAdmin();
   const packageId = String(formData.get("packageId") || "");
@@ -636,6 +722,41 @@ function getExpenseCategory(value: string): ExpenseCategory | null {
   const normalized = value.toUpperCase();
   if (["ADS", "SEO", "PROVIDER", "SOFTWARE", "DESIGN", "DOMAIN", "HOSTING", "OTHER"].includes(normalized)) {
     return normalized as ExpenseCategory;
+  }
+  return null;
+}
+
+function normalizeProviderKey(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/-{2,}/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+function getEnvKeyName(value: string) {
+  return value
+    .toUpperCase()
+    .replace(/[^A-Z0-9_]+/g, "_")
+    .replace(/_{2,}/g, "_")
+    .replace(/(^_|_$)/g, "");
+}
+
+function getProviderRecordStatus(value: string) {
+  const normalized = value.toUpperCase();
+  if (normalized === "ACTIVE") return "ACTIVE" as const;
+  if (normalized === "PAUSED") return "SUSPENDED" as const;
+  if (normalized === "DISABLED") return "INACTIVE" as const;
+  if (["ACTIVE", "INACTIVE", "SUSPENDED"].includes(normalized)) {
+    return normalized as "ACTIVE" | "INACTIVE" | "SUSPENDED";
+  }
+  return null;
+}
+
+function getProviderBudgetMode(value: string) {
+  const normalized = value.toUpperCase();
+  if (["NOTIFY_ONLY", "PAUSE_PROVIDER", "PAUSE_TOOLS", "BLOCK_JOBS"].includes(normalized)) {
+    return normalized as "NOTIFY_ONLY" | "PAUSE_PROVIDER" | "PAUSE_TOOLS" | "BLOCK_JOBS";
   }
   return null;
 }

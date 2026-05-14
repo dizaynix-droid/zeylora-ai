@@ -77,6 +77,7 @@ enum PaymentStatus {
 
 enum ProviderBudgetMode {
   NOTIFY_ONLY
+  PAUSE_PROVIDER
   PAUSE_TOOLS
   BLOCK_JOBS
 }
@@ -446,15 +447,25 @@ model ProviderSetting {
   id                        String             @id @default(cuid())
   providerKey               String             @unique
   name                      String
+  providerType              String             @default("other")
   status                    RecordStatus       @default(INACTIVE)
   apiKeyEncrypted           String?
-  configJson                Json
+  envKeyName                String?
+  configJson                Json               @default("{}")
+  dailyBudgetLimit          Decimal?           @db.Decimal(10, 2)
   monthlyBudgetLimit        Decimal?           @db.Decimal(10, 2)
   monthlyBudgetUsed         Decimal            @default(0) @db.Decimal(10, 2)
+  estimatedCostPerRun       Decimal?           @db.Decimal(10, 4)
+  estimatedCostCurrency     String             @default("usd")
   budgetEnforcementMode     ProviderBudgetMode @default(NOTIFY_ONLY)
+  priority                  Int                @default(100)
+  notes                     String?
   safeAdminEditableKeysJson Json?
   createdAt                 DateTime           @default(now())
   updatedAt                 DateTime           @updatedAt
+
+  @@index([providerKey, status])
+  @@index([status, priority])
 }
 
 model ProviderLog {

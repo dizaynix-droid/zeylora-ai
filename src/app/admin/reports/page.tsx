@@ -96,6 +96,11 @@ export default async function AdminReportsPage({
           Bazı araçlarda maliyet girilmemiş: {data.summary.missingCostTools.map((tool) => tool.name).join(", ")}. Net kâr hesabı bu araçlarda eksik kalabilir.
         </div>
       ) : null}
+      {data.summary.missingActiveCostTargets.length ? (
+        <div className="mt-4 rounded-2xl border border-amber/30 bg-amber/10 px-4 py-3 text-sm font-bold text-amber">
+          Aktif araç/provider maliyeti eksik: {data.summary.missingActiveCostTargets.map((item) => `${item.name} (${item.providerName})`).join(", ")}.
+        </div>
+      ) : null}
 
       <div className="mt-4 grid gap-3 md:grid-cols-3 2xl:grid-cols-6">
         <AdminMetricCard label="Toplam gelir" value={formatCurrency(data.summary.revenue)} note={`${data.summary.paymentCount} başarılı ödeme`} />
@@ -169,6 +174,7 @@ export default async function AdminReportsPage({
                   <th className="px-4 py-3">Araç</th>
                   <th className="px-4 py-3">Sağlayıcı</th>
                   <th className="px-4 py-3">İşlem</th>
+                  <th className="px-4 py-3">Run maliyeti</th>
                   <th className="px-4 py-3">Kredi</th>
                   <th className="px-4 py-3">Maliyet</th>
                 </tr>
@@ -182,16 +188,56 @@ export default async function AdminReportsPage({
                     </td>
                     <td className="px-4 py-3 text-slate-300">{row.provider}</td>
                     <td className="px-4 py-3 text-slate-300">{row.runs}</td>
+                    <td className="px-4 py-3 text-slate-300">{formatCurrency(row.costPerRun)}</td>
                     <td className="px-4 py-3 text-slate-300">{row.credits}</td>
                     <td className="px-4 py-3 text-amber">{formatCurrency(row.estimatedCost)}</td>
                   </tr>
                 ))}
-                {data.toolUsage.length === 0 ? <EmptyRow colSpan={5} message="Tamamlanan işlem yok." /> : null}
+                {data.toolUsage.length === 0 ? <EmptyRow colSpan={6} message="Tamamlanan işlem yok." /> : null}
               </tbody>
             </table>
           </AdminTable>
         </AdminSection>
 
+        <AdminSection title="Sağlayıcı maliyetleri" description="Provider bazında tamamlanan/hatalı işlem, tahmini maliyet ve bütçe placeholder bilgisi.">
+          <AdminTable>
+            <table className="min-w-[860px] w-full divide-y divide-white/10 text-sm">
+              <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
+                <tr>
+                  <th className="px-4 py-3">Provider</th>
+                  <th className="px-4 py-3">Tamamlanan</th>
+                  <th className="px-4 py-3">Hatalı</th>
+                  <th className="px-4 py-3">Varsayılan maliyet</th>
+                  <th className="px-4 py-3">Tahmini maliyet</th>
+                  <th className="px-4 py-3">Bütçe</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/10">
+                {data.providerUsage.map((row) => (
+                  <tr key={row.provider}>
+                    <td className="px-4 py-3">
+                      <p className="font-black text-white">{row.provider}</p>
+                      {row.missingCost ? <p className="text-xs font-bold text-amber">Maliyet eksik</p> : null}
+                    </td>
+                    <td className="px-4 py-3 text-slate-300">{row.completedJobs}</td>
+                    <td className="px-4 py-3 text-rose-200">{row.failedJobs}</td>
+                    <td className="px-4 py-3 text-slate-300">{formatCurrency(row.defaultCostPerRun)}</td>
+                    <td className="px-4 py-3 text-amber">{formatCurrency(row.estimatedCost)}</td>
+                    <td className="px-4 py-3 text-slate-400">
+                      <p>Günlük {formatCurrency(row.dailyBudget)}</p>
+                      <p>Aylık {formatCurrency(row.monthlyBudget)}</p>
+                      <p className="text-xs">{row.budgetMode}</p>
+                    </td>
+                  </tr>
+                ))}
+                {data.providerUsage.length === 0 ? <EmptyRow colSpan={6} message="Provider kullanımı yok." /> : null}
+              </tbody>
+            </table>
+          </AdminTable>
+        </AdminSection>
+      </div>
+
+      <div className="mt-4 grid gap-4 xl:grid-cols-2">
         <AdminSection title="Paket geliri" description="Başarılı ödemelerdeki paket metadata bilgisine göre gelir.">
           <AdminTable>
             <table className="min-w-[680px] w-full divide-y divide-white/10 text-sm">

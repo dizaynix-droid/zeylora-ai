@@ -618,6 +618,82 @@ export type AdminReportRangeKey = "today" | "yesterday" | "last7" | "last30" | "
 export type AdminReportGrouping = "daily" | "weekly" | "monthly";
 
 const EXPENSE_CATEGORIES = ["ADS", "SEO", "PROVIDER", "SOFTWARE", "DESIGN", "DOMAIN", "HOSTING", "OTHER"] as const;
+const PROVIDER_RUNTIME_DEFAULTS = [
+  { providerKey: "replicate", name: "Replicate", providerType: "replicate", envKeyName: "REPLICATE_API_TOKEN", priority: 10 },
+  { providerKey: "photoroom", name: "PhotoRoom", providerType: "photoroom", envKeyName: "PHOTOROOM_API_KEY", priority: 20 },
+  { providerKey: "removebg", name: "remove.bg", providerType: "removebg", envKeyName: "REMOVEBG_API_KEY", priority: 30 },
+  { providerKey: "local-sharp", name: "Local Sharp", providerType: "local-sharp", envKeyName: "", priority: 40 }
+] as const;
+
+export async function getAdminProvidersData() {
+  const startedAt = adminPerfNow();
+  const dbProviders = await measureAdminQuery(
+    "providers.settings.list",
+    prisma.providerSetting.findMany({
+      orderBy: [{ priority: "asc" }, { providerKey: "asc" }],
+      select: {
+        id: true,
+        providerKey: true,
+        name: true,
+        providerType: true,
+        envKeyName: true,
+        status: true,
+        dailyBudgetLimit: true,
+        monthlyBudgetLimit: true,
+        monthlyBudgetUsed: true,
+        estimatedCostPerRun: true,
+        estimatedCostCurrency: true,
+        budgetEnforcementMode: true,
+        priority: true,
+        notes: true,
+        updatedAt: true
+      }
+    })
+  );
+  const byKey = new Map(dbProviders.map((provider) => [provider.providerKey, provider]));
+  const providers = [
+    ...PROVIDER_RUNTIME_DEFAULTS.map((runtime) => {
+      const db = byKey.get(runtime.providerKey);
+      return {
+        id: db?.id || "",
+        providerKey: runtime.providerKey,
+        name: db?.name || runtime.name,
+        providerType: db?.providerType || runtime.providerType,
+        envKeyName: db?.envKeyName ?? runtime.envKeyName,
+        configured: runtime.envKeyName ? Boolean(process.env[runtime.envKeyName]) : true,
+        status: db?.status || "INACTIVE",
+        dailyBudgetLimit: db?.dailyBudgetLimit || null,
+        monthlyBudgetLimit: db?.monthlyBudgetLimit || null,
+        monthlyBudgetUsed: db?.monthlyBudgetUsed || 0,
+        estimatedCostPerRun: db?.estimatedCostPerRun || null,
+        estimatedCostCurrency: db?.estimatedCostCurrency || "usd",
+        budgetEnforcementMode: db?.budgetEnforcementMode || "NOTIFY_ONLY",
+        priority: db?.priority ?? runtime.priority,
+        notes: db?.notes || "",
+        updatedAt: db?.updatedAt || null,
+        source: db ? "db" : "runtime"
+      };
+    }),
+    ...dbProviders
+      .filter((provider) => !PROVIDER_RUNTIME_DEFAULTS.some((runtime) => runtime.providerKey === provider.providerKey))
+      .map((provider) => ({
+        ...provider,
+        configured: provider.envKeyName ? Boolean(process.env[provider.envKeyName]) : false,
+        source: "db" as const
+      }))
+  ].sort((a, b) => a.priority - b.priority || a.providerKey.localeCompare(b.providerKey));
+
+  logAdminPerf("admin.providers.data", {
+    duration: `${adminPerfNow() - startedAt}ms`,
+    queryCount: 1,
+    resultCount: providers.length,
+    dbCount: dbProviders.length
+  });
+
+  return providers;
+}
+
+export type AdminProvidersData = Awaited<ReturnType<typeof getAdminProvidersData>>;
 
 export async function getAdminReportsData(input: {
   range?: string;
@@ -670,7 +746,9 @@ export async function getAdminReportsData(input: {
     completedJobs,
     failedJobs,
     expenses,
-    topPaymentUsers
+    topPaymentUsers,
+    providerSettings,
+    activeTools
   ] = await Promise.all([
     measureAdminQuery(
       "reports.payments.paid.list",
@@ -790,8 +868,40 @@ export async function getAdminReportsData(input: {
         take: 5
       }),
       { range, take: 5 }
+    ),
+    measureAdminQuery(
+      "reports.providers.costDefaults",
+      prisma.providerSetting.findMany({
+        select: {
+          providerKey: true,
+          name: true,
+          status: true,
+          monthlyBudgetLimit: true,
+          monthlyBudgetUsed: true,
+          dailyBudgetLimit: true,
+          estimatedCostPerRun: true,
+          estimatedCostCurrency: true,
+          budgetEnforcementMode: true
+        }
+      }),
+      { range }
+    ),
+    measureAdminQuery(
+      "reports.tools.activeCostWarnings",
+      prisma.aiTool.findMany({
+        where: { deletedAt: null, status: "ACTIVE" },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          providerKey: true,
+          estimatedCostPerRun: true
+        }
+      }),
+      { range }
     )
   ]);
+  const providerDefaults = new Map(providerSettings.map((provider) => [provider.providerKey, provider]));
 
   const topUserIds = topPaymentUsers.map((item) => item.userId).filter(Boolean) as string[];
   const topUsers = topUserIds.length
@@ -809,7 +919,7 @@ export async function getAdminReportsData(input: {
   const revenue = decimalToNumber(paidPaymentAggregate._sum.amount);
   const creditsSold = paidPaymentAggregate._sum.creditsDelivered ?? 0;
   const creditsUsed = Math.abs(creditUsage._sum.amount ?? 0);
-  const providerCost = completedJobs.reduce((sum, job) => sum + decimalToNumber(job.tool?.estimatedCostPerRun), 0);
+  const providerCost = completedJobs.reduce((sum, job) => sum + getJobEstimatedCost(job, providerDefaults), 0);
   const manualExpenses = expenses.reduce((sum, expense) => sum + decimalToNumber(expense.amount), 0);
   const refundAmount = decimalToNumber(refundAggregate._sum.amount);
   const grossProfit = revenue - providerCost;
@@ -819,24 +929,27 @@ export async function getAdminReportsData(input: {
   const missingCostTools = Array.from(
     new Map(
       completedJobs
-        .filter((job) => !job.tool?.estimatedCostPerRun || decimalToNumber(job.tool.estimatedCostPerRun) <= 0)
+        .filter((job) => getJobEstimatedCost(job, providerDefaults) <= 0)
         .map((job) => [job.tool?.slug || "unknown", job.tool?.name || "Bilinmeyen araç"])
     ).entries()
   ).map(([slug, name]) => ({ slug, name }));
+  const missingActiveCostTargets = buildMissingActiveCostWarnings(activeTools, providerDefaults);
 
   const series = buildReportSeries({
     grouping,
     paidPayments,
     expenses,
-    completedJobs
+    completedJobs,
+    providerDefaults
   });
-  const toolUsage = buildToolUsageReport(completedJobs);
+  const toolUsage = buildToolUsageReport(completedJobs, providerDefaults);
+  const providerUsage = buildProviderUsageReport(completedJobs, failedJobs, providerDefaults);
   const packageRevenue = buildPackageRevenueReport(paidPayments);
   const failedByTool = buildFailedJobsReport(failedJobs);
 
   logAdminPerf("admin.reports.data", {
     duration: `${adminPerfNow() - startedAt}ms`,
-    queryCount: topUserIds.length ? 9 : 8,
+    queryCount: topUserIds.length ? 11 : 10,
     range,
     grouping,
     completedJobs: completedJobs.length,
@@ -865,10 +978,13 @@ export async function getAdminReportsData(input: {
       refundCount: refundAggregate._count._all,
       failedJobCount: failedJobs.length,
       costPerCleanExport,
-      missingCostTools
+      missingCostTools,
+      missingActiveCostTargets
     },
     series,
     toolUsage,
+    providerUsage,
+    providerSettings,
     packageRevenue,
     topUsers: topPaymentUsers.map((item) => ({
       userId: item.userId,
@@ -1064,7 +1180,8 @@ function buildReportSeries(input: {
   grouping: AdminReportGrouping;
   paidPayments: Array<{ amount: unknown; createdAt: Date }>;
   expenses: Array<{ amount: unknown; expenseDate: Date }>;
-  completedJobs: Array<{ createdAt: Date; tool: { estimatedCostPerRun: unknown } | null }>;
+  completedJobs: Array<{ providerKey: string | null; createdAt: Date; tool: { estimatedCostPerRun: unknown } | null }>;
+  providerDefaults: Map<string, { estimatedCostPerRun: unknown }>;
 }) {
   const buckets = new Map<string, { period: string; revenue: number; providerCost: number; expenses: number; netProfit: number }>();
   const ensureBucket = (date: Date) => {
@@ -1076,7 +1193,7 @@ function buildReportSeries(input: {
 
   for (const payment of input.paidPayments) ensureBucket(payment.createdAt).revenue += decimalToNumber(payment.amount);
   for (const expense of input.expenses) ensureBucket(expense.expenseDate).expenses += decimalToNumber(expense.amount);
-  for (const job of input.completedJobs) ensureBucket(job.createdAt).providerCost += decimalToNumber(job.tool?.estimatedCostPerRun);
+  for (const job of input.completedJobs) ensureBucket(job.createdAt).providerCost += getJobEstimatedCost(job, input.providerDefaults);
 
   return Array.from(buckets.values())
     .map((bucket) => ({ ...bucket, netProfit: bucket.revenue - bucket.providerCost - bucket.expenses }))
@@ -1093,11 +1210,12 @@ function buildToolUsageReport(
       estimatedCostPerRun: unknown;
       estimatedCostProvider: string | null;
     } | null;
-  }>
+  }>,
+  providerDefaults: Map<string, { estimatedCostPerRun: unknown }>
 ) {
   const byTool = new Map<
     string,
-    { slug: string; name: string; provider: string; runs: number; credits: number; estimatedCost: number; missingCost: boolean }
+    { slug: string; name: string; provider: string; runs: number; credits: number; costPerRun: number; estimatedCost: number; missingCost: boolean }
   >();
 
   for (const job of completedJobs) {
@@ -1110,18 +1228,90 @@ function buildToolUsageReport(
         provider: job.tool?.estimatedCostProvider || job.providerKey || "-",
         runs: 0,
         credits: 0,
+        costPerRun: getJobEstimatedCost(job, providerDefaults),
         estimatedCost: 0,
         missingCost: false
       };
-    const cost = decimalToNumber(job.tool?.estimatedCostPerRun);
+    const cost = getJobEstimatedCost(job, providerDefaults);
     existing.runs += 1;
     existing.credits += job.tool?.creditCost || 0;
+    existing.costPerRun = cost;
     existing.estimatedCost += cost;
     existing.missingCost ||= cost <= 0;
     byTool.set(slug, existing);
   }
 
   return Array.from(byTool.values()).sort((a, b) => b.runs - a.runs);
+}
+
+function buildProviderUsageReport(
+  completedJobs: Array<{ providerKey: string | null; tool: { estimatedCostPerRun: unknown } | null }>,
+  failedJobs: Array<{ providerKey: string | null }>,
+  providerDefaults: Map<string, { name?: string; estimatedCostPerRun: unknown; monthlyBudgetLimit?: unknown; dailyBudgetLimit?: unknown; monthlyBudgetUsed?: unknown; budgetEnforcementMode?: string }>
+) {
+  const byProvider = new Map<
+    string,
+    { provider: string; completedJobs: number; failedJobs: number; estimatedCost: number; defaultCostPerRun: number; monthlyBudget: number; dailyBudget: number; usedAmount: number; budgetMode: string; missingCost: boolean }
+  >();
+  const ensureProvider = (providerKey: string) => {
+    const defaults = providerDefaults.get(providerKey);
+    const existing =
+      byProvider.get(providerKey) ||
+      {
+        provider: defaults?.name || providerKey,
+        completedJobs: 0,
+        failedJobs: 0,
+        estimatedCost: 0,
+        defaultCostPerRun: decimalToNumber(defaults?.estimatedCostPerRun),
+        monthlyBudget: decimalToNumber(defaults?.monthlyBudgetLimit),
+        dailyBudget: decimalToNumber(defaults?.dailyBudgetLimit),
+        usedAmount: decimalToNumber(defaults?.monthlyBudgetUsed),
+        budgetMode: defaults?.budgetEnforcementMode || "NOTIFY_ONLY",
+        missingCost: false
+      };
+    byProvider.set(providerKey, existing);
+    return existing;
+  };
+
+  for (const job of completedJobs) {
+    const provider = ensureProvider(job.providerKey || "unknown");
+    const cost = getJobEstimatedCost(job, providerDefaults);
+    provider.completedJobs += 1;
+    provider.estimatedCost += cost;
+    provider.missingCost ||= cost <= 0;
+  }
+  for (const job of failedJobs) {
+    ensureProvider(job.providerKey || "unknown").failedJobs += 1;
+  }
+
+  return Array.from(byProvider.values()).sort((a, b) => b.estimatedCost - a.estimatedCost || b.completedJobs - a.completedJobs);
+}
+
+function buildMissingActiveCostWarnings(
+  activeTools: Array<{ name: string; slug: string; providerKey: string; estimatedCostPerRun: unknown }>,
+  providerDefaults: Map<string, { estimatedCostPerRun: unknown; name?: string; status?: string }>
+) {
+  return activeTools
+    .filter((tool) => {
+      const toolCost = decimalToNumber(tool.estimatedCostPerRun);
+      const providerCost = decimalToNumber(providerDefaults.get(tool.providerKey)?.estimatedCostPerRun);
+      return toolCost <= 0 && providerCost <= 0;
+    })
+    .map((tool) => ({
+      slug: tool.slug,
+      name: tool.name,
+      providerKey: tool.providerKey,
+      providerName: providerDefaults.get(tool.providerKey)?.name || tool.providerKey
+    }));
+}
+
+function getJobEstimatedCost(
+  job: { providerKey: string | null; tool: { estimatedCostPerRun: unknown } | null },
+  providerDefaults: Map<string, { estimatedCostPerRun: unknown }>
+) {
+  const toolCost = decimalToNumber(job.tool?.estimatedCostPerRun);
+  if (toolCost > 0) return toolCost;
+  return decimalToNumber(providerDefaults.get(job.providerKey || "")?.estimatedCostPerRun);
 }
 
 function buildPackageRevenueReport(payments: Array<{ amount: unknown; creditsDelivered: number; rawEventJson: unknown }>) {
