@@ -201,7 +201,7 @@ export async function POST(request: Request) {
       toolInternalKeySnapshot: economy.internalKey,
       qualityTierSnapshot: economy.qualityTier,
       providerKeySnapshot: economy.providerKey,
-      creditsChargedSnapshot: toolCreditCost,
+      creditsChargedSnapshot: 0,
       maxRetries: backgroundRemoverConfig.maxRetries,
       toolVersion: tool.version
     }
@@ -468,7 +468,7 @@ export async function POST(request: Request) {
       qualityTier: completedEconomy.qualityTier,
       internalKey: completedEconomy.internalKey,
       publicName: completedEconomy.publicName,
-      creditCost: toolCreditCost
+      creditsCharged: creditPlan.charged ? toolCreditCost : 0
     });
     const completedJob = await prisma.aiJob.update({
       where: { id: job.id },

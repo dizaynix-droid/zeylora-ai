@@ -43,6 +43,7 @@ export async function POST(request: Request, context: RouteContext) {
     select: {
       id: true,
       creditCost: true,
+      estimatedCostAtRun: true,
       outputImage: {
         select: {
           storageKey: true,
@@ -124,6 +125,14 @@ export async function POST(request: Request, context: RouteContext) {
           note: `${CLEAN_EXPORT_UNLOCK_NOTE}: ${job.tool.slug}`
         }
       });
+      await tx.aiJob.update({
+        where: { id: job.id },
+        data: {
+          creditsChargedSnapshot: requiredCredits,
+          estimatedRevenueAtRun: roundMoney(requiredCredits * operations.estimatedCreditUsdValue),
+          estimatedProfitAtRun: roundMoney((requiredCredits * operations.estimatedCreditUsdValue) - decimalToNumber(job.estimatedCostAtRun))
+        }
+      });
 
       return {
         ok: true as const,
@@ -172,6 +181,18 @@ export async function POST(request: Request, context: RouteContext) {
     filename,
     downloadUrl
   });
+}
+
+function decimalToNumber(value: unknown) {
+  if (value === null || value === undefined) return 0;
+  if (typeof value === "number") return value;
+  if (typeof value === "object" && "toString" in value) return Number(value.toString()) || 0;
+  return Number(value) || 0;
+}
+
+function roundMoney(value: number) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.round(value * 10000) / 10000;
 }
 
 function getLegacyExportMode(metadata: unknown) {

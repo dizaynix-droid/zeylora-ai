@@ -1143,6 +1143,11 @@ export async function getAdminReportsData(input: {
           estimatedCostSource: true,
           estimatedRevenueAtRun: true,
           estimatedProfitAtRun: true,
+          creditTransactions: {
+            where: { type: "USE" },
+            select: { amount: true },
+            take: 5
+          },
           tool: {
             select: {
               id: true,
@@ -1474,6 +1479,7 @@ type CostedJob = {
   toolNameSnapshot?: string | null;
   creditsChargedSnapshot?: number | null;
   creditCost?: number;
+  creditTransactions?: Array<{ amount: number }>;
   estimatedCostAtRun?: unknown;
   estimatedRevenueAtRun?: unknown;
   estimatedProfitAtRun?: unknown;
@@ -1649,7 +1655,7 @@ function buildToolUsageReport(
     const revenue = getJobEstimatedRevenue(job, estimatedCreditUsdValue);
     const profit = getJobEstimatedProfit(job, providerDefaults, estimatedCreditUsdValue);
     existing.runs += 1;
-    existing.credits += job.creditsChargedSnapshot ?? job.creditCost ?? job.tool?.creditCost ?? 0;
+    existing.credits += getJobCreditsCharged(job);
     existing.costPerRun = cost;
     existing.estimatedCost += cost;
     existing.estimatedRevenue += revenue;
@@ -1737,10 +1743,12 @@ function getJobEstimatedCost(
 }
 
 function getJobEstimatedRevenue(job: CostedJob, estimatedCreditUsdValue: number) {
+  const actualCredits = getJobCreditsCharged(job);
+  if (actualCredits <= 0) return 0;
   if (job.estimatedRevenueAtRun !== null && job.estimatedRevenueAtRun !== undefined) {
     return decimalToNumber(job.estimatedRevenueAtRun);
   }
-  return (job.creditsChargedSnapshot ?? job.creditCost ?? job.tool?.creditCost ?? 0) * estimatedCreditUsdValue;
+  return actualCredits * estimatedCreditUsdValue;
 }
 
 function getJobEstimatedProfit(
@@ -1748,10 +1756,16 @@ function getJobEstimatedProfit(
   providerDefaults: Map<string, { estimatedCostPerRun: unknown }>,
   estimatedCreditUsdValue: number
 ) {
-  if (job.estimatedProfitAtRun !== null && job.estimatedProfitAtRun !== undefined) {
+  if (getJobCreditsCharged(job) > 0 && job.estimatedProfitAtRun !== null && job.estimatedProfitAtRun !== undefined) {
     return decimalToNumber(job.estimatedProfitAtRun);
   }
   return getJobEstimatedRevenue(job, estimatedCreditUsdValue) - getJobEstimatedCost(job, providerDefaults);
+}
+
+function getJobCreditsCharged(job: CostedJob) {
+  const transactionCredits = Math.abs(job.creditTransactions?.reduce((sum, transaction) => sum + transaction.amount, 0) ?? 0);
+  if (transactionCredits > 0) return transactionCredits;
+  return 0;
 }
 
 function toolUsageAverageProviderCost(

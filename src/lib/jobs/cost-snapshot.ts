@@ -28,7 +28,7 @@ export async function buildJobCostSnapshotUpdate(
     qualityTier?: string;
     internalKey?: string;
     publicName?: string;
-    creditCost?: number;
+  creditsCharged?: number;
   } = {}
 ): Promise<Partial<JobCostSnapshotUpdate>> {
   const job = await prisma.aiJob.findUnique({
@@ -118,7 +118,7 @@ export async function buildJobCostSnapshotUpdate(
     (costSource === "TOOL_OVERRIDE" ? job.tool?.estimatedCostProvider : null) ||
     provider?.providerKey ||
     job.providerKey;
-  const creditsCharged = overrides.creditCost ?? job.creditsChargedSnapshot ?? job.creditCost;
+  const creditsCharged = overrides.creditsCharged ?? job.creditsChargedSnapshot ?? 0;
   const estimatedRevenue = roundMoney(creditsCharged * operations.estimatedCreditUsdValue);
   const estimatedProfit = roundMoney(estimatedRevenue - cost);
 
