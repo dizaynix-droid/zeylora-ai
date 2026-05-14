@@ -477,9 +477,9 @@ export function DashboardClient({
         </Card>
       </section>
 
-      <div className="mt-5 grid gap-5 xl:grid-cols-2">
+      <div className="mt-5 grid items-start gap-5 xl:grid-cols-[minmax(0,0.9fr)_minmax(420px,1fr)]">
         <section id="payments" className="scroll-mt-8">
-          <Card className="h-full p-6">
+          <Card className="p-5 sm:p-6">
             <div className="flex items-start gap-3">
               <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-cyan/10 text-cyan"><CreditCard size={18} /></span>
               <div>
@@ -497,7 +497,7 @@ export function DashboardClient({
         </section>
 
         <section id="settings" className="scroll-mt-8">
-          <Card className="h-full p-6">
+          <Card className="p-5 sm:p-6">
             <div className="flex items-start gap-3">
               <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-cyan/10 text-cyan"><UserCircle size={18} /></span>
               <div className="min-w-0 flex-1">
@@ -505,8 +505,8 @@ export function DashboardClient({
                 <h2 className="mt-1 text-xl font-black text-white">Account settings</h2>
                 <div className="mt-4 grid gap-3">
                   <InfoRow label="Email" value={email} />
-                  <InfoRow label="Login method" value="Email/password or Google via Supabase Auth" />
-                  <InfoRow label="Last login" value="Session activity placeholder" />
+                  <InfoRow label="Login method" value="Email/password + Google" />
+                  <InfoRow label="Last login" value="Tracked by Supabase Auth" />
                   <InfoRow label="Created" value={overview?.user?.createdAt ? formatDate(overview.user.createdAt) : "Loading..."} />
                   <InfoRow label="Credit balance" value={`${creditBalance} credits`} />
                   <InfoRow label="Support" value="support@zeylora.ai" />
@@ -526,16 +526,16 @@ export function DashboardClient({
                 </form>
                 <div className="mt-5 grid gap-3 rounded-2xl border border-white/10 bg-white/[0.035] p-4">
                   <p className="text-xs font-black uppercase text-slate-500">Login & security</p>
-                  <div className="flex flex-col gap-2 sm:flex-row">
+                  <div className="grid gap-2 sm:grid-cols-2">
                     <button
                       type="button"
                       onClick={() => void sendPasswordReset()}
-                      className="inline-flex h-10 items-center justify-center rounded-full border border-cyan/30 bg-cyan/10 px-4 text-sm font-black text-cyan transition hover:bg-cyan/15"
+                      className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-cyan/30 bg-cyan/10 px-3 py-2 text-center text-sm font-black leading-5 text-cyan transition hover:bg-cyan/15"
                     >
                       Send password reset
                     </button>
-                    <span className="inline-flex h-10 items-center rounded-full border border-white/10 bg-white/[0.04] px-4 text-sm font-black text-slate-300">
-                      2FA optional / coming soon
+                    <span className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2 text-center text-sm font-black leading-5 text-slate-300">
+                      2FA coming soon
                     </span>
                   </div>
                   <p className="text-sm text-slate-300">
