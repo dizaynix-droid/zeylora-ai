@@ -17,6 +17,7 @@ export const adminTr = {
     reports: "Raporlar",
     settings: "Ayarlar",
     system: "Sistem",
+    recovery: "Yedek/Kurtarma",
     qa: "QA Checklist",
     logs: "Kayıtlar",
     tickets: "Destek/Ticketlar"

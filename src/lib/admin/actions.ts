@@ -18,6 +18,7 @@ import {
   toOperationalSettingsJson,
   type OperationalSettings
 } from "@/lib/settings/operations";
+import { createEmergencyBackupSnapshot } from "@/lib/admin/backup";
 
 export async function adjustUserCreditsAction(formData: FormData) {
   const admin = await requireAdmin();
@@ -764,6 +765,32 @@ export async function requestWebhookReprocessAction(formData: FormData) {
 
   revalidatePath("/admin/payments");
   redirect("/admin/payments?saved=webhook-reprocess-requested");
+}
+
+export async function createEmergencyBackupSnapshotAction(formData: FormData) {
+  const admin = await requireAdmin();
+  const confirmation = getFormString(formData, "confirmation", 80);
+
+  if (confirmation !== "CREATE_BACKUP") {
+    redirect("/admin/recovery?error=confirmation");
+  }
+
+  const backup = await createEmergencyBackupSnapshot(admin);
+
+  await logAdminAction({
+    admin,
+    action: "backup.emergency_snapshot",
+    entityType: "BackupEvent",
+    entityId: backup.id,
+    metadata: {
+      status: backup.status,
+      storageLocation: backup.storageLocation ? "private-r2" : "none"
+    }
+  });
+
+  revalidatePath("/admin/system");
+  revalidatePath("/admin/recovery");
+  redirect(`/admin/recovery?saved=${encodeURIComponent(backup.status.toLowerCase())}`);
 }
 
 function getFormString(formData: FormData, key: string, maxLength = 240) {

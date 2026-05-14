@@ -3,6 +3,7 @@ import { creditPackages } from "@/config/pricing";
 import { adminPerfNow, logAdminPerf, measureAdminQuery } from "@/lib/admin/perf";
 import { getOperationalSettings } from "@/lib/settings/operations";
 import { getMarketingTrackingSettings } from "@/lib/settings/marketing";
+import { getBackupRecoveryData } from "@/lib/admin/backup";
 import type { ExpenseCategory, Prisma } from "@prisma/client";
 
 const ADMIN_PAGE_SIZE = 25;
@@ -943,7 +944,7 @@ export async function getAdminProviderMonitoringData() {
 }
 
 export async function getAdminSystemData() {
-  const [operations, providers, recentAdminActions, recentSecurityEvents, lastSuccessfulEmail, lastFailedEmail, failedEmailCount] = await Promise.all([
+  const [operations, providers, recentAdminActions, recentSecurityEvents, lastSuccessfulEmail, lastFailedEmail, failedEmailCount, backup] = await Promise.all([
     getOperationalSettings({ bypassCache: true }),
     getAdminProviderMonitoringData(),
     measureAdminQuery(
@@ -988,7 +989,8 @@ export async function getAdminSystemData() {
     measureAdminQuery(
       "system.email.failedCount",
       prisma.emailEvent.count({ where: { status: "FAILED" } })
-    )
+    ),
+    getBackupRecoveryData()
   ]);
 
   return {
@@ -1004,6 +1006,7 @@ export async function getAdminSystemData() {
       lastFailedEmail,
       failedEmailCount
     },
+    backup,
     env: {
       nodeEnv: process.env.NODE_ENV || "development",
       siteUrl: process.env.NEXT_PUBLIC_SITE_URL || "",

@@ -33,6 +33,7 @@ export const adminNav = [
   { label: adminTr.nav.analytics, href: "/admin/analytics" },
   { label: adminTr.nav.settings, href: "/admin/settings" },
   { label: adminTr.nav.system, href: "/admin/system" },
+  { label: adminTr.nav.recovery, href: "/admin/recovery" },
   { label: adminTr.nav.qa, href: "/admin/qa" },
   { label: adminTr.nav.logs, href: "/admin/logs" }
 ] as const;

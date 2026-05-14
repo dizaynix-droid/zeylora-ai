@@ -1,6 +1,6 @@
 import { AppShell } from "@/components/layout/app-shell";
 import { AdminSection, AdminStatusPill, AdminTable, formatAdminDate } from "@/components/admin/admin-ui";
-import { pauseAllProvidersAction } from "@/lib/admin/actions";
+import { createEmergencyBackupSnapshotAction, pauseAllProvidersAction } from "@/lib/admin/actions";
 import { requireAdmin } from "@/lib/admin/auth";
 import { getAdminSystemData } from "@/lib/admin/data";
 import { emailProviderPlaceholders, emailTemplateDefinitions } from "@/lib/email/foundation";
@@ -87,17 +87,39 @@ export default async function AdminSystemPage({
           </AdminTable>
         </AdminSection>
 
-        <AdminSection title="Backup ve recovery checklist" description="Otomasyon yok; canlı öncesi manuel operasyon kontrol listesi.">
-          <Checklist
-            items={[
-              "Supabase daily backup / PITR durumu kontrol edildi",
-              "Vercel rollback akışı biliniyor",
-              "R2 bucket lifecycle ve CORS kontrol edildi",
-              "Stripe webhook canlı URL hazır",
-              "Provider env değerleri Vercel Production içinde girildi",
-              "Cloudflare proxy, HTTPS, WAF ve bot ayarları kontrol edildi"
-            ]}
-          />
+        <AdminSection
+          title="Backup ve recovery durumu"
+          description="Kritik veriler, R2 export, ledger doğrulama ve restore hazırlığı tek yerden izlenir."
+          action={<a href="/admin/recovery" className="rounded-full border border-cyan/30 bg-cyan/10 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-cyan">Recovery paneli</a>}
+        >
+          <div className="grid gap-3">
+            {data.backup.statusItems.slice(0, 4).map((item) => (
+              <div key={item.label} className="rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3">
+                <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">{item.label}</p>
+                    <p className="mt-1 text-sm font-black text-white">{item.value}</p>
+                    <p className="mt-1 text-xs font-bold text-slate-400">{item.note}</p>
+                  </div>
+                  <BackupStatus status={item.status} />
+                </div>
+              </div>
+            ))}
+            <form action={createEmergencyBackupSnapshotAction} className="rounded-2xl border border-amber-300/20 bg-amber-300/10 p-3">
+              <input type="hidden" name="confirmation" value="CREATE_BACKUP" />
+              <button className="w-full rounded-full bg-zeylora-brand px-4 py-3 text-sm font-black text-white shadow-glow transition hover:brightness-110">
+                Create emergency backup snapshot
+              </button>
+              <p className="mt-2 text-xs font-bold leading-5 text-amber-100/80">
+                Private R2 içine JSON + CSV snapshot kaydeder. Secret, token veya signed URL export edilmez.
+              </p>
+            </form>
+            {data.backup.criticalWarnings.length > 0 ? (
+              <div className="rounded-2xl border border-rose-400/30 bg-rose-400/10 p-3 text-sm font-bold text-rose-100">
+                {data.backup.criticalWarnings[0]}
+              </div>
+            ) : null}
+          </div>
         </AdminSection>
       </div>
 
@@ -213,6 +235,12 @@ function Health({ status }: { status: string }) {
   if (status === "HEALTHY") return <AdminStatusPill tone="good">Sağlıklı</AdminStatusPill>;
   if (status === "DEGRADED") return <AdminStatusPill tone="warn">Dikkat</AdminStatusPill>;
   return <AdminStatusPill tone="bad">Devre dışı</AdminStatusPill>;
+}
+
+function BackupStatus({ status }: { status: "HAZIR" | "UYARI" | "KRITIK" }) {
+  if (status === "HAZIR") return <AdminStatusPill tone="good">Hazır</AdminStatusPill>;
+  if (status === "UYARI") return <AdminStatusPill tone="warn">Uyarı</AdminStatusPill>;
+  return <AdminStatusPill tone="bad">Kritik</AdminStatusPill>;
 }
 
 function Checklist({ items }: { items: string[] }) {

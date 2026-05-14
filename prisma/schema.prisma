@@ -199,6 +199,7 @@ model User {
   tickets            Ticket[]
   ticketMessages     TicketMessage[]
   businessExpenses   BusinessExpense[] @relation("BusinessExpenseCreator")
+  backupEvents       BackupEvent[]     @relation("BackupEventCreator")
 
   @@index([email])
   @@index([role, status])
@@ -663,6 +664,27 @@ model EmailEvent {
   @@index([userId, createdAt])
   @@index([eventType, status])
   @@index([recipientEmail, createdAt])
+}
+
+model BackupEvent {
+  id              String   @id @default(cuid())
+  type            String
+  status          String   @default("PENDING")
+  startedAt       DateTime @default(now())
+  completedAt     DateTime?
+  fileSize        Int?
+  storageLocation String?
+  restoreTested   Boolean  @default(false)
+  errorMessage    String?
+  metadataJson    Json?
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  createdBy User? @relation("BackupEventCreator", fields: [createdByUserId], references: [id])
+
+  @@index([type, status, startedAt])
+  @@index([createdByUserId, startedAt])
 }
 
 model Referral {
