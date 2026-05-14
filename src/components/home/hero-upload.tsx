@@ -19,6 +19,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { CleanExportButton } from "@/components/jobs/clean-export-button";
 import { DownloadResultButton } from "@/components/jobs/download-result-button";
+import { BeforeAfterSlider } from "@/components/showcase/before-after-slider";
 import { Button } from "@/components/ui/button";
 import { trackingEvents } from "@/config/tracking";
 import { getQualityTierLabel, resolveToolEconomy } from "@/config/tool-economy";
@@ -771,18 +772,15 @@ export function HeroUpload() {
                     key={story.name}
                     className={`group overflow-hidden rounded-2xl border border-white/10 bg-white/[0.045] p-2 shadow-cinematic md:rounded-3xl ${index === 2 ? "hidden sm:block" : ""}`}
                   >
-                    <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-black/30">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={story.after} alt={`${story.name} ecommerce result`} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" loading="eager" decoding="async" />
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={story.before} alt={`${story.name} original upload`} className="absolute inset-y-0 left-0 h-full w-[45%] border-r border-white/80 object-cover grayscale-[35%] brightness-75" loading="eager" decoding="async" />
-                      <span className="absolute left-2 top-2 rounded-full bg-black/55 px-2 py-1 text-[10px] font-black uppercase text-white backdrop-blur">
-                        Before
-                      </span>
-                      <span className="absolute bottom-2 right-2 rounded-full bg-zeylora-brand px-2 py-1 text-[10px] font-black uppercase text-white shadow-glow">
-                        After
-                      </span>
-                    </div>
+                    <BeforeAfterSlider
+                      before={story.before}
+                      after={story.after}
+                      title={`${story.name} hero preview`}
+                      beforeLabel="Before"
+                      afterLabel="After"
+                      priority={index < 2}
+                      compact
+                    />
                     <div className="flex items-center justify-between gap-2 px-1 py-2">
                     <p className="text-xs font-black uppercase text-white">{story.name}</p>
                     <p className="text-[10px] font-black uppercase text-cyan">{story.result}</p>

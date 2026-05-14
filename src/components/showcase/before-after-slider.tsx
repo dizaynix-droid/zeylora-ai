@@ -11,6 +11,7 @@ type BeforeAfterSliderProps = {
   beforeLabel?: string;
   afterLabel?: string;
   priority?: boolean;
+  compact?: boolean;
 };
 
 export function BeforeAfterSlider({
@@ -19,12 +20,13 @@ export function BeforeAfterSlider({
   title,
   beforeLabel = "Raw upload",
   afterLabel = "Zeylora AI",
-  priority = false
+  priority = false,
+  compact = false
 }: BeforeAfterSliderProps) {
   const [position, setPosition] = useState(54);
 
   return (
-    <div className="group relative aspect-[4/3] overflow-hidden rounded-[1.25rem] border border-white/10 bg-zeylora-ink shadow-cinematic md:aspect-[16/10] md:rounded-[1.75rem]">
+    <div className={`${compact ? "rounded-2xl md:rounded-2xl" : "rounded-[1.25rem] md:rounded-[1.75rem]"} group relative aspect-[4/3] overflow-hidden border border-white/10 bg-zeylora-ink shadow-cinematic md:aspect-[16/10]`}>
       <Image
         src={after}
         alt={`${title} after Zeylora AI result`}
@@ -47,11 +49,11 @@ export function BeforeAfterSlider({
 
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_18%,rgba(32,211,255,.16),transparent_34%),linear-gradient(180deg,rgba(3,5,13,.08),transparent_46%,rgba(3,5,13,.6))]" />
       <div className="pointer-events-none absolute inset-0 grid place-items-center px-4 sm:px-6">
-        <div className="max-w-[78%] rounded-2xl border border-white/15 bg-black/25 px-3 py-2 text-center shadow-cinematic backdrop-blur-md sm:rounded-3xl sm:px-5 sm:py-3">
-          <p className="text-base font-black uppercase tracking-normal text-white/28 sm:text-3xl md:text-4xl">
+        <div className={`${compact ? "max-w-[74%] rounded-xl px-2.5 py-1.5 sm:px-3 sm:py-2" : "max-w-[78%] rounded-2xl px-3 py-2 sm:rounded-3xl sm:px-5 sm:py-3"} border border-white/15 bg-black/25 text-center shadow-cinematic backdrop-blur-md`}>
+          <p className={`${compact ? "text-[11px] sm:text-sm md:text-base" : "text-base sm:text-3xl md:text-4xl"} font-black uppercase tracking-normal text-white/28`}>
             ZEYLORA PREVIEW
           </p>
-          <p className="mt-0.5 text-[8px] font-black uppercase tracking-[0.14em] text-cyan/70 sm:mt-1 sm:text-[10px] sm:tracking-[0.2em]">
+          <p className={`${compact ? "hidden sm:block" : "mt-0.5 sm:mt-1"} text-[8px] font-black uppercase tracking-[0.14em] text-cyan/70 sm:text-[10px] sm:tracking-[0.2em]`}>
             Branded preview export
           </p>
         </div>
@@ -61,7 +63,7 @@ export function BeforeAfterSlider({
         style={{ left: `${position}%` }}
       />
       <div
-        className="absolute top-1/2 grid size-10 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-white/20 bg-black/50 text-white shadow-glow backdrop-blur-xl transition group-hover:scale-105 sm:size-12"
+        className={`${compact ? "size-9 sm:size-10" : "size-10 sm:size-12"} absolute top-1/2 grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-white/20 bg-black/50 text-white shadow-glow backdrop-blur-xl transition group-hover:scale-105`}
         style={{ left: `${position}%` }}
       >
         <MoveHorizontal size={17} />
@@ -87,7 +89,7 @@ export function BeforeAfterSlider({
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full border border-white/10 bg-black/45 px-3 py-1 text-xs font-bold text-slate-200 backdrop-blur max-sm:hidden">
         Slide to compare
       </div>
-      <div className="absolute bottom-4 right-4 hidden rounded-full border border-white/10 bg-black/35 px-3 py-1 text-[10px] font-black uppercase text-slate-200 backdrop-blur sm:block">
+      <div className={`${compact ? "hidden" : "hidden sm:block"} absolute bottom-4 right-4 rounded-full border border-white/10 bg-black/35 px-3 py-1 text-[10px] font-black uppercase text-slate-200 backdrop-blur`}>
         Powered by Zeylora
       </div>
     </div>

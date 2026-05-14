@@ -29,7 +29,7 @@ export function AppShell({ title, description, area, children }: AppShellProps) 
       >
         <aside className={area === "dashboard"
           ? "glass-panel fixed inset-x-3 bottom-3 z-40 h-fit rounded-2xl p-2 shadow-cinematic lg:sticky lg:inset-auto lg:top-6 lg:p-3"
-          : "glass-panel h-fit rounded-2xl p-3 lg:sticky lg:top-6"}
+          : "glass-panel sticky top-2 z-40 h-fit rounded-2xl p-2 lg:top-6 lg:p-3"}
         >
           <Link href="/" className="hidden items-center gap-2 px-3 py-3 text-sm font-black text-white lg:flex">
             <Image
@@ -43,14 +43,14 @@ export function AppShell({ title, description, area, children }: AppShellProps) 
           </Link>
           <nav className={area === "dashboard"
             ? "grid grid-cols-5 gap-1 overflow-x-auto lg:mt-2 lg:grid-cols-1 lg:overflow-visible"
-            : "mt-2 grid grid-cols-2 gap-1 sm:grid-cols-3 lg:grid-cols-1"}
+            : "flex gap-1 overflow-x-auto pb-1 lg:mt-2 lg:grid lg:grid-cols-1 lg:overflow-visible lg:pb-0"}
           >
             {nav.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
                 className={isAdmin
-                  ? "rounded-xl px-3 py-2 text-[13px] font-semibold text-slate-300 transition hover:bg-white/10 hover:text-white"
+                  ? "shrink-0 rounded-xl px-3 py-2 text-[12px] font-black text-slate-300 transition hover:bg-white/10 hover:text-white lg:text-[13px] lg:font-semibold"
                   : "rounded-xl px-2 py-2 text-center text-[11px] font-black text-slate-300 transition hover:bg-white/10 hover:text-white lg:px-3 lg:text-left lg:text-sm lg:font-semibold"}
                 scroll
               >
