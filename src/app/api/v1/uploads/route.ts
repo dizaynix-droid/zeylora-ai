@@ -25,7 +25,8 @@ export async function POST(request: Request) {
 
   const rateLimit = checkRateLimit(request, {
     action: "upload",
-    userId: user.id
+    userId: user.id,
+    role: user.role
   });
 
   if (!rateLimit.ok) {
@@ -37,6 +38,10 @@ export async function POST(request: Request) {
   const validated = await validateImageUpload(file);
 
   if (!validated.ok) {
+    console.warn("[security-upload-blocked]", {
+      userId: user.id,
+      code: validated.error.code
+    });
     return NextResponse.json(
       {
         ok: false,

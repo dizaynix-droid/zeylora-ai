@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/db";
 import { creditPackages } from "@/config/pricing";
-import { ensureLaunchCreditPackageDefaults } from "@/lib/pricing/packages";
 import { adminPerfNow, logAdminPerf, measureAdminQuery } from "@/lib/admin/perf";
 
 const ADMIN_PAGE_SIZE = 25;
@@ -239,7 +238,6 @@ export async function getAdminToolsData() {
 
 export async function getAdminPricingData() {
   const startedAt = adminPerfNow();
-  await ensureLaunchCreditPackageDefaults();
   const packages = await measureAdminQuery(
     "pricing.packages.list",
     prisma.creditPackage.findMany({
@@ -249,12 +247,17 @@ export async function getAdminPricingData() {
         id: true,
         name: true,
         credits: true,
+        bonusCredits: true,
         price: true,
         currency: true,
         stripePriceId: true,
         status: true,
         sortOrder: true,
         featureFlagKey: true,
+        description: true,
+        audience: true,
+        badgeText: true,
+        highlight: true,
         updatedAt: true
       }
     })
@@ -634,13 +637,18 @@ function getFallbackPackages() {
   return creditPackages.map((pack, index) => ({
     id: String(pack.key),
     name: pack.name,
-    credits: pack.credits + pack.bonusCredits,
+    credits: pack.credits,
+    bonusCredits: pack.bonusCredits,
     price: { toString: () => String(pack.price) },
     currency: pack.currency.toLowerCase(),
     stripePriceId: pack.paymentProviderPriceIds.stripe ?? null,
     status: "ACTIVE" as "ACTIVE" | "INACTIVE" | "SUSPENDED",
     sortOrder: index,
     featureFlagKey: pack.featureFlagKey as string | null,
+    description: pack.description,
+    audience: pack.audience,
+    badgeText: pack.badgeText ?? null,
+    highlight: pack.highlight,
     updatedAt: new Date()
   }));
 }

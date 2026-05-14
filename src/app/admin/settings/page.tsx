@@ -27,8 +27,17 @@ export default async function AdminSettingsPage() {
           </div>
           <div className="grid gap-3 md:grid-cols-3">
             <ToggleSetting label="Maintenance mode" name="maintenanceMode" defaultChecked={operations.maintenanceMode} note="Future global maintenance switch." />
+            <ToggleSetting label="Previews" name="previewEnabled" defaultChecked={operations.previewEnabled} note="Allow preview generation." />
             <ToggleSetting label="Clean exports" name="cleanExportsEnabled" defaultChecked={operations.cleanExportsEnabled} note="Controls future clean export availability." />
             <ToggleSetting label="Checkout" name="checkoutEnabled" defaultChecked={operations.checkoutEnabled} note="Controls future paid checkout visibility." />
+            <ToggleSetting label="Registration" name="registrationEnabled" defaultChecked={operations.registrationEnabled} note="Allow new account registrations." />
+          </div>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+            <NumberSetting label="Upload MB" name="uploadMaxSizeMb" defaultValue={operations.uploadMaxSizeMb} />
+            <NumberSetting label="Guest/min" name="guestPreviewPerMinute" defaultValue={operations.guestPreviewPerMinute} />
+            <NumberSetting label="Guest/hour" name="guestPreviewPerHour" defaultValue={operations.guestPreviewPerHour} />
+            <NumberSetting label="User jobs/min" name="userJobsPerMinute" defaultValue={operations.userJobsPerMinute} />
+            <NumberSetting label="User jobs/day" name="userJobsPerDay" defaultValue={operations.userJobsPerDay} />
           </div>
           <button className="h-11 w-fit rounded-full bg-zeylora-brand px-5 text-sm font-black text-white shadow-glow transition hover:brightness-110">
             Save operational settings
@@ -167,6 +176,22 @@ function ToggleSetting({
         <input name={name} type="checkbox" defaultChecked={defaultChecked} className="size-4 accent-cyan" />
       </span>
       <span className="mt-2 block text-xs leading-5 text-slate-500">{note}</span>
+    </label>
+  );
+}
+
+function NumberSetting({ label, name, defaultValue }: { label: string; name: string; defaultValue: number }) {
+  return (
+    <label className="rounded-2xl border border-white/10 bg-white/5 p-4">
+      <span className="text-xs font-black uppercase tracking-[0.16em] text-cyan">{label}</span>
+      <input
+        name={name}
+        type="number"
+        min="0"
+        step="1"
+        defaultValue={defaultValue}
+        className="mt-3 h-10 w-full rounded-xl border border-white/10 bg-[#080d1f] px-3 text-sm font-bold text-white outline-none focus:border-cyan"
+      />
     </label>
   );
 }

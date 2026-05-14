@@ -22,7 +22,8 @@ export async function POST(request: Request) {
 
   const rateLimit = checkRateLimit(request, {
     action: "job",
-    userId: user.id
+    userId: user.id,
+    role: user.role
   });
 
   if (!rateLimit.ok) {
@@ -59,6 +60,7 @@ export async function POST(request: Request) {
       id: true,
       name: true,
       credits: true,
+      bonusCredits: true,
       price: true,
       currency: true,
       stripePriceId: true
@@ -74,7 +76,7 @@ export async function POST(request: Request) {
   const cancelUrl = process.env.STRIPE_CANCEL_URL || `${siteUrl}/pricing`;
   const amount = Number(selectedPackage.price);
   const currency = selectedPackage.currency.toLowerCase();
-  const credits = selectedPackage.credits;
+  const credits = selectedPackage.credits + selectedPackage.bonusCredits;
 
   const payment = await prisma.payment.create({
     data: {

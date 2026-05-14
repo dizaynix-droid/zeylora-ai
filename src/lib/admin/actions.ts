@@ -112,20 +112,23 @@ export async function updateCreditPackageAction(formData: FormData) {
   const name = getFormString(formData, "name", 80);
   const baseCredits = Number(formData.get("baseCredits") || 0);
   const bonusCredits = Number(formData.get("bonusCredits") || 0);
-  const directCredits = Number(formData.get("credits") || 0);
-  const credits = baseCredits || bonusCredits ? baseCredits + bonusCredits : directCredits;
   const price = Number(formData.get("price") || 0);
   const sortOrder = Number(formData.get("sortOrder") || 0);
   const stripePriceId = getFormString(formData, "stripePriceId", 240);
   const featureFlagKey = getFormString(formData, "featureFlagKey", 120);
+  const description = getFormString(formData, "description", 280);
+  const audience = getFormString(formData, "audience", 180);
+  const badgeText = getFormString(formData, "badgeText", 40);
+  const highlight = formData.get("highlight") === "on";
   const status = String(formData.get("status") || "ACTIVE");
 
   if (
     !packageId ||
     !name ||
-    (baseCredits < 0 || bonusCredits < 0) ||
-    !Number.isInteger(credits) ||
-    credits <= 0 ||
+    !Number.isInteger(baseCredits) ||
+    !Number.isInteger(bonusCredits) ||
+    baseCredits <= 0 ||
+    bonusCredits < 0 ||
     !Number.isFinite(price) ||
     price <= 0 ||
     !Number.isInteger(sortOrder)
@@ -141,11 +144,16 @@ export async function updateCreditPackageAction(formData: FormData) {
     where: { id: packageId },
     data: {
       name,
-      credits,
+      credits: baseCredits,
+      bonusCredits,
       price,
       sortOrder,
       stripePriceId: stripePriceId || null,
       featureFlagKey: featureFlagKey || null,
+      description: description || null,
+      audience: audience || null,
+      badgeText: badgeText || null,
+      highlight,
       status: status as "ACTIVE" | "INACTIVE" | "SUSPENDED"
     }
   });
@@ -155,12 +163,108 @@ export async function updateCreditPackageAction(formData: FormData) {
     action: "pricing.update_pack",
     entityType: "CreditPackage",
     entityId: packageId,
-    metadata: { name, credits, baseCredits, bonusCredits, price, sortOrder, stripePriceId: Boolean(stripePriceId), featureFlagKey, status }
+    metadata: { name, baseCredits, bonusCredits, totalCredits: baseCredits + bonusCredits, price, sortOrder, stripePriceId: Boolean(stripePriceId), featureFlagKey, status }
   });
 
   revalidatePath("/admin");
   revalidatePath("/admin/pricing");
   revalidatePath("/pricing");
+  revalidatePath("/");
+  redirect(`/admin/pricing?saved=${encodeURIComponent(name)}`);
+}
+
+export async function createCreditPackageAction(formData: FormData) {
+  const admin = await requireAdmin();
+  const name = getFormString(formData, "name", 80);
+  const baseCredits = Number(formData.get("baseCredits") || 0);
+  const bonusCredits = Number(formData.get("bonusCredits") || 0);
+  const price = Number(formData.get("price") || 0);
+  const sortOrder = Number(formData.get("sortOrder") || 99);
+  const stripePriceId = getFormString(formData, "stripePriceId", 240);
+  const featureFlagKey = getFormString(formData, "featureFlagKey", 120);
+  const description = getFormString(formData, "description", 280);
+  const audience = getFormString(formData, "audience", 180);
+  const badgeText = getFormString(formData, "badgeText", 40);
+  const highlight = formData.get("highlight") === "on";
+  const status = String(formData.get("status") || "ACTIVE");
+
+  if (
+    !name ||
+    !Number.isInteger(baseCredits) ||
+    !Number.isInteger(bonusCredits) ||
+    baseCredits <= 0 ||
+    bonusCredits < 0 ||
+    !Number.isFinite(price) ||
+    price <= 0 ||
+    !Number.isInteger(sortOrder) ||
+    !["ACTIVE", "INACTIVE", "SUSPENDED"].includes(status)
+  ) {
+    redirect("/admin/pricing?error=invalid");
+  }
+
+  const pack = await prisma.creditPackage.create({
+    data: {
+      name,
+      credits: baseCredits,
+      bonusCredits,
+      price,
+      sortOrder,
+      stripePriceId: stripePriceId || null,
+      featureFlagKey: featureFlagKey || null,
+      description: description || "Credit pack for clean watermark-free exports.",
+      audience: audience || "Product sellers and creators",
+      badgeText: badgeText || null,
+      highlight,
+      status: status as "ACTIVE" | "INACTIVE" | "SUSPENDED"
+    },
+    select: { id: true }
+  });
+
+  await logAdminAction({
+    admin,
+    action: "pricing.create_pack",
+    entityType: "CreditPackage",
+    entityId: pack.id,
+    metadata: { name, baseCredits, bonusCredits, price, sortOrder, status }
+  });
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/pricing");
+  revalidatePath("/pricing");
+  revalidatePath("/");
+  redirect(`/admin/pricing?saved=${encodeURIComponent(name)}`);
+}
+
+export async function deleteCreditPackageAction(formData: FormData) {
+  const admin = await requireAdmin();
+  const packageId = String(formData.get("packageId") || "");
+
+  if (!packageId) {
+    redirect("/admin/pricing?error=invalid");
+  }
+
+  const pack = await prisma.creditPackage.update({
+    where: { id: packageId },
+    data: {
+      deletedAt: new Date(),
+      status: "INACTIVE"
+    },
+    select: { id: true, name: true }
+  });
+
+  await logAdminAction({
+    admin,
+    action: "pricing.delete_pack",
+    entityType: "CreditPackage",
+    entityId: packageId,
+    metadata: { name: pack.name, softDelete: true }
+  });
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/pricing");
+  revalidatePath("/pricing");
+  revalidatePath("/");
+  redirect(`/admin/pricing?deleted=${encodeURIComponent(pack.name)}`);
 }
 
 export async function syncLaunchCreditPackagesAction() {
@@ -175,11 +279,16 @@ export async function syncLaunchCreditPackagesAction() {
         select: { id: true }
       });
       const data = {
-        credits: pack.credits + pack.bonusCredits,
+        credits: pack.credits,
+        bonusCredits: pack.bonusCredits,
         price: pack.price,
         currency: pack.currency.toLowerCase(),
         sortOrder: index + 1,
         featureFlagKey: pack.featureFlagKey,
+        description: pack.description,
+        audience: pack.audience,
+        badgeText: pack.badgeText ?? null,
+        highlight: pack.highlight,
         status: "ACTIVE" as const
       };
 
@@ -209,6 +318,8 @@ export async function syncLaunchCreditPackagesAction() {
   revalidatePath("/admin");
   revalidatePath("/admin/pricing");
   revalidatePath("/pricing");
+  revalidatePath("/");
+  redirect("/admin/pricing?saved=launch-packages");
 }
 
 export async function upsertCmsPageAction(formData: FormData) {
@@ -364,7 +475,14 @@ export async function updateOperationalSettingsAction(formData: FormData) {
     defaultCurrency: getFormString(formData, "defaultCurrency", 8).toUpperCase() || "USD",
     maintenanceMode: formData.get("maintenanceMode") === "on",
     cleanExportsEnabled: formData.get("cleanExportsEnabled") === "on",
-    checkoutEnabled: formData.get("checkoutEnabled") === "on"
+    checkoutEnabled: formData.get("checkoutEnabled") === "on",
+    previewEnabled: formData.get("previewEnabled") === "on",
+    registrationEnabled: formData.get("registrationEnabled") === "on",
+    uploadMaxSizeMb: Number(formData.get("uploadMaxSizeMb") || 10),
+    guestPreviewPerMinute: Number(formData.get("guestPreviewPerMinute") || 3),
+    guestPreviewPerHour: Number(formData.get("guestPreviewPerHour") || 15),
+    userJobsPerMinute: Number(formData.get("userJobsPerMinute") || 10),
+    userJobsPerDay: Number(formData.get("userJobsPerDay") || 100)
   };
 
   await prisma.siteSetting.upsert({
@@ -387,7 +505,14 @@ export async function updateOperationalSettingsAction(formData: FormData) {
       defaultCurrency: settings.defaultCurrency,
       maintenanceMode: settings.maintenanceMode,
       cleanExportsEnabled: settings.cleanExportsEnabled,
-      checkoutEnabled: settings.checkoutEnabled
+      checkoutEnabled: settings.checkoutEnabled,
+      previewEnabled: settings.previewEnabled,
+      registrationEnabled: settings.registrationEnabled,
+      uploadMaxSizeMb: settings.uploadMaxSizeMb,
+      guestPreviewPerMinute: settings.guestPreviewPerMinute,
+      guestPreviewPerHour: settings.guestPreviewPerHour,
+      userJobsPerMinute: settings.userJobsPerMinute,
+      userJobsPerDay: settings.userJobsPerDay
     }
   });
 

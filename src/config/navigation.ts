@@ -10,6 +10,8 @@ export const marketingNav = [
 export const dashboardNav = [
   { label: "Overview", href: "/dashboard#overview" },
   { label: "Jobs", href: "/dashboard#jobs" },
+  { label: "Support", href: "/dashboard/support" },
+  { label: "Tickets", href: "/dashboard/tickets" },
   { label: "Credits", href: "/dashboard#credits" },
   { label: "Payments", href: "/dashboard#payments" },
   { label: "Settings", href: "/dashboard#settings" }
@@ -20,6 +22,7 @@ export const adminNav = [
   { label: adminTr.nav.users, href: "/admin/users" },
   { label: adminTr.nav.tools, href: "/admin/tools" },
   { label: adminTr.nav.jobs, href: "/admin/jobs" },
+  { label: "Ticketlar", href: "/admin/tickets" },
   { label: adminTr.nav.credits, href: "/admin/credits" },
   { label: adminTr.nav.pricing, href: "/admin/pricing" },
   { label: adminTr.nav.payments, href: "/admin/payments" },

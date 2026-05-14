@@ -109,7 +109,8 @@ export async function POST(request: Request) {
 
   const rateLimit = checkRateLimit(request, {
     action: "job",
-    userId: user.id
+    userId: user.id,
+    role: user.role
   });
 
   if (!rateLimit.ok) {

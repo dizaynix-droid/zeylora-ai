@@ -13,10 +13,15 @@ export const businessFoundation = {
   abuseProtection: {
     enabled: true,
     uploadWindowMs: 60_000,
-    uploadMaxRequests: 12,
+    uploadMaxRequests: 10,
     jobWindowMs: 60_000,
-    jobMaxRequests: 6,
-    cooldownMs: 5_000,
+    jobMaxRequests: 10,
+    jobDailyMaxRequests: 100,
+    guestPreviewWindowMs: 60_000,
+    guestPreviewMaxRequests: 3,
+    guestPreviewHourlyWindowMs: 3_600_000,
+    guestPreviewHourlyMaxRequests: 15,
+    cooldownMs: 0,
     blockEmptyUserAgent: true
   },
   adminPlaceholders: {

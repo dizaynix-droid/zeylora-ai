@@ -10,7 +10,8 @@ const footerLinks = [
   { label: "Privacy", href: "/privacy" },
   { label: "Terms", href: "/terms" },
   { label: "Refund Policy", href: "/refund-policy" },
-  { label: "Contact", href: "/contact" }
+  { label: "Contact", href: "/contact" },
+  { label: "Support", href: "/dashboard/support" }
 ] as const;
 
 export function SiteFooter() {

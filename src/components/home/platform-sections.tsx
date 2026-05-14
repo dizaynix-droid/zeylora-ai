@@ -2,7 +2,7 @@ import { CheckCircle2, Clock3, CreditCard, History, Lock, ShieldCheck, Sparkles,
 import type { LucideIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { creditPackages } from "@/config/pricing";
+import { getCreditPackagesForDisplay } from "@/lib/pricing/packages";
 
 const trustItems: Array<[string, string, LucideIcon]> = [
   ["Private uploads", "Product photos are stored privately and served through temporary signed links.", Lock],
@@ -23,7 +23,9 @@ const credibility = [
   "Seller-ready workflows"
 ] as const;
 
-export function PlatformSections() {
+export async function PlatformSections() {
+  const creditPackages = await getCreditPackagesForDisplay();
+
   return (
     <>
       <section id="examples" className="section-shell py-10 md:py-14">
@@ -102,7 +104,7 @@ export function PlatformSections() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {creditPackages.map((pack) => (
+          {creditPackages.slice(0, 4).map((pack) => (
             <Card
               key={pack.key}
               className={pack.highlight ? "premium-ring cinematic-card-hover p-6 md:-mt-4" : "cinematic-card-hover p-6"}
@@ -116,7 +118,7 @@ export function PlatformSections() {
               <p className="mt-3 text-sm leading-6 text-slate-300">{pack.description}</p>
               <p className="mt-6 text-4xl font-black text-white">${pack.price}</p>
               <p className="mt-1 text-sm font-bold text-cyan">
-                {pack.credits + pack.bonusCredits} credits{pack.bonusCredits ? ` (${pack.credits} + ${pack.bonusCredits} bonus)` : ""}
+                {pack.totalCredits} credits{pack.bonusCredits ? ` (${pack.credits} + ${pack.bonusCredits} bonus)` : ""}
               </p>
               <div className="mt-5 grid gap-2 border-t border-white/10 pt-5 text-sm text-slate-300">
                 <p className="flex items-center gap-2">

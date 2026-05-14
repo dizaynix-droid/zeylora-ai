@@ -14,6 +14,7 @@ type Bucket = {
 type RateLimitOptions = {
   action: RateLimitAction;
   userId?: string | null;
+  role?: "USER" | "ADMIN" | null;
 };
 
 const buckets = new Map<string, Bucket>();
@@ -30,6 +31,9 @@ export type RateLimitResult =
 
 export function checkRateLimit(request: Request, options: RateLimitOptions): RateLimitResult {
   if (!businessFoundation.abuseProtection.enabled) {
+    return { ok: true };
+  }
+  if (options.role === "ADMIN") {
     return { ok: true };
   }
 
@@ -52,15 +56,44 @@ export function checkRateLimit(request: Request, options: RateLimitOptions): Rat
   const now = Date.now();
   const ip = getClientIp(request);
   const identity = options.userId ? `user:${options.userId}` : `ip:${ip}`;
-  const windowMs = options.action === "upload"
+  const isGuestJob = options.action === "job" && !options.userId;
+  const windowMs = isGuestJob
+    ? businessFoundation.abuseProtection.guestPreviewWindowMs
+    : options.action === "upload"
     ? businessFoundation.abuseProtection.uploadWindowMs
     : businessFoundation.abuseProtection.jobWindowMs;
-  const maxRequests = options.action === "upload"
+  const maxRequests = isGuestJob
+    ? businessFoundation.abuseProtection.guestPreviewMaxRequests
+    : options.action === "upload"
     ? businessFoundation.abuseProtection.uploadMaxRequests
     : businessFoundation.abuseProtection.jobMaxRequests;
   const cooldownMs = options.action === "job" ? businessFoundation.abuseProtection.cooldownMs : 0;
   const key = `${options.action}:${identity}`;
   const bucket = buckets.get(key);
+
+  if (options.action === "job" && options.userId) {
+    const dailyResult = checkWindowBucket({
+      key: `job-day:${identity}`,
+      now,
+      windowMs: 86_400_000,
+      maxRequests: businessFoundation.abuseProtection.jobDailyMaxRequests,
+      action: options.action,
+      identity
+    });
+    if (!dailyResult.ok) return dailyResult;
+  }
+
+  if (isGuestJob) {
+    const hourlyResult = checkWindowBucket({
+      key: `guest-job-hour:${identity}`,
+      now,
+      windowMs: businessFoundation.abuseProtection.guestPreviewHourlyWindowMs,
+      maxRequests: businessFoundation.abuseProtection.guestPreviewHourlyMaxRequests,
+      action: options.action,
+      identity
+    });
+    if (!hourlyResult.ok) return hourlyResult;
+  }
 
   if (!bucket || now >= bucket.resetAt) {
     buckets.set(key, {
@@ -105,6 +138,54 @@ export function checkRateLimit(request: Request, options: RateLimitOptions): Rat
       status: 429,
       error: "Too many requests. Please slow down and try again shortly.",
       retryAfterSeconds: Math.max(1, Math.ceil((bucket.resetAt - now) / 1000)),
+      reason: "rate_limited"
+    };
+  }
+
+  return { ok: true };
+}
+
+function checkWindowBucket(input: {
+  key: string;
+  now: number;
+  windowMs: number;
+  maxRequests: number;
+  action: RateLimitAction;
+  identity: string;
+}): RateLimitResult {
+  const bucket = buckets.get(input.key);
+  if (!bucket || input.now >= bucket.resetAt) {
+    buckets.set(input.key, {
+      count: 1,
+      resetAt: input.now + input.windowMs,
+      lastHitAt: input.now
+    });
+    return { ok: true };
+  }
+
+  bucket.count += 1;
+  bucket.lastHitAt = input.now;
+
+  if (bucket.count > input.maxRequests) {
+    console.warn("[security-rate-limit]", {
+      action: input.action,
+      identity: input.identity,
+      count: bucket.count,
+      maxRequests: input.maxRequests
+    });
+    trackServerEvent(trackingEvents.rateLimited, {
+      action: input.action,
+      reason: "window_limit",
+      identity: input.identity,
+      count: bucket.count,
+      maxRequests: input.maxRequests
+    });
+
+    return {
+      ok: false,
+      status: 429,
+      error: "Too many requests. Please slow down and try again shortly.",
+      retryAfterSeconds: Math.max(1, Math.ceil((bucket.resetAt - input.now) / 1000)),
       reason: "rate_limited"
     };
   }

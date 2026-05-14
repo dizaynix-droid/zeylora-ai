@@ -1,6 +1,6 @@
 export const storagePolicy = {
   allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"],
-  maxFileSizeMb: 12,
+  maxFileSizeMb: 10,
   maxWidth: 6000,
   maxHeight: 6000,
   tempUploadTtlHours: 24,
