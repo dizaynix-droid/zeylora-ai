@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import "./globals.css";
 import { appConfig } from "@/config/app";
 import { MarketingBodyScripts, MarketingHeadTags } from "@/components/analytics/marketing-scripts";
+import { PageTracker } from "@/components/analytics/page-tracker";
 import { createMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createMetadata();
@@ -25,6 +27,9 @@ export default function RootLayout({
       </head>
       <body>
         {children}
+        <Suspense fallback={null}>
+          <PageTracker />
+        </Suspense>
         <MarketingBodyScripts />
       </body>
     </html>

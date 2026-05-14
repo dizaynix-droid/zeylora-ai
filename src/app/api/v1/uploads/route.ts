@@ -8,6 +8,8 @@ import { buildUploadStorageKey, createPrivateReadUrl, uploadPrivateObject } from
 import { getCacheControl } from "@/lib/storage/policy";
 import { getOperationalSettings } from "@/lib/settings/operations";
 import { validateImageUpload } from "@/lib/validators/image-upload";
+import { trackServerEvent } from "@/lib/analytics/server";
+import { trackingEvents } from "@/config/tracking";
 
 export const runtime = "nodejs";
 
@@ -116,6 +118,15 @@ export async function POST(request: Request) {
         height: true,
         createdAt: true
       }
+    });
+
+    trackServerEvent(trackingEvents.uploadCompleted, {
+      userId: user.id,
+      mediaId: media.id,
+      fileType: validated.upload.mimeType,
+      fileSize: validated.upload.fileSize,
+      width: validated.upload.width,
+      height: validated.upload.height
     });
 
     const signedUrl = await createPrivateReadUrl(storageKey);

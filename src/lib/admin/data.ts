@@ -716,6 +716,8 @@ export async function getAdminAnalyticsData() {
 
 async function buildAdminAnalyticsData() {
   const startedAt = adminPerfNow();
+  const since = startOfDay(new Date(Date.now() - 29 * 86_400_000));
+  const todayStart = startOfDay(new Date());
   const failureRateStartedAt = adminPerfNow();
   const failureRatePromise = measureAdminQuery(
     "analytics.failureRate.statusGroup",
@@ -796,17 +798,64 @@ async function buildAdminAnalyticsData() {
 
     return topTools;
   });
+  const behaviorPromise = Promise.all([
+    measureAdminQuery(
+      "analytics.behavior.events",
+      prisma.analyticsEvent.groupBy({
+        by: ["event"],
+        where: { createdAt: { gte: since } },
+        _count: { _all: true }
+      })
+    ),
+    measureAdminQuery(
+      "analytics.behavior.todayVisitors",
+      prisma.analyticsEvent.findMany({
+        where: { createdAt: { gte: todayStart } },
+        select: { sessionId: true, anonymousId: true, userId: true }
+      })
+    ),
+    measureAdminQuery(
+      "analytics.behavior.breakdowns",
+      prisma.analyticsEvent.findMany({
+        where: { createdAt: { gte: since } },
+        orderBy: { createdAt: "desc" },
+        take: 2000,
+        select: {
+          event: true,
+          sessionId: true,
+          anonymousId: true,
+          userId: true,
+          page: true,
+          country: true,
+          device: true,
+          metadataJson: true,
+          createdAt: true
+        }
+      })
+    ),
+    measureAdminQuery(
+      "analytics.behavior.daily",
+      prisma.analyticsEvent.findMany({
+        where: { createdAt: { gte: since } },
+        orderBy: { createdAt: "asc" },
+        select: { event: true, createdAt: true, sessionId: true, anonymousId: true }
+      })
+    )
+  ]).then(([eventGroups, todayVisitors, breakdownRows, dailyRows]) =>
+    buildBehaviorAnalytics(eventGroups, todayVisitors, breakdownRows, dailyRows)
+  );
 
-  const [{ completedJobs, failedJobs, failureRate }, creditsUsed, providerSplit, topTools] = await Promise.all([
+  const [{ completedJobs, failedJobs, failureRate }, creditsUsed, providerSplit, topTools, behavior] = await Promise.all([
     failureRatePromise,
     creditsUsedPromise,
     providerSplitPromise,
-    topToolsPromise
+    topToolsPromise,
+    behaviorPromise
   ]);
 
   logAdminPerf("admin.analytics.data", {
     duration: `${adminPerfNow() - startedAt}ms`,
-    queryCount: 5,
+    queryCount: 9,
     cacheHit: false,
     resultCount: topTools.length,
     providerCount: providerSplit.length
@@ -818,8 +867,179 @@ async function buildAdminAnalyticsData() {
     failureRate,
     creditsUsed: Math.abs(creditsUsed._sum.amount ?? 0),
     providerSplit,
-    topTools
+    topTools,
+    behavior
   };
+}
+
+function buildBehaviorAnalytics(
+  eventGroups: Array<{ event: string; _count: { _all: number } }>,
+  todayVisitors: Array<{ sessionId: string | null; anonymousId: string | null; userId: string | null }>,
+  breakdownRows: Array<{
+    event: string;
+    sessionId: string | null;
+    anonymousId: string | null;
+    userId: string | null;
+    page: string | null;
+    country: string | null;
+    device: string | null;
+    metadataJson: Prisma.JsonValue | null;
+    createdAt: Date;
+  }>,
+  dailyRows: Array<{ event: string; createdAt: Date; sessionId: string | null; anonymousId: string | null }>
+) {
+  const eventCounts = new Map(eventGroups.map((row) => [row.event, row._count._all]));
+  const visitorKey = (row: { sessionId: string | null; anonymousId: string | null; userId: string | null }) =>
+    row.userId || row.sessionId || row.anonymousId || "unknown";
+  const dailyVisitors = new Set(todayVisitors.map(visitorKey)).size;
+  const funnelSteps = [
+    { key: "landing_view", label: "Landing" },
+    { key: "upload_started", label: "Upload" },
+    { key: "preview_generated", label: "Preview" },
+    { key: "pricing_view", label: "Pricing" },
+    { key: "checkout_started", label: "Checkout" },
+    { key: "checkout_completed", label: "Payment" }
+  ].map((step, index, steps) => {
+    const count = eventCounts.get(step.key) ?? 0;
+    const previousCount = index === 0 ? count : eventCounts.get(steps[index - 1].key) ?? 0;
+    return {
+      ...step,
+      count,
+      conversionFromPrevious: index === 0 || previousCount === 0 ? 100 : Math.round((count / previousCount) * 100)
+    };
+  });
+
+  return {
+    dailyVisitors,
+    uploads: eventCounts.get("upload_started") ?? 0,
+    previews: eventCounts.get("preview_generated") ?? 0,
+    checkoutStarts: eventCounts.get("checkout_started") ?? 0,
+    payments: eventCounts.get("checkout_completed") ?? 0,
+    landingToUploadRate: percent(eventCounts.get("upload_started") ?? 0, eventCounts.get("landing_view") ?? 0),
+    uploadToPreviewRate: percent(eventCounts.get("preview_generated") ?? 0, eventCounts.get("upload_started") ?? 0),
+    checkoutToPaymentRate: percent(eventCounts.get("checkout_completed") ?? 0, eventCounts.get("checkout_started") ?? 0),
+    funnelSteps,
+    topCountries: topBreakdown(breakdownRows.map((row) => row.country || "unknown")),
+    deviceBreakdown: topBreakdown(breakdownRows.map((row) => row.device || "unknown")),
+    topTrafficSources: topBreakdown(
+      breakdownRows.map((row) => {
+        const metadata = asRecord(row.metadataJson);
+        return typeof metadata.trafficSource === "string" ? metadata.trafficSource : "unknown";
+      })
+    ),
+    topTools: topBreakdown(
+      breakdownRows
+        .map((row) => {
+          const metadata = asRecord(row.metadataJson);
+          return typeof metadata.tool === "string" ? metadata.tool : "";
+        })
+        .filter(Boolean)
+    ),
+    dailyTrend: buildDailyTrend(dailyRows),
+    recentSessions: buildRecentSessions(breakdownRows)
+  };
+}
+
+function percent(part: number, total: number) {
+  if (!total) return 0;
+  return Math.round((part / total) * 100);
+}
+
+function topBreakdown(values: string[], limit = 6) {
+  const counts = new Map<string, number>();
+  for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1);
+  return Array.from(counts.entries())
+    .map(([label, count]) => ({ label, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit);
+}
+
+function buildDailyTrend(rows: Array<{ event: string; createdAt: Date; sessionId: string | null; anonymousId: string | null }>) {
+  const byDay = new Map<string, { date: string; visitors: Set<string>; uploads: number; previews: number; checkouts: number; payments: number }>();
+  for (const row of rows) {
+    const date = row.createdAt.toISOString().slice(0, 10);
+    const current = byDay.get(date) ?? { date, visitors: new Set<string>(), uploads: 0, previews: 0, checkouts: 0, payments: 0 };
+    current.visitors.add(row.sessionId || row.anonymousId || "unknown");
+    if (row.event === "upload_started") current.uploads += 1;
+    if (row.event === "preview_generated") current.previews += 1;
+    if (row.event === "checkout_started") current.checkouts += 1;
+    if (row.event === "checkout_completed") current.payments += 1;
+    byDay.set(date, current);
+  }
+
+  return Array.from(byDay.values()).map((row) => ({
+    date: row.date,
+    visitors: row.visitors.size,
+    uploads: row.uploads,
+    previews: row.previews,
+    checkouts: row.checkouts,
+    payments: row.payments
+  }));
+}
+
+function buildRecentSessions(rows: Array<{
+  event: string;
+  sessionId: string | null;
+  anonymousId: string | null;
+  userId: string | null;
+  page: string | null;
+  country: string | null;
+  device: string | null;
+  metadataJson: Prisma.JsonValue | null;
+  createdAt: Date;
+}>) {
+  const sessions = new Map<string, {
+    id: string;
+    userId: string | null;
+    anonymousId: string | null;
+    country: string | null;
+    device: string | null;
+    firstSeen: Date;
+    lastSeen: Date;
+    events: Array<{ event: string; page: string | null; createdAt: Date; tool?: string }>;
+  }>();
+
+  for (const row of rows) {
+    const id = row.sessionId || row.anonymousId || row.userId || "unknown";
+    const current = sessions.get(id) ?? {
+      id,
+      userId: row.userId,
+      anonymousId: row.anonymousId,
+      country: row.country,
+      device: row.device,
+      firstSeen: row.createdAt,
+      lastSeen: row.createdAt,
+      events: []
+    };
+    const metadata = asRecord(row.metadataJson);
+    current.userId ||= row.userId;
+    current.country ||= row.country;
+    current.device ||= row.device;
+    current.firstSeen = row.createdAt < current.firstSeen ? row.createdAt : current.firstSeen;
+    current.lastSeen = row.createdAt > current.lastSeen ? row.createdAt : current.lastSeen;
+    current.events.push({
+      event: row.event,
+      page: row.page,
+      createdAt: row.createdAt,
+      tool: typeof metadata.tool === "string" ? metadata.tool : undefined
+    });
+    sessions.set(id, current);
+  }
+
+  return Array.from(sessions.values())
+    .sort((a, b) => b.lastSeen.getTime() - a.lastSeen.getTime())
+    .slice(0, 12)
+    .map((session) => ({
+      ...session,
+      events: session.events
+        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+        .slice(-10)
+    }));
+}
+
+function asRecord(value: Prisma.JsonValue | null): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return value as Record<string, unknown>;
 }
 
 type AdminAnalyticsData = Awaited<ReturnType<typeof buildAdminAnalyticsData>>;

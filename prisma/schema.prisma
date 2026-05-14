@@ -200,6 +200,7 @@ model User {
   ticketMessages     TicketMessage[]
   businessExpenses   BusinessExpense[] @relation("BusinessExpenseCreator")
   backupEvents       BackupEvent[]     @relation("BackupEventCreator")
+  analyticsEvents    AnalyticsEvent[]
 
   @@index([email])
   @@index([role, status])
@@ -685,6 +686,32 @@ model BackupEvent {
 
   @@index([type, status, startedAt])
   @@index([createdByUserId, startedAt])
+}
+
+model AnalyticsEvent {
+  id          String   @id @default(cuid())
+  userId      String?
+  sessionId   String?
+  anonymousId String?
+  event       String
+  source      String   @default("server")
+  page        String?
+  referrer    String?
+  country     String?
+  device      String?
+  browser     String?
+  metadataJson Json?
+  createdAt   DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([event, createdAt])
+  @@index([userId, createdAt])
+  @@index([sessionId, createdAt])
+  @@index([anonymousId, createdAt])
+  @@index([source, createdAt])
+  @@index([country, createdAt])
+  @@index([device, createdAt])
 }
 
 model Referral {

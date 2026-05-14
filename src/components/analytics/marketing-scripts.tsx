@@ -100,7 +100,7 @@ export async function MarketingBodyScripts() {
           window.zeyloraTrackSignup = function(){ window.zeyloraTrack && window.zeyloraTrack('signup'); };
           window.zeyloraTrackLogin = function(){ window.zeyloraTrack && window.zeyloraTrack('login'); };
           window.zeyloraTrackPreviewGenerated = function(){ window.zeyloraTrack && window.zeyloraTrack('preview_generated'); };
-          window.zeyloraTrackCleanExport = function(){ window.zeyloraTrack && window.zeyloraTrack('clean_export'); };
+          window.zeyloraTrackCleanExport = function(){ window.zeyloraTrack && window.zeyloraTrack('clean_export_clicked'); };
           window.zeyloraTrackCheckoutStarted = function(){ window.zeyloraTrack && window.zeyloraTrack('checkout_started'); };
           window.zeyloraTrackPurchase = function(value, currency){ window.zeyloraTrack && window.zeyloraTrack('purchase', { value: value, currency: currency || 'USD' }); };
         `}

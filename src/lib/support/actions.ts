@@ -8,6 +8,8 @@ import { logAdminAction } from "@/lib/admin/audit";
 import { getCurrentUserFromSession } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db";
 import { sendTransactionalEmail } from "@/lib/email/resend";
+import { trackServerEvent } from "@/lib/analytics/server";
+import { trackingEvents } from "@/config/tracking";
 import {
   createTicketMessage,
   isTicketCategory,
@@ -59,6 +61,13 @@ export async function createSupportTicketAction(formData: FormData) {
     });
 
     return created;
+  });
+
+  trackServerEvent(trackingEvents.ticketCreated, {
+    userId: user.id,
+    ticketId: ticket.id,
+    category,
+    relatedJobId
   });
 
   revalidatePath("/dashboard/support");

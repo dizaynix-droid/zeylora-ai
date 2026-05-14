@@ -52,6 +52,14 @@ export function CleanExportButton({
     setIsPreparing(true);
     setMessage(null);
     setNeedsCredits(false);
+    trackEvent({
+      event: trackingEvents.cleanExportClicked,
+      properties: {
+        jobId,
+        creditsRequired,
+        alreadyUnlocked: isUnlocked
+      }
+    });
 
     try {
       const response = await fetch(`/api/v1/jobs/${jobId}/clean-export`, {

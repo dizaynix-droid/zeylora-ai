@@ -345,6 +345,15 @@ export function HeroUpload() {
       }
 
       setUploadedMediaId(uploadJson.media.id);
+      trackEvent({
+        event: trackingEvents.uploadCompleted,
+        properties: {
+          tool: selectedTool,
+          mediaId: uploadJson.media.id,
+          fileType: file.type,
+          fileSize: file.size
+        }
+      });
       await runToolJob({
         inputMediaId: uploadJson.media.id,
         tool: selectedTool,
@@ -449,6 +458,18 @@ export function HeroUpload() {
       properties: {
         tool: input.tool,
         jobId: jobJson.job?.id || null
+      }
+    });
+    trackEvent({
+      event: trackingEvents.previewGenerated,
+      properties: {
+        tool: input.tool,
+        jobId: jobJson.job?.id || null,
+        quality: input.quality,
+        cropFormat: input.cropFormat,
+        shadowPreset: input.shadowPreset,
+        relightPreset: input.relightPreset,
+        upscalePreset: input.upscalePreset
       }
     });
   }

@@ -211,8 +211,10 @@ export async function POST(request: Request) {
     });
 
     trackServerEvent(trackingEvents.checkoutStarted, {
+      userId: user.id,
       provider: "stripe",
       packageId: selectedPackage.id,
+      paymentId: payment.id,
       credits
     });
 

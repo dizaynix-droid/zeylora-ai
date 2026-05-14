@@ -152,8 +152,8 @@ export async function POST(request: Request) {
         if (processed.credited) {
           deleteDashboardCache(`dashboard:credits:${userId}`);
           deleteDashboardCache(`dashboard:transactions:${userId}`);
-          trackServerEvent(trackingEvents.checkoutCompleted, { provider: "stripe", paymentId, credits });
-          trackServerEvent(trackingEvents.purchase, { provider: "stripe", paymentId, credits });
+          trackServerEvent(trackingEvents.checkoutCompleted, { userId, provider: "stripe", paymentId, credits });
+          trackServerEvent(trackingEvents.purchase, { userId, provider: "stripe", paymentId, credits });
           await sendTransactionalEmail({
             templateKey: "payment_success",
             to: processed.email,

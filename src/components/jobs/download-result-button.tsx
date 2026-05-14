@@ -47,7 +47,7 @@ export function DownloadResultButton({
 
       triggerHiddenDownload(payload.downloadUrl, payload.filename || filename);
       trackEvent({
-        event: trackingEvents.downloadResult,
+        event: trackingEvents.previewDownloaded,
         properties: {
           filename: payload.filename || filename
         }
