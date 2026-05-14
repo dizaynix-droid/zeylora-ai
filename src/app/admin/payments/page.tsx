@@ -31,11 +31,13 @@ export default async function AdminPaymentsPage({
     page,
     resultCount: payments.items.length,
     packageCount: packages.length,
-    webhookEvents: diagnostics.webhookEvents.length
+    webhookEvents: diagnostics.webhookEvents.length,
+    diagnosticsFallback: Boolean(diagnostics.diagnosticsError)
   });
   const checklist = [
     { label: "Stripe secret key", ready: diagnostics.stripeSecretConfigured, note: "Checkout session için gerekli." },
     { label: "Stripe webhook secret", ready: diagnostics.stripeWebhookConfigured, note: "Webhook doğrulaması için gerekli." },
+    { label: "NEXT_PUBLIC_SITE_URL", ready: diagnostics.siteUrlConfigured, note: "Success/cancel URL ve canonical domain için gerekli." },
     { label: "Aktif kredi paketleri", ready: packages.some((pack) => pack.status === "ACTIVE"), note: "Public paketlerin aktif olması gerekir." },
     { label: "Checkout endpoint", ready: diagnostics.checkoutEndpointReady, note: "/api/v1/billing/checkout" },
     { label: "Webhook endpoint", ready: diagnostics.webhookEndpointReady, note: "/api/v1/billing/webhook" },
@@ -44,6 +46,25 @@ export default async function AdminPaymentsPage({
 
   return (
     <AppShell area="admin" title="Ödeme hazırlığı" description="Stripe checkout, webhook ve kredi teslimatı için operasyon kontrol listesi.">
+      {!diagnostics.stripeSecretConfigured || !diagnostics.stripeWebhookConfigured || !diagnostics.siteUrlConfigured ? (
+        <div className="mb-4 rounded-2xl border border-amber/30 bg-amber/10 px-4 py-4">
+          <p className="font-black text-amber">Stripe henüz yapılandırılmamış</p>
+          <p className="mt-2 text-sm leading-6 text-amber/85">
+            Ödeme sayfası güvenli modda açıldı. Canlı checkout için `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` ve `NEXT_PUBLIC_SITE_URL`
+            production environment içinde tanımlanmalı.
+          </p>
+        </div>
+      ) : null}
+
+      {diagnostics.diagnosticsError ? (
+        <div className="mb-4 rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-4">
+          <p className="font-black text-rose-200">Ödeme diagnostics güvenli fallback modunda</p>
+          <p className="mt-2 text-sm leading-6 text-rose-100/80">
+            Admin ödeme sayfası açık kalıyor, fakat webhook diagnostics okunamadı. Migration/env durumunu kontrol et.
+          </p>
+        </div>
+      ) : null}
+
       <div className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <DiagnosticCard label="Son webhook" value={diagnostics.lastWebhook?.eventType || "Yok"} note={diagnostics.lastWebhook ? `${diagnostics.lastWebhook.status} · ${formatAdminDate(diagnostics.lastWebhook.createdAt)}` : "Henüz Stripe event gelmedi"} tone={diagnostics.lastWebhook?.status === "failed" ? "bad" : "neutral"} />
         <DiagnosticCard label="Son başarılı ödeme" value={diagnostics.lastSuccessfulPayment ? `${diagnostics.lastSuccessfulPayment.amount.toString()} ${diagnostics.lastSuccessfulPayment.currency.toUpperCase()}` : "$0.00"} note={diagnostics.lastSuccessfulPayment?.user.email || "Başarılı ödeme yok"} tone={diagnostics.lastSuccessfulPayment ? "good" : "neutral"} />

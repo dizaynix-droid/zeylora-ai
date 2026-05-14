@@ -585,90 +585,109 @@ export async function getAdminPaymentsData(input: { page?: number; pageSize?: nu
 }
 
 export async function getAdminPaymentDiagnosticsData() {
-  const [lastWebhook, webhookEvents, lastSuccessfulPayment, failedPaymentCount, duplicatePayments] = await Promise.all([
-    measureAdminQuery(
-      "payments.diagnostics.lastWebhook",
-      prisma.webhookLog.findFirst({
-        where: { source: "stripe" },
-        orderBy: { createdAt: "desc" },
-        select: {
-          id: true,
-          externalEventId: true,
-          eventType: true,
-          status: true,
-          errorMessage: true,
-          paymentId: true,
-          userId: true,
-          createdAt: true,
-          processedAt: true
-        }
-      })
-    ),
-    measureAdminQuery(
-      "payments.diagnostics.webhooks",
-      prisma.webhookLog.findMany({
-        where: { source: "stripe" },
-        orderBy: { createdAt: "desc" },
-        take: 25,
-        select: {
-          id: true,
-          externalEventId: true,
-          eventType: true,
-          status: true,
-          errorMessage: true,
-          paymentId: true,
-          userId: true,
-          createdAt: true,
-          processedAt: true
-        }
-      }),
-      { take: 25 }
-    ),
-    measureAdminQuery(
-      "payments.diagnostics.lastPaid",
-      prisma.payment.findFirst({
-        where: { deletedAt: null, status: "PAID" },
-        orderBy: { createdAt: "desc" },
-        select: {
-          id: true,
-          amount: true,
-          currency: true,
-          creditsDelivered: true,
-          stripeCheckoutSessionId: true,
-          createdAt: true,
-          user: { select: { email: true } }
-        }
-      })
-    ),
-    measureAdminQuery(
-      "payments.diagnostics.failedCount",
-      prisma.payment.count({ where: { deletedAt: null, status: { in: ["FAILED", "CANCELLED"] } } })
-    ),
-    measureAdminQuery(
-      "payments.diagnostics.duplicateSessions",
-      prisma.payment.groupBy({
-        by: ["stripeCheckoutSessionId"],
-        where: { stripeCheckoutSessionId: { not: null } },
-        _count: { _all: true },
-        having: { stripeCheckoutSessionId: { _count: { gt: 1 } } },
-        orderBy: { _count: { stripeCheckoutSessionId: "desc" } },
-        take: 1
-      })
-    )
-  ]);
-
-  return {
+  const fallback = {
     stripeSecretConfigured: Boolean(process.env.STRIPE_SECRET_KEY),
     stripeWebhookConfigured: Boolean(process.env.STRIPE_WEBHOOK_SECRET),
+    siteUrlConfigured: Boolean(process.env.NEXT_PUBLIC_SITE_URL),
     checkoutEndpointReady: true,
     webhookEndpointReady: true,
     idempotencyReady: true,
-    duplicateSessionRisk: duplicatePayments.length > 0,
-    lastWebhook,
-    webhookEvents,
-    lastSuccessfulPayment,
-    failedPaymentCount
+    duplicateSessionRisk: false,
+    lastWebhook: null,
+    webhookEvents: [],
+    lastSuccessfulPayment: null,
+    failedPaymentCount: 0,
+    diagnosticsError: null as string | null
   };
+
+  try {
+    const [lastWebhook, webhookEvents, lastSuccessfulPayment, failedPaymentCount, duplicatePayments] = await Promise.all([
+      measureAdminQuery(
+        "payments.diagnostics.lastWebhook",
+        prisma.webhookLog.findFirst({
+          where: { source: "stripe" },
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            externalEventId: true,
+            eventType: true,
+            status: true,
+            errorMessage: true,
+            paymentId: true,
+            userId: true,
+            createdAt: true,
+            processedAt: true
+          }
+        })
+      ),
+      measureAdminQuery(
+        "payments.diagnostics.webhooks",
+        prisma.webhookLog.findMany({
+          where: { source: "stripe" },
+          orderBy: { createdAt: "desc" },
+          take: 25,
+          select: {
+            id: true,
+            externalEventId: true,
+            eventType: true,
+            status: true,
+            errorMessage: true,
+            paymentId: true,
+            userId: true,
+            createdAt: true,
+            processedAt: true
+          }
+        }),
+        { take: 25 }
+      ),
+      measureAdminQuery(
+        "payments.diagnostics.lastPaid",
+        prisma.payment.findFirst({
+          where: { deletedAt: null, status: "PAID" },
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            amount: true,
+            currency: true,
+            creditsDelivered: true,
+            stripeCheckoutSessionId: true,
+            createdAt: true,
+            user: { select: { email: true } }
+          }
+        })
+      ),
+      measureAdminQuery(
+        "payments.diagnostics.failedCount",
+        prisma.payment.count({ where: { deletedAt: null, status: { in: ["FAILED", "CANCELLED"] } } })
+      ),
+      measureAdminQuery(
+        "payments.diagnostics.duplicateSessions",
+        prisma.payment.groupBy({
+          by: ["stripeCheckoutSessionId"],
+          where: { stripeCheckoutSessionId: { not: null } },
+          _count: { _all: true },
+          having: { stripeCheckoutSessionId: { _count: { gt: 1 } } },
+          orderBy: { _count: { stripeCheckoutSessionId: "desc" } },
+          take: 1
+        })
+      )
+    ]);
+
+    return {
+      ...fallback,
+      duplicateSessionRisk: duplicatePayments.length > 0,
+      lastWebhook,
+      webhookEvents,
+      lastSuccessfulPayment,
+      failedPaymentCount
+    };
+  } catch (error) {
+    console.warn("[admin-payments-diagnostics-fallback]", error instanceof Error ? error.message : error);
+    return {
+      ...fallback,
+      diagnosticsError: error instanceof Error ? error.message : "Payment diagnostics could not be loaded."
+    };
+  }
 }
 
 export async function getAdminAnalyticsData() {
