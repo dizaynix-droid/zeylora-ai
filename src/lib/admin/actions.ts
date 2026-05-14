@@ -70,6 +70,7 @@ export async function adjustUserCreditsAction(formData: FormData) {
   revalidatePath("/admin/users");
   revalidatePath("/admin/credits");
   revalidatePath("/dashboard");
+  redirect("/admin/users?saved=credits");
 }
 
 export async function updateToolEconomicsAction(formData: FormData) {
@@ -104,6 +105,7 @@ export async function updateToolEconomicsAction(formData: FormData) {
 
   revalidatePath("/admin");
   revalidatePath("/admin/tools");
+  redirect("/admin/tools?saved=tool");
 }
 
 export async function updateCreditPackageAction(formData: FormData) {
@@ -465,6 +467,7 @@ export async function updateMarketingTrackingSettingsAction(formData: FormData) 
 
   revalidatePath("/", "layout");
   revalidatePath("/admin/settings");
+  redirect("/admin/settings?saved=tracking");
 }
 
 export async function updateOperationalSettingsAction(formData: FormData) {
@@ -518,6 +521,7 @@ export async function updateOperationalSettingsAction(formData: FormData) {
 
   revalidatePath("/admin/settings");
   revalidatePath("/", "layout");
+  redirect("/admin/settings?saved=operations");
 }
 
 function getFormString(formData: FormData, key: string, maxLength = 240) {

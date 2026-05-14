@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminUsersPage({
   searchParams
 }: {
-  searchParams?: Promise<{ q?: string; filter?: string; page?: string }>;
+  searchParams?: Promise<{ q?: string; filter?: string; page?: string; saved?: string }>;
 }) {
   const pageStartedAt = adminPerfNow();
   const authStartedAt = adminPerfNow();
@@ -41,6 +41,11 @@ export default async function AdminUsersPage({
       title="Kullanıcı yönetimi"
       description="Kullanıcıları, kredi bakiyelerini ve son işlem özetlerini güvenli şekilde takip et."
     >
+      {params?.saved ? (
+        <div className="mb-4 rounded-2xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm font-black text-emerald">
+          Kaydedildi. Kredi bakiyesi ve işlem geçmişi güncellendi.
+        </div>
+      ) : null}
       <AdminSection
         title="Kullanıcılar"
         description="Manuel kredi ekleme/çıkarma işlemleri audit log ve credit transaction olarak kaydedilir."

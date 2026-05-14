@@ -7,7 +7,12 @@ import { adminPerfNow, logAdminPerf } from "@/lib/admin/perf";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminToolsPage() {
+export default async function AdminToolsPage({
+  searchParams
+}: {
+  searchParams?: Promise<{ saved?: string }>;
+}) {
+  const params = await searchParams;
   const pageStartedAt = adminPerfNow();
   const authStartedAt = adminPerfNow();
   await requireAdmin();
@@ -32,6 +37,11 @@ export default async function AdminToolsPage() {
       title="AI araç ekonomisi"
       description="Araç kredi maliyetleri, aktif/pasif durum ve provider ilişkisini buradan yönet."
     >
+      {params?.saved ? (
+        <div className="mb-4 rounded-2xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm font-black text-emerald">
+          Kaydedildi. Yeni kredi/durum ayarı sonraki işlemlerde kullanılacak.
+        </div>
+      ) : null}
       <AdminSection
         title="Tool configuration"
         description="Kredi maliyeti ve durum değişiklikleri yeni job’lara etki eder. Eski job kayıtları versiyon/maliyet bilgisini korur."

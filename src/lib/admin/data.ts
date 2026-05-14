@@ -262,7 +262,8 @@ export async function getAdminPricingData() {
       }
     })
   );
-  const result = dedupeCreditPackages(packages.length ? packages : getFallbackPackages());
+  const sourcePackages: AdminCreditPackageRow[] = packages.length ? packages : getFallbackPackages();
+  const result = dedupeCreditPackages(sourcePackages);
   logAdminPerf("admin.pricing.data", {
     duration: `${adminPerfNow() - startedAt}ms`,
     queryCount: 1,
@@ -633,7 +634,25 @@ export async function getToolEconomics() {
   return sortLaunchToolsFirst(tools);
 }
 
-function getFallbackPackages() {
+type AdminCreditPackageRow = {
+  id: string;
+  name: string;
+  credits: number;
+  bonusCredits: number;
+  price: unknown;
+  currency: string;
+  stripePriceId: string | null;
+  status: "ACTIVE" | "INACTIVE" | "SUSPENDED";
+  sortOrder: number;
+  featureFlagKey: string | null;
+  description: string | null;
+  audience: string | null;
+  badgeText: string | null;
+  highlight: boolean;
+  updatedAt: Date;
+};
+
+function getFallbackPackages(): AdminCreditPackageRow[] {
   return creditPackages.map((pack, index) => ({
     id: String(pack.key),
     name: pack.name,

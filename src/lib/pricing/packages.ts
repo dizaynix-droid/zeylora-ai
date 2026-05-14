@@ -20,6 +20,10 @@ export type PublicCreditPackage = {
 };
 
 export async function getCreditPackagesForDisplay(): Promise<PublicCreditPackage[]> {
+  if (process.env.NEXT_PHASE === "phase-production-build") {
+    return getFallbackCreditPackages();
+  }
+
   try {
     const dbPackages = await prisma.creditPackage.findMany({
       where: {
@@ -75,6 +79,10 @@ export async function getCreditPackagesForDisplay(): Promise<PublicCreditPackage
     }
   }
 
+  return getFallbackCreditPackages();
+}
+
+function getFallbackCreditPackages(): PublicCreditPackage[] {
   return creditPackages.map((pack, index) => ({
     id: pack.key,
     key: pack.key,
@@ -89,7 +97,7 @@ export async function getCreditPackagesForDisplay(): Promise<PublicCreditPackage
     description: pack.description,
     audience: pack.audience,
     stripePriceId: pack.paymentProviderPriceIds.stripe ?? null,
-    status: "ACTIVE",
+    status: "ACTIVE" as const,
     sortOrder: index
   }));
 }

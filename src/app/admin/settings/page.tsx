@@ -9,7 +9,12 @@ import { getOperationalSettings } from "@/lib/settings/operations";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminSettingsPage() {
+export default async function AdminSettingsPage({
+  searchParams
+}: {
+  searchParams?: Promise<{ saved?: string }>;
+}) {
+  const params = await searchParams;
   await requireAdmin();
   const [tracking, operations] = await Promise.all([
     getMarketingTrackingSettings({ bypassCache: true }),
@@ -18,6 +23,11 @@ export default async function AdminSettingsPage() {
 
   return (
     <AppShell area="admin" title="Lansman ayarları" description="Preview, export, abuse protection ve launch configuration görünümü.">
+      {params?.saved ? (
+        <div className="mb-4 rounded-2xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm font-black text-emerald">
+          Kaydedildi: {params.saved === "tracking" ? "tracking ayarları" : "operasyon ayarları"}.
+        </div>
+      ) : null}
       <AdminSection title="Operational settings" description="Owner'ın sık değişen site ayarları. Public metadata/env fallback hâlâ korunur.">
         <form action={updateOperationalSettingsAction} className="grid gap-4">
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
