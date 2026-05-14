@@ -62,13 +62,13 @@ export default async function AdminUsersPage({
             defaultValue={filter}
             className="h-10 rounded-xl border border-white/10 bg-[#080d1f] px-3 text-sm font-bold text-white outline-none focus:border-cyan"
           >
-            <option value="all">All users</option>
-            <option value="with-credits">With credits</option>
-            <option value="with-jobs">With jobs</option>
-            <option value="recent">Recent signups</option>
+            <option value="all">Tüm kullanıcılar</option>
+            <option value="with-credits">Kredisi olanlar</option>
+            <option value="with-jobs">İşlemi olanlar</option>
+            <option value="recent">Yeni kayıtlar</option>
           </select>
           <button className="h-10 rounded-full bg-cyan px-5 text-sm font-black text-ink transition hover:bg-cyan/90">
-            Filter
+            Filtrele
           </button>
         </form>
         <div className="mb-3">
@@ -129,7 +129,7 @@ export default async function AdminUsersPage({
                       />
                       <input
                         name="note"
-                        placeholder="Not optional"
+                        placeholder="Not opsiyonel"
                         className="h-9 w-40 rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none focus:border-cyan"
                       />
                       <button className="h-9 rounded-full bg-zeylora-brand px-4 text-xs font-black text-white shadow-glow transition hover:brightness-110">

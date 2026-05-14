@@ -20,26 +20,26 @@ export default async function AdminCmsPage({
   return (
     <AppShell area="admin" title="CMS ve legal sayfalar" description="Legal, contact, about ve FAQ içeriklerini kod değiştirmeden yönet.">
       <div className="grid gap-4 md:grid-cols-3">
-        <AdminMetricCard label="CMS pages" value={pages.length} note="Legal + optional public pages" />
-        <AdminMetricCard label="Published" value={publishedCount} note="Public sayfada DB içeriği görünür" />
-        <AdminMetricCard label="Draft" value={draftCount} note="Draft ise public fallback kullanılır" />
+        <AdminMetricCard label="CMS sayfaları" value={pages.length} note="Legal + opsiyonel public sayfalar" />
+        <AdminMetricCard label="Yayında" value={publishedCount} note="Public sayfada DB içeriği görünür" />
+        <AdminMetricCard label="Taslak" value={draftCount} note="Taslak ise public fallback kullanılır" />
       </div>
 
       {params?.saved ? (
         <div className="mt-5 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm font-bold text-emerald-100">
-          Page saved: /{params.saved}. Public page will use CMS content when status is PUBLISHED.
+          Sayfa kaydedildi: /{params.saved}. Durum Yayında ise public sayfa CMS içeriğini kullanır.
         </div>
       ) : null}
 
       {params?.error ? (
         <div className="mt-5 rounded-2xl border border-rose-400/20 bg-rose-400/10 p-4 text-sm font-bold text-rose-100">
-          Page could not be saved. Please check required fields and try again.
+          Sayfa kaydedilemedi. Zorunlu alanları kontrol edip tekrar deneyin.
         </div>
       ) : null}
 
       <div className="mt-5">
         <AdminSection
-          title="Editable public pages"
+          title="Düzenlenebilir public sayfalar"
           description="Body alanı güvenli markdown textarea olarak saklanır. Raw script, iframe ve inline event handler içerikleri temizlenir."
         >
           <div className="grid gap-4">
@@ -54,34 +54,34 @@ export default async function AdminCmsPage({
                       <AdminStatusPill tone={page.exists ? "good" : "warn"}>{page.exists ? "DB" : "fallback"}</AdminStatusPill>
                     </div>
                     <p className="mt-2 text-xs font-bold text-slate-500">
-                      /{page.slug} • Last updated {page.updatedAt ? formatAdminDate(page.updatedAt) : "not saved yet"}
+                      /{page.slug} • Son güncelleme {page.updatedAt ? formatAdminDate(page.updatedAt) : "henüz kaydedilmedi"}
                     </p>
                   </div>
                   <button className="h-10 rounded-full bg-zeylora-brand px-5 text-sm font-black text-white shadow-glow transition hover:brightness-110">
-                    Save page
+                    Sayfayı kaydet
                   </button>
                 </div>
 
                 <div className="mt-4 grid gap-3 lg:grid-cols-2">
-                  <CmsInput label="Page title" name="title" defaultValue={page.title} />
+                  <CmsInput label="Sayfa başlığı" name="title" defaultValue={page.title} />
                   <CmsInput label="Slug" name="slug" defaultValue={page.slug} />
                   <CmsInput label="Meta title" name="metaTitle" defaultValue={page.metaTitle} />
                   <label className="grid gap-2">
-                    <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Status</span>
+                    <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Durum</span>
                     <select
                       name="status"
                       defaultValue={page.status}
                       className="h-10 rounded-xl border border-white/10 bg-[#101525] px-3 text-sm font-bold text-white outline-none focus:border-cyan"
                     >
-                      <option value="PUBLISHED">PUBLISHED</option>
-                      <option value="DRAFT">DRAFT</option>
-                      <option value="ARCHIVED">ARCHIVED</option>
+                      <option value="PUBLISHED">Yayında</option>
+                      <option value="DRAFT">Taslak</option>
+                      <option value="ARCHIVED">Arşiv</option>
                     </select>
                   </label>
                 </div>
 
                 <label className="mt-3 grid gap-2">
-                  <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Meta description</span>
+                  <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Meta açıklama</span>
                   <textarea
                     name="metaDescription"
                     defaultValue={page.metaDescription}
@@ -91,17 +91,17 @@ export default async function AdminCmsPage({
                 </label>
 
                 <details className="mt-3 rounded-2xl border border-white/10 bg-black/15 p-3" open={!page.exists}>
-                  <summary className="cursor-pointer text-sm font-black text-cyan">Edit page body</summary>
+                  <summary className="cursor-pointer text-sm font-black text-cyan">Sayfa içeriğini düzenle</summary>
                   <textarea
                     name="bodyMarkdown"
                     id={`body-${page.slug}`}
                     defaultValue={page.bodyMarkdown}
                     rows={12}
                     className="mt-3 w-full rounded-2xl border border-white/10 bg-[#080d1f] p-4 font-mono text-sm leading-6 text-slate-100 outline-none focus:border-cyan"
-                    placeholder="## Section title&#10;&#10;Write clear legal copy here. Use - list items when useful."
+                    placeholder="## Bölüm başlığı&#10;&#10;Yasal metni buraya yaz. Gerekirse - liste satırları kullan."
                   />
                   <p className="mt-2 text-xs leading-5 text-slate-500">
-                    Supported: paragraphs, headings using ##, and bullet lists using -. HTML scripts are not allowed.
+                    Desteklenen format: paragraflar, ## ile başlıklar ve - ile madde listeleri. HTML script içeriğine izin verilmez.
                   </p>
                 </details>
               </form>
@@ -127,7 +127,7 @@ function CmsInput({ label, name, defaultValue }: { label: string; name: string; 
 }
 
 function PageStatus({ status }: { status: string }) {
-  if (status === "PUBLISHED") return <AdminStatusPill tone="good">PUBLISHED</AdminStatusPill>;
-  if (status === "ARCHIVED") return <AdminStatusPill tone="neutral">ARCHIVED</AdminStatusPill>;
-  return <AdminStatusPill tone="warn">DRAFT</AdminStatusPill>;
+  if (status === "PUBLISHED") return <AdminStatusPill tone="good">Yayında</AdminStatusPill>;
+  if (status === "ARCHIVED") return <AdminStatusPill tone="neutral">Arşiv</AdminStatusPill>;
+  return <AdminStatusPill tone="warn">Taslak</AdminStatusPill>;
 }

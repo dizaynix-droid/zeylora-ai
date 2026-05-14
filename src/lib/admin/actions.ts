@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { ExpenseCategory } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin/auth";
 import { logAdminAction } from "@/lib/admin/audit";
@@ -78,8 +79,11 @@ export async function updateToolEconomicsAction(formData: FormData) {
   const toolId = String(formData.get("toolId") || "");
   const creditCost = Number(formData.get("creditCost") || 0);
   const status = String(formData.get("status") || "ACTIVE");
+  const estimatedCostPerRun = Number(formData.get("estimatedCostPerRun") || 0);
+  const estimatedCostCurrency = getFormString(formData, "estimatedCostCurrency", 8).toLowerCase() || "usd";
+  const estimatedCostProvider = getFormString(formData, "estimatedCostProvider", 80);
 
-  if (!toolId || !Number.isInteger(creditCost) || creditCost < 0) {
+  if (!toolId || !Number.isInteger(creditCost) || creditCost < 0 || !Number.isFinite(estimatedCostPerRun) || estimatedCostPerRun < 0) {
     throw new Error("Invalid tool configuration.");
   }
 
@@ -91,7 +95,10 @@ export async function updateToolEconomicsAction(formData: FormData) {
     where: { id: toolId },
     data: {
       creditCost,
-      status: status as "DRAFT" | "ACTIVE" | "INACTIVE" | "PAUSED"
+      status: status as "DRAFT" | "ACTIVE" | "INACTIVE" | "PAUSED",
+      estimatedCostPerRun: estimatedCostPerRun > 0 ? estimatedCostPerRun : null,
+      estimatedCostCurrency,
+      estimatedCostProvider: estimatedCostProvider || null
     }
   });
 
@@ -100,12 +107,93 @@ export async function updateToolEconomicsAction(formData: FormData) {
     action: "tool.update_economics",
     entityType: "AiTool",
     entityId: toolId,
-    metadata: { creditCost, status }
+    metadata: { creditCost, status, estimatedCostPerRun, estimatedCostCurrency, estimatedCostProvider }
   });
 
   revalidatePath("/admin");
   revalidatePath("/admin/tools");
+  revalidatePath("/admin/reports");
   redirect("/admin/tools?saved=tool");
+}
+
+export async function upsertBusinessExpenseAction(formData: FormData) {
+  const admin = await requireAdmin();
+  const expenseId = getFormString(formData, "expenseId", 120);
+  const title = getFormString(formData, "title", 120);
+  const category = getExpenseCategory(getFormString(formData, "category", 40));
+  const amount = Number(formData.get("amount") || 0);
+  const currency = getFormString(formData, "currency", 8).toLowerCase() || "usd";
+  const expenseDateValue = getFormString(formData, "expenseDate", 40);
+  const expenseDate = expenseDateValue ? new Date(`${expenseDateValue}T12:00:00`) : new Date();
+  const note = getFormString(formData, "note", 500);
+
+  if (!title || !category || !Number.isFinite(amount) || amount <= 0 || Number.isNaN(expenseDate.getTime())) {
+    redirect("/admin/reports?error=expense");
+  }
+
+  const savedExpense = expenseId
+    ? await prisma.businessExpense.update({
+        where: { id: expenseId },
+        data: {
+          title,
+          category,
+          amount,
+          currency,
+          expenseDate,
+          note: note || null,
+          deletedAt: null
+        },
+        select: { id: true, title: true }
+      })
+    : await prisma.businessExpense.create({
+        data: {
+          title,
+          category,
+          amount,
+          currency,
+          expenseDate,
+          note: note || null,
+          createdByUserId: admin.source === "role" ? admin.id : null
+        },
+        select: { id: true, title: true }
+      });
+
+  await logAdminAction({
+    admin,
+    action: expenseId ? "expense.update" : "expense.create",
+    entityType: "BusinessExpense",
+    entityId: savedExpense.id,
+    metadata: { title, category, amount, currency, expenseDate: expenseDate.toISOString() }
+  });
+
+  revalidatePath("/admin/reports");
+  redirect(`/admin/reports?saved=${encodeURIComponent(savedExpense.title)}`);
+}
+
+export async function deleteBusinessExpenseAction(formData: FormData) {
+  const admin = await requireAdmin();
+  const expenseId = getFormString(formData, "expenseId", 120);
+
+  if (!expenseId) {
+    redirect("/admin/reports?error=expense");
+  }
+
+  const expense = await prisma.businessExpense.update({
+    where: { id: expenseId },
+    data: { deletedAt: new Date() },
+    select: { id: true, title: true }
+  });
+
+  await logAdminAction({
+    admin,
+    action: "expense.delete",
+    entityType: "BusinessExpense",
+    entityId: expense.id,
+    metadata: { title: expense.title, softDelete: true }
+  });
+
+  revalidatePath("/admin/reports");
+  redirect(`/admin/reports?deleted=${encodeURIComponent(expense.title)}`);
 }
 
 export async function updateCreditPackageAction(formData: FormData) {
@@ -542,4 +630,12 @@ function stripDangerousCmsContent(value: string) {
     .replace(/<iframe[\s\S]*?>[\s\S]*?<\/iframe>/gi, "")
     .replace(/\son\w+="[^"]*"/gi, "")
     .trim();
+}
+
+function getExpenseCategory(value: string): ExpenseCategory | null {
+  const normalized = value.toUpperCase();
+  if (["ADS", "SEO", "PROVIDER", "SOFTWARE", "DESIGN", "DOMAIN", "HOSTING", "OTHER"].includes(normalized)) {
+    return normalized as ExpenseCategory;
+  }
+  return null;
 }

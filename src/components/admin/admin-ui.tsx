@@ -114,11 +114,11 @@ export function AdminPaginationControls({
   return (
     <div className="flex flex-col gap-2 rounded-2xl border border-white/10 bg-white/[0.035] px-3 py-2 text-sm text-slate-300 md:flex-row md:items-center md:justify-between">
       <p className="font-bold">
-        Showing{" "}
+        Gösteriliyor{" "}
         <span className="text-white">
           {pagination.from}-{pagination.to}
         </span>{" "}
-        of <span className="text-white">{pagination.total}</span>
+        / <span className="text-white">{pagination.total}</span>
       </p>
       <div className="flex items-center gap-2">
         <Link
@@ -129,10 +129,10 @@ export function AdminPaginationControls({
             !pagination.hasPrevious && "pointer-events-none opacity-40"
           )}
         >
-          Previous
+          Önceki
         </Link>
         <span className="rounded-full border border-white/10 bg-black/20 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-slate-300">
-          Page {pagination.page} / {pagination.totalPages}
+          Sayfa {pagination.page} / {pagination.totalPages}
         </span>
         <Link
           href={makeHref(nextPage)}
@@ -142,7 +142,7 @@ export function AdminPaginationControls({
             !pagination.hasNext && "pointer-events-none opacity-40"
           )}
         >
-          Next
+          Sonraki
         </Link>
       </div>
     </div>
@@ -151,7 +151,7 @@ export function AdminPaginationControls({
 
 export function formatAdminDate(date: Date | string | null | undefined) {
   if (!date) return "-";
-  return new Intl.DateTimeFormat("en", {
+  return new Intl.DateTimeFormat("tr-TR", {
     month: "short",
     day: "numeric",
     year: "numeric",

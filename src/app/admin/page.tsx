@@ -38,16 +38,16 @@ export default async function AdminPage() {
         <AdminMetricCard label="Tamamlanan" value={data.metrics.completedJobs} note="Başarılı export akışı" />
         <AdminMetricCard label="Hatalı" value={data.metrics.failedJobs} note="İncelenecek job sayısı" />
         <AdminMetricCard label="Kredi Kullanımı" value={data.metrics.creditsUsed} note="Harcanan toplam kredi" />
-        <AdminMetricCard label="Export" value={data.metrics.recentExports} note="Completed job adedi" />
+        <AdminMetricCard label="Export" value={data.metrics.recentExports} note="Tamamlanan işlem adedi" />
       </div>
 
       <div className="mt-4 grid gap-2 md:grid-cols-5">
         {[
-          ["Add credits", "/admin/users?filter=with-credits"],
-          ["View failed jobs", "/admin/jobs?status=failed"],
-          ["Edit pricing", "/admin/pricing"],
-          ["Tool status", "/admin/tools"],
-          ["Payments setup", "/admin/payments"]
+          ["Kredi ekle", "/admin/users?filter=with-credits"],
+          ["Hatalı işleri gör", "/admin/jobs?status=failed"],
+          ["Fiyatlamayı düzenle", "/admin/pricing"],
+          ["Araç durumları", "/admin/tools"],
+          ["Raporlar", "/admin/reports"]
         ].map(([label, href]) => (
           <a
             key={label}
@@ -134,12 +134,14 @@ const operationModules: Array<{
   { title: "Araç ekonomisi", description: "Tool maliyetleri, aktif/pasif durum ve export modeli.", Icon: WandSparkles, href: "/admin/tools" },
   { title: "Lansman ayarları", description: "Preview, watermark, promo ve feature flag kontrolleri.", Icon: Settings, href: "/admin/settings" },
   { title: "Audit", description: "Admin aksiyonları ve sistem kayıtları.", Icon: ShieldCheck, href: "/admin/logs" },
-  { title: "Analiz", description: "Kullanım, hata ve kredi ekonomisi özeti.", Icon: Activity, href: "/admin/analytics" }
+  { title: "Raporlar", description: "Gelir, gider, sağlayıcı maliyeti ve kâr/zarar takibi.", Icon: Activity, href: "/admin/reports" }
 ];
 
 function JobStatusPill({ status }: { status: string }) {
-  if (status === "COMPLETED") return <AdminStatusPill tone="good">Completed</AdminStatusPill>;
-  if (status === "FAILED" || status === "CANCELLED") return <AdminStatusPill tone="bad">{status}</AdminStatusPill>;
-  if (status === "PROCESSING" || status === "PENDING") return <AdminStatusPill tone="warn">{status}</AdminStatusPill>;
+  if (status === "COMPLETED") return <AdminStatusPill tone="good">Tamamlandı</AdminStatusPill>;
+  if (status === "FAILED") return <AdminStatusPill tone="bad">Hatalı</AdminStatusPill>;
+  if (status === "CANCELLED") return <AdminStatusPill tone="bad">İptal</AdminStatusPill>;
+  if (status === "PROCESSING") return <AdminStatusPill tone="warn">İşleniyor</AdminStatusPill>;
+  if (status === "PENDING") return <AdminStatusPill tone="warn">Bekliyor</AdminStatusPill>;
   return <AdminStatusPill>{status}</AdminStatusPill>;
 }

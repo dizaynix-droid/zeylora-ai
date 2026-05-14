@@ -155,6 +155,17 @@ enum TicketStatus {
   CLOSED
 }
 
+enum ExpenseCategory {
+  ADS
+  SEO
+  PROVIDER
+  SOFTWARE
+  DESIGN
+  DOMAIN
+  HOSTING
+  OTHER
+}
+
 model User {
   id               String       @id @default(cuid())
   email            String       @unique
@@ -182,6 +193,7 @@ model User {
   referralsReceived  Referral[]          @relation("ReferralReferred")
   tickets            Ticket[]
   ticketMessages     TicketMessage[]
+  businessExpenses   BusinessExpense[] @relation("BusinessExpenseCreator")
 
   @@index([email])
   @@index([role, status])
@@ -199,6 +211,9 @@ model AiTool {
   inputRulesJson           Json
   outputType               String
   providerKey              String
+  estimatedCostPerRun      Decimal?   @db.Decimal(10, 4)
+  estimatedCostCurrency    String     @default("usd")
+  estimatedCostProvider    String?
   providerConfigJson       Json
   seoTitle                 String
   seoDescription           String
@@ -216,6 +231,26 @@ model AiTool {
   @@unique([slug, version])
   @@index([slug, status])
   @@index([providerKey])
+}
+
+model BusinessExpense {
+  id              String          @id @default(cuid())
+  title           String
+  category        ExpenseCategory @default(OTHER)
+  amount          Decimal         @db.Decimal(10, 2)
+  currency        String          @default("usd")
+  expenseDate     DateTime
+  note            String?
+  createdByUserId String?
+  deletedAt       DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  createdBy User? @relation("BusinessExpenseCreator", fields: [createdByUserId], references: [id])
+
+  @@index([expenseDate, category, deletedAt])
+  @@index([category])
+  @@index([createdByUserId])
 }
 
 model AiJob {
@@ -254,6 +289,7 @@ model AiJob {
   @@index([toolId, status])
   @@index([providerKey, status])
   @@index([createdAt])
+  @@index([createdAt, status, toolId, providerKey])
 }
 
 model Ticket {
@@ -342,6 +378,7 @@ model CreditTransaction {
 
   @@index([userId, createdAt])
   @@index([type])
+  @@index([createdAt, type])
 }
 
 model CreditPackage {
@@ -385,6 +422,7 @@ model Payment {
 
   @@index([userId, createdAt])
   @@index([status])
+  @@index([status, createdAt])
 }
 
 model Subscription {

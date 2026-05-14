@@ -42,7 +42,7 @@ export default async function AdminProvidersPage() {
 
   return (
     <AppShell area="admin" title="Sağlayıcı ayarları" description="PhotoRoom, Replicate ve gelecekteki provider bütçe kontrolleri.">
-      <AdminSection title="Runtime providers" description="API key değerleri gösterilmez. Sadece configured/missing durumu ve bütçe placeholder’ı görünür.">
+      <AdminSection title="Çalışma zamanı sağlayıcıları" description="API key değerleri gösterilmez. Sadece hazır/eksik durumu ve bütçe bilgisi görünür.">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {runtimeProviders.map((provider) => {
             const dbProvider = dbProviderMap.get(provider.key);
@@ -53,11 +53,11 @@ export default async function AdminProvidersPage() {
                     <p className="font-black text-white">{dbProvider?.name || provider.name}</p>
                     <p className="mt-1 text-sm text-slate-500">{provider.key}</p>
                   </div>
-                  <AdminStatusPill tone={provider.configured ? "good" : "warn"}>{provider.configured ? "Configured" : "Missing"}</AdminStatusPill>
+                  <AdminStatusPill tone={provider.configured ? "good" : "warn"}>{provider.configured ? "Hazır" : "Eksik"}</AdminStatusPill>
                 </div>
                 <p className="mt-4 text-sm text-slate-300">
-                  Used ${Number(dbProvider?.monthlyBudgetUsed || 0).toFixed(2)}
-                  {dbProvider?.monthlyBudgetLimit ? ` / $${Number(dbProvider.monthlyBudgetLimit).toFixed(2)}` : " / budget not set"}
+                  Kullanım ${Number(dbProvider?.monthlyBudgetUsed || 0).toFixed(2)}
+                  {dbProvider?.monthlyBudgetLimit ? ` / $${Number(dbProvider.monthlyBudgetLimit).toFixed(2)}` : " / bütçe yok"}
                 </p>
                 <p className="mt-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
                   {dbProvider?.budgetEnforcementMode || "NOTIFY_ONLY"}

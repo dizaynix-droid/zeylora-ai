@@ -43,17 +43,18 @@ export default async function AdminToolsPage({
         </div>
       ) : null}
       <AdminSection
-        title="Tool configuration"
-        description="Kredi maliyeti ve durum değişiklikleri yeni job’lara etki eder. Eski job kayıtları versiyon/maliyet bilgisini korur."
+        title="Araç ayarları"
+        description="Kredi maliyeti, tahmini sağlayıcı maliyeti ve durum değişiklikleri yeni işlemlere etki eder. Eski kayıtlar kendi maliyet bilgisini korur."
       >
         <AdminTable>
-          <table className="min-w-[1180px] w-full divide-y divide-white/10 text-sm">
+          <table className="min-w-[1360px] w-full divide-y divide-white/10 text-sm">
             <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
               <tr>
                 <th className="px-4 py-3">Araç</th>
                 <th className="px-4 py-3">Kategori</th>
-                <th className="px-4 py-3">Provider</th>
-                <th className="px-4 py-3">Job</th>
+                <th className="px-4 py-3">Sağlayıcı</th>
+                <th className="px-4 py-3">İşlem</th>
+                <th className="px-4 py-3">Tahmini maliyet</th>
                 <th className="px-4 py-3">Son güncelleme</th>
                 <th className="px-4 py-3">Kontrol</th>
               </tr>
@@ -64,14 +65,18 @@ export default async function AdminToolsPage({
                   <td className="px-4 py-3">
                     <p className="font-black text-white">{tool.name}</p>
                     <p className="text-xs text-slate-500">{tool.slug} v{tool.version}</p>
-                    <div className="mt-2 flex gap-2"><AdminStatusPill tone="good">Launch tool</AdminStatusPill><ToolStatus status={tool.status} /></div>
+                    <div className="mt-2 flex gap-2"><AdminStatusPill tone="good">Canlı araç</AdminStatusPill><ToolStatus status={tool.status} /></div>
                   </td>
                   <td className="px-4 py-3 text-slate-300">{tool.category}</td>
                   <td className="px-4 py-3 text-slate-300">{tool.providerKey}</td>
                   <td className="px-4 py-3 text-slate-300">{"_count" in tool ? tool._count.jobs : 0}</td>
+                  <td className="px-4 py-3 text-slate-300">
+                    {toMoney(tool.estimatedCostPerRun)} {tool.estimatedCostCurrency?.toUpperCase() || "USD"}
+                    <p className="text-xs text-slate-500">{tool.estimatedCostProvider || tool.providerKey || "Sağlayıcı yok"}</p>
+                  </td>
                   <td className="px-4 py-3 text-slate-400">{formatAdminDate("updatedAt" in tool ? tool.updatedAt : new Date())}</td>
                   <td className="px-4 py-3">
-                    <form action={updateToolEconomicsAction} className="flex items-center gap-2">
+                    <form action={updateToolEconomicsAction} className="grid min-w-[420px] grid-cols-2 gap-2 xl:grid-cols-6">
                       <input type="hidden" name="toolId" value={tool.id} />
                       <input
                         name="creditCost"
@@ -79,17 +84,42 @@ export default async function AdminToolsPage({
                         min="0"
                         step="1"
                         defaultValue={tool.creditCost}
-                        className="h-9 w-20 rounded-xl border border-white/10 bg-white/5 px-3 text-sm font-bold text-white outline-none focus:border-cyan"
+                        aria-label="Kredi maliyeti"
+                        className="h-9 rounded-xl border border-white/10 bg-white/5 px-3 text-sm font-bold text-white outline-none focus:border-cyan"
+                      />
+                      <input
+                        name="estimatedCostPerRun"
+                        type="number"
+                        min="0"
+                        step="0.0001"
+                        defaultValue={toCostInput(tool.estimatedCostPerRun)}
+                        placeholder="Maliyet"
+                        aria-label="Tahmini işlem maliyeti"
+                        className="h-9 rounded-xl border border-white/10 bg-white/5 px-3 text-sm font-bold text-white outline-none focus:border-cyan"
+                      />
+                      <input
+                        name="estimatedCostCurrency"
+                        defaultValue={tool.estimatedCostCurrency || "usd"}
+                        placeholder="usd"
+                        aria-label="Maliyet para birimi"
+                        className="h-9 rounded-xl border border-white/10 bg-white/5 px-3 text-sm font-bold text-white outline-none focus:border-cyan"
+                      />
+                      <input
+                        name="estimatedCostProvider"
+                        defaultValue={tool.estimatedCostProvider || tool.providerKey || ""}
+                        placeholder="provider"
+                        aria-label="Maliyet sağlayıcı adı"
+                        className="h-9 rounded-xl border border-white/10 bg-white/5 px-3 text-sm font-bold text-white outline-none focus:border-cyan"
                       />
                       <select
                         name="status"
                         defaultValue={tool.status}
                         className="h-9 rounded-xl border border-white/10 bg-[#101525] px-3 text-sm font-bold text-white outline-none focus:border-cyan"
                       >
-                        <option value="ACTIVE">ACTIVE</option>
-                        <option value="PAUSED">PAUSED</option>
-                        <option value="INACTIVE">INACTIVE</option>
-                        <option value="DRAFT">DRAFT</option>
+                        <option value="ACTIVE">Aktif</option>
+                        <option value="PAUSED">Duraklatıldı</option>
+                        <option value="INACTIVE">Pasif</option>
+                        <option value="DRAFT">Taslak</option>
                       </select>
                       <button className="h-9 rounded-full bg-zeylora-brand px-4 text-xs font-black text-white shadow-glow transition hover:brightness-110">
                         Kaydet
@@ -104,7 +134,7 @@ export default async function AdminToolsPage({
       </AdminSection>
       {futureTools.length ? (
         <div className="mt-4">
-          <AdminSection title="Future tools" description="Launch dışı araçlar gizli/alt bölümde tutulur; public positioning’i karıştırmaz.">
+          <AdminSection title="Gelecek araçlar" description="Launch dışı araçlar gizli/alt bölümde tutulur; public positioning’i karıştırmaz.">
             <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
               {futureTools.map((tool) => (
                 <div key={tool.id} className="rounded-2xl border border-white/10 bg-white/5 p-3">
@@ -115,7 +145,7 @@ export default async function AdminToolsPage({
                     </div>
                     <ToolStatus status={tool.status} />
                   </div>
-                  <p className="mt-2 text-sm text-slate-400">{tool.creditCost} credits • {tool.providerKey}</p>
+                  <p className="mt-2 text-sm text-slate-400">{tool.creditCost} kredi • {tool.providerKey}</p>
                 </div>
               ))}
             </div>
@@ -127,8 +157,19 @@ export default async function AdminToolsPage({
 }
 
 function ToolStatus({ status }: { status: string }) {
-  if (status === "ACTIVE") return <AdminStatusPill tone="good">ACTIVE</AdminStatusPill>;
-  if (status === "PAUSED") return <AdminStatusPill tone="warn">PAUSED</AdminStatusPill>;
-  if (status === "INACTIVE") return <AdminStatusPill tone="bad">INACTIVE</AdminStatusPill>;
+  if (status === "ACTIVE") return <AdminStatusPill tone="good">Aktif</AdminStatusPill>;
+  if (status === "PAUSED") return <AdminStatusPill tone="warn">Duraklatıldı</AdminStatusPill>;
+  if (status === "INACTIVE") return <AdminStatusPill tone="bad">Pasif</AdminStatusPill>;
+  if (status === "DRAFT") return <AdminStatusPill>Taslak</AdminStatusPill>;
   return <AdminStatusPill>{status}</AdminStatusPill>;
+}
+
+function toMoney(value: unknown) {
+  const amount = Number(value?.toString?.() || value || 0);
+  return amount ? `$${amount.toFixed(4)}` : "$0.0000";
+}
+
+function toCostInput(value: unknown) {
+  const amount = Number(value?.toString?.() || value || 0);
+  return amount ? String(amount) : "";
 }

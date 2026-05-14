@@ -14,8 +14,10 @@ export const adminTr = {
     providers: "Sağlayıcılar",
     featureFlags: "Özellikler",
     analytics: "Analizler",
+    reports: "Raporlar",
     settings: "Ayarlar",
-    logs: "Kayıtlar"
+    logs: "Kayıtlar",
+    tickets: "Destek/Ticketlar"
   },
   overview: {
     title: "Zeylora yönetim temeli",

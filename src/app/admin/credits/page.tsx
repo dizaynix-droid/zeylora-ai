@@ -34,10 +34,10 @@ export default async function AdminCreditsPage({
       description="Kredi hareketleri, manuel düzenlemeler, kullanım ve iade kayıtları."
     >
       <div className="grid gap-3 md:grid-cols-4">
-        <AdminMetricCard label="Credits issued" value={data.summary.issued} note="Purchase, refund, admin positive" />
-        <AdminMetricCard label="Credits used" value={data.summary.used} note="Paid clean export deductions" />
-        <AdminMetricCard label="Manual adjustments" value={data.summary.manualAdjustments} note="Admin credit changes" />
-        <AdminMetricCard label="Purchases" value={data.summary.purchases} note="Payment credits later" />
+        <AdminMetricCard label="Verilen kredi" value={data.summary.issued} note="Satın alma, iade, pozitif admin işlemi" />
+        <AdminMetricCard label="Kullanılan kredi" value={data.summary.used} note="Paid clean export kesintileri" />
+        <AdminMetricCard label="Manuel düzenleme" value={data.summary.manualAdjustments} note="Admin kredi değişiklikleri" />
+        <AdminMetricCard label="Satın alma" value={data.summary.purchases} note="Ödeme ile gelen kredi" />
       </div>
 
       <div className="mt-4">

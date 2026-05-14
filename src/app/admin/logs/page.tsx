@@ -30,7 +30,7 @@ export default async function AdminLogsPage({
 
   return (
     <AppShell area="admin" title="Audit kayıtları" description="Önemli admin aksiyonları ve sistem değişiklikleri.">
-      <AdminSection title="Admin audit trail" description="Kredi ve tool değişiklikleri burada kayıt altında tutulur.">
+      <AdminSection title="Admin işlem geçmişi" description="Kredi ve araç değişiklikleri burada kayıt altında tutulur.">
         <div className="mb-3">
           <AdminPaginationControls basePath="/admin/logs" pagination={data.pagination} />
         </div>
@@ -47,7 +47,7 @@ export default async function AdminLogsPage({
             <tbody className="divide-y divide-white/10">
               {logs.map((log) => (
                 <tr key={log.id}>
-                  <td className="px-4 py-3 font-bold text-white">{log.adminUser?.email || "system"}</td>
+                  <td className="px-4 py-3 font-bold text-white">{log.adminUser?.email || "sistem"}</td>
                   <td className="px-4 py-3 text-cyan">{log.action}</td>
                   <td className="px-4 py-3 text-slate-300">{log.entityType} {log.entityId ? `/${log.entityId.slice(0, 8)}` : ""}</td>
                   <td className="px-4 py-3 text-slate-400">{formatAdminDate(log.createdAt)}</td>

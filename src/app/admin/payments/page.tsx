@@ -28,16 +28,16 @@ export default async function AdminPaymentsPage({
     packageCount: packages.length
   });
   const checklist = [
-    { label: "Stripe secret key", ready: Boolean(process.env.STRIPE_SECRET_KEY), note: "Required for checkout sessions." },
-    { label: "Stripe webhook secret", ready: Boolean(process.env.STRIPE_WEBHOOK_SECRET), note: "Required for verified webhook delivery." },
-    { label: "Active credit packages", ready: packages.some((pack) => pack.status === "ACTIVE"), note: "Starter / Creator / Pro Seller should be active." },
+    { label: "Stripe secret key", ready: Boolean(process.env.STRIPE_SECRET_KEY), note: "Checkout session için gerekli." },
+    { label: "Stripe webhook secret", ready: Boolean(process.env.STRIPE_WEBHOOK_SECRET), note: "Webhook doğrulaması için gerekli." },
+    { label: "Aktif kredi paketleri", ready: packages.some((pack) => pack.status === "ACTIVE"), note: "Public paketlerin aktif olması gerekir." },
     { label: "Checkout endpoint", ready: true, note: "/api/v1/billing/checkout" },
     { label: "Webhook endpoint", ready: true, note: "/api/v1/billing/webhook" }
   ];
 
   return (
     <AppShell area="admin" title="Ödeme hazırlığı" description="Stripe checkout, webhook ve kredi teslimatı için operasyon kontrol listesi.">
-      <AdminSection title="Payment setup checklist" description="Secret değerleri gösterilmez; sadece configured/missing durumu gösterilir.">
+      <AdminSection title="Ödeme kurulum kontrolü" description="Secret değerleri gösterilmez; sadece hazır/eksik durumu gösterilir.">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {checklist.map((item) => (
             <div key={item.label} className="rounded-2xl border border-white/10 bg-white/5 p-4">
@@ -46,7 +46,7 @@ export default async function AdminPaymentsPage({
                   <p className="font-black text-white">{item.label}</p>
                   <p className="mt-2 text-sm leading-6 text-slate-400">{item.note}</p>
                 </div>
-                <AdminStatusPill tone={item.ready ? "good" : "warn"}>{item.ready ? "Ready" : "Missing"}</AdminStatusPill>
+                <AdminStatusPill tone={item.ready ? "good" : "warn"}>{item.ready ? "Hazır" : "Eksik"}</AdminStatusPill>
               </div>
             </div>
           ))}
@@ -55,7 +55,7 @@ export default async function AdminPaymentsPage({
 
       <div className="mt-4">
         <AdminSection
-          title="Payment history"
+          title="Ödeme geçmişi"
           description="Checkout aktif olduğunda son ödeme ve kredi teslimatı kayıtları burada sayfalı olarak görünür."
         >
           <div className="mb-3">
@@ -111,10 +111,11 @@ export default async function AdminPaymentsPage({
 }
 
 function PaymentStatus({ status }: { status: string }) {
-  if (status === "PAID") return <AdminStatusPill tone="good">{status}</AdminStatusPill>;
-  if (status === "FAILED" || status === "CANCELLED") return <AdminStatusPill tone="bad">{status}</AdminStatusPill>;
+  if (status === "PAID") return <AdminStatusPill tone="good">Ödendi</AdminStatusPill>;
+  if (status === "FAILED") return <AdminStatusPill tone="bad">Hatalı</AdminStatusPill>;
+  if (status === "CANCELLED") return <AdminStatusPill tone="bad">İptal</AdminStatusPill>;
   if (status === "REFUNDED" || status === "PARTIALLY_REFUNDED" || status === "PENDING") {
-    return <AdminStatusPill tone="warn">{status}</AdminStatusPill>;
+    return <AdminStatusPill tone="warn">{status === "PENDING" ? "Bekliyor" : "İade"}</AdminStatusPill>;
   }
   return <AdminStatusPill>{status}</AdminStatusPill>;
 }

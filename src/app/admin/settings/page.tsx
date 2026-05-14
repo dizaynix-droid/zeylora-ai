@@ -28,34 +28,34 @@ export default async function AdminSettingsPage({
           Kaydedildi: {params.saved === "tracking" ? "tracking ayarları" : "operasyon ayarları"}.
         </div>
       ) : null}
-      <AdminSection title="Operational settings" description="Owner'ın sık değişen site ayarları. Public metadata/env fallback hâlâ korunur.">
+      <AdminSection title="Operasyon ayarları" description="Owner'ın sık değişen site ayarları. Public metadata/env fallback hâlâ korunur.">
         <form action={updateOperationalSettingsAction} className="grid gap-4">
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            <TrackingInput label="Brand name" name="brandName" defaultValue={operations.brandName} placeholder="Zeylora AI" note="Admin-managed brand display value for future CMS-controlled surfaces." />
-            <TrackingInput label="Support email" name="supportEmail" defaultValue={operations.supportEmail} placeholder="support@zeylora.ai" note="Legal/contact and bulk-credit support address." />
-            <TrackingInput label="Default currency" name="defaultCurrency" defaultValue={operations.defaultCurrency} placeholder="USD" note="Default public pricing currency." />
+            <TrackingInput label="Marka adı" name="brandName" defaultValue={operations.brandName} placeholder="Zeylora AI" note="Admin kontrollü marka gösterim değeri." />
+            <TrackingInput label="Destek email" name="supportEmail" defaultValue={operations.supportEmail} placeholder="support@zeylora.ai" note="Legal/contact ve toplu kredi destek adresi." />
+            <TrackingInput label="Varsayılan para birimi" name="defaultCurrency" defaultValue={operations.defaultCurrency} placeholder="USD" note="Public fiyatlama varsayılan para birimi." />
           </div>
           <div className="grid gap-3 md:grid-cols-3">
-            <ToggleSetting label="Maintenance mode" name="maintenanceMode" defaultChecked={operations.maintenanceMode} note="Future global maintenance switch." />
-            <ToggleSetting label="Previews" name="previewEnabled" defaultChecked={operations.previewEnabled} note="Allow preview generation." />
-            <ToggleSetting label="Clean exports" name="cleanExportsEnabled" defaultChecked={operations.cleanExportsEnabled} note="Controls future clean export availability." />
-            <ToggleSetting label="Checkout" name="checkoutEnabled" defaultChecked={operations.checkoutEnabled} note="Controls future paid checkout visibility." />
-            <ToggleSetting label="Registration" name="registrationEnabled" defaultChecked={operations.registrationEnabled} note="Allow new account registrations." />
+            <ToggleSetting label="Bakım modu" name="maintenanceMode" defaultChecked={operations.maintenanceMode} note="Global bakım modu anahtarı." />
+            <ToggleSetting label="Preview" name="previewEnabled" defaultChecked={operations.previewEnabled} note="Preview üretimine izin ver." />
+            <ToggleSetting label="Clean export" name="cleanExportsEnabled" defaultChecked={operations.cleanExportsEnabled} note="Clean export erişimini kontrol eder." />
+            <ToggleSetting label="Checkout" name="checkoutEnabled" defaultChecked={operations.checkoutEnabled} note="Paid checkout görünürlüğünü kontrol eder." />
+            <ToggleSetting label="Kayıt" name="registrationEnabled" defaultChecked={operations.registrationEnabled} note="Yeni hesap kaydına izin ver." />
           </div>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
             <NumberSetting label="Upload MB" name="uploadMaxSizeMb" defaultValue={operations.uploadMaxSizeMb} />
-            <NumberSetting label="Guest/min" name="guestPreviewPerMinute" defaultValue={operations.guestPreviewPerMinute} />
-            <NumberSetting label="Guest/hour" name="guestPreviewPerHour" defaultValue={operations.guestPreviewPerHour} />
-            <NumberSetting label="User jobs/min" name="userJobsPerMinute" defaultValue={operations.userJobsPerMinute} />
-            <NumberSetting label="User jobs/day" name="userJobsPerDay" defaultValue={operations.userJobsPerDay} />
+            <NumberSetting label="Misafir/dk" name="guestPreviewPerMinute" defaultValue={operations.guestPreviewPerMinute} />
+            <NumberSetting label="Misafir/saat" name="guestPreviewPerHour" defaultValue={operations.guestPreviewPerHour} />
+            <NumberSetting label="Kullanıcı iş/dk" name="userJobsPerMinute" defaultValue={operations.userJobsPerMinute} />
+            <NumberSetting label="Kullanıcı iş/gün" name="userJobsPerDay" defaultValue={operations.userJobsPerDay} />
           </div>
           <button className="h-11 w-fit rounded-full bg-zeylora-brand px-5 text-sm font-black text-white shadow-glow transition hover:brightness-110">
-            Save operational settings
+            Operasyon ayarlarını kaydet
           </button>
         </form>
       </AdminSection>
       <div className="mt-5">
-      <AdminSection title="Marketing & tracking" description="Reklam, analytics ve domain verification kodlarını kod değiştirmeden yönet. Sadece public tracking ID/meta content değerleri gir.">
+      <AdminSection title="Pazarlama ve tracking" description="Reklam, analytics ve domain doğrulama kodlarını kod değiştirmeden yönet. Sadece public tracking ID/meta content değerleri gir.">
         <form action={updateMarketingTrackingSettingsAction} className="grid gap-4">
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             <TrackingInput label="GA4 Measurement ID" name="ga4MeasurementId" defaultValue={tracking.ga4MeasurementId} placeholder="G-XXXXXXXXXX" note="Google Analytics page_view ve event takibi." />
@@ -72,25 +72,25 @@ export default async function AdminSettingsPage({
           <div className="rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div>
-                <p className="text-sm font-black text-amber-100">Custom scripts</p>
+                <p className="text-sm font-black text-amber-100">Özel scriptler</p>
                 <p className="mt-1 text-sm leading-6 text-amber-100/75">
                   Yanlış script siteyi bozabilir. Sadece güvenilir platformlardan alınan public tracking kodlarını kullan.
                 </p>
               </div>
               <label className="inline-flex items-center gap-2 text-sm font-black text-white">
                 <input type="checkbox" name="customScriptsEnabled" defaultChecked={tracking.customScriptsEnabled} className="size-4 accent-cyan" />
-                Enable custom scripts
+                Özel scriptleri aktif et
               </label>
             </div>
             <div className="mt-4 grid gap-3 xl:grid-cols-2">
-              <TrackingTextarea label="Custom head script" name="customHeadScript" defaultValue={tracking.customHeadScript} />
-              <TrackingTextarea label="Custom body/footer script" name="customBodyScript" defaultValue={tracking.customBodyScript} />
+              <TrackingTextarea label="Özel head script" name="customHeadScript" defaultValue={tracking.customHeadScript} />
+              <TrackingTextarea label="Özel body/footer script" name="customBodyScript" defaultValue={tracking.customBodyScript} />
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
             <button className="h-11 rounded-full bg-zeylora-brand px-5 text-sm font-black text-white shadow-glow transition hover:brightness-110">
-              Save tracking settings
+              Tracking ayarlarını kaydet
             </button>
             <TrackingStatus label="GA4" configured={Boolean(tracking.ga4MeasurementId)} />
             <TrackingStatus label="Meta" configured={Boolean(tracking.metaPixelId)} />
@@ -100,20 +100,20 @@ export default async function AdminSettingsPage({
       </AdminSection>
       </div>
       <div className="mt-5">
-      <AdminSection title="Export settings" description="Bu alan sonraki fazda DB-backed SiteSetting editörüne dönüşecek.">
+      <AdminSection title="Export ayarları" description="Bu alan sonraki fazda DB-backed SiteSetting editörüne dönüşecek.">
         <div className="grid gap-3 md:grid-cols-2">
-          <Setting label="Free watermark" value={businessFoundation.exports.freeWatermarkEnabled ? "Enabled" : "Disabled"} />
+          <Setting label="Free watermark" value={businessFoundation.exports.freeWatermarkEnabled ? "Aktif" : "Pasif"} />
           <Setting label="Paid export" value={businessFoundation.exports.paidExportMode} />
-          <Setting label="Credit enforcement" value={businessFoundation.credits.enforcementEnabled ? "Enabled" : "Disabled"} />
+          <Setting label="Kredi zorunluluğu" value={businessFoundation.credits.enforcementEnabled ? "Aktif" : "Pasif"} />
           <Setting label="Preview protection" value={previewProtectionStrategy.mode} />
         </div>
       </AdminSection>
       </div>
       <div className="mt-5">
-        <AdminSection title="Abuse protection" description="In-memory guard launch için geçici; public traffic için Redis/Upstash önerilir.">
+        <AdminSection title="Abuse koruması" description="In-memory guard launch için geçici; public traffic için Redis/Upstash önerilir.">
           <div className="grid gap-3 md:grid-cols-3">
-            <Setting label="Upload limit" value={`${businessFoundation.abuseProtection.uploadMaxRequests}/min`} />
-            <Setting label="Job limit" value={`${businessFoundation.abuseProtection.jobMaxRequests}/min`} />
+            <Setting label="Upload limiti" value={`${businessFoundation.abuseProtection.uploadMaxRequests}/dk`} />
+            <Setting label="Job limiti" value={`${businessFoundation.abuseProtection.jobMaxRequests}/dk`} />
             <Setting label="Cooldown" value={`${businessFoundation.abuseProtection.cooldownMs}ms`} />
           </div>
         </AdminSection>
@@ -165,7 +165,7 @@ function TrackingTextarea({ label, name, defaultValue }: { label: string; name: 
 }
 
 function TrackingStatus({ label, configured }: { label: string; configured: boolean }) {
-  return <AdminStatusPill tone={configured ? "good" : "neutral"}>{label}: {configured ? "configured" : "missing"}</AdminStatusPill>;
+  return <AdminStatusPill tone={configured ? "good" : "neutral"}>{label}: {configured ? "hazır" : "eksik"}</AdminStatusPill>;
 }
 
 function ToggleSetting({

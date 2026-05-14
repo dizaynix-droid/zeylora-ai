@@ -53,32 +53,32 @@ export default async function AdminPricingPage({
         description="İkinci, üçüncü ve dördüncü paketlerde bonus kredi kullan. Public alanda sadece ACTIVE paketler sort sırasına göre görünür."
       >
         <form action={createCreditPackageAction} className="grid gap-3 lg:grid-cols-6">
-          <AdminInput name="name" placeholder="Package name" defaultValue="New Pack" />
-          <AdminInput name="baseCredits" type="number" placeholder="Base" defaultValue="50" />
+          <AdminInput name="name" placeholder="Paket adı" defaultValue="Yeni Paket" />
+          <AdminInput name="baseCredits" type="number" placeholder="Ana kredi" defaultValue="50" />
           <AdminInput name="bonusCredits" type="number" placeholder="Bonus" defaultValue="10" />
-          <AdminInput name="price" type="number" step="0.01" placeholder="Price" defaultValue="49" />
-          <AdminInput name="sortOrder" type="number" placeholder="Sort" defaultValue="5" />
+          <AdminInput name="price" type="number" step="0.01" placeholder="Fiyat" defaultValue="49" />
+          <AdminInput name="sortOrder" type="number" placeholder="Sıra" defaultValue="5" />
           <select
             name="status"
             defaultValue="ACTIVE"
             className="h-11 rounded-xl border border-white/10 bg-[#101525] px-3 text-sm font-bold text-white outline-none focus:border-cyan"
           >
-            <option value="ACTIVE">ACTIVE</option>
-            <option value="INACTIVE">INACTIVE</option>
-            <option value="SUSPENDED">SUSPENDED</option>
+            <option value="ACTIVE">Aktif</option>
+            <option value="INACTIVE">Pasif</option>
+            <option value="SUSPENDED">Askıda</option>
           </select>
-          <AdminInput name="badgeText" placeholder="Badge, e.g. Popular" />
+          <AdminInput name="badgeText" placeholder="Rozet, örn. Popüler" />
           <AdminInput name="stripePriceId" placeholder="stripe_price_id" />
           <AdminInput name="featureFlagKey" placeholder="pricing_pack_custom" />
-          <AdminInput name="audience" placeholder="Audience" className="lg:col-span-3" />
+          <AdminInput name="audience" placeholder="Hedef kitle" className="lg:col-span-3" />
           <textarea
             name="description"
-            placeholder="Public pricing card description"
+            placeholder="Public fiyat kartı açıklaması"
             className="min-h-20 rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm font-bold text-white outline-none focus:border-cyan lg:col-span-5"
           />
           <label className="flex h-11 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 text-sm font-bold text-slate-200">
             <input name="highlight" type="checkbox" className="size-4 accent-cyan" />
-            Highlight
+            Öne çıkar
           </label>
           <button className="h-11 rounded-full bg-zeylora-brand text-sm font-black text-white shadow-glow transition hover:brightness-110 lg:col-span-6">
             Yeni paketi ekle
@@ -87,8 +87,8 @@ export default async function AdminPricingPage({
       </AdminSection>
 
       <AdminSection
-        title="Credit packs"
-        description="Credits + bonus toplamı kullanıcıya teslim edilir. Starter bonus içermez; Creator, Pro Seller ve Business launch bonusuyla hazır."
+        title="Kredi paketleri"
+        description="Ana kredi + bonus toplamı kullanıcıya teslim edilir. Starter bonus içermez; Creator, Pro Seller ve Business launch bonusuyla hazır."
         action={
           <form action={syncLaunchCreditPackagesAction}>
             <button className="h-10 rounded-full border border-cyan/30 bg-cyan/10 px-4 text-sm font-black text-cyan transition hover:bg-cyan/15">
@@ -120,25 +120,25 @@ export default async function AdminPricingPage({
                   <tr key={pack.id} className="align-top">
                     <td className="px-4 py-4">
                       <p className="font-black text-white">{pack.name}</p>
-                      <p className="mt-1 text-xs text-slate-500">{pack.featureFlagKey || "feature flag yok"}</p>
+                  <p className="mt-1 text-xs text-slate-500">{pack.featureFlagKey || "özellik anahtarı yok"}</p>
                       <div className="mt-2 flex flex-wrap gap-2">
                         <PackageStatus status={pack.status} />
-                        {pack.highlight ? <AdminStatusPill tone="good">HIGHLIGHT</AdminStatusPill> : null}
+                        {pack.highlight ? <AdminStatusPill tone="good">Öne çıkan</AdminStatusPill> : null}
                         {pack.badgeText ? <AdminStatusPill tone="neutral">{pack.badgeText}</AdminStatusPill> : null}
                       </div>
                     </td>
                     <td className="px-4 py-4">
                       <p className="text-2xl font-black text-white">{totalCredits}</p>
                       <p className="mt-1 text-xs font-bold text-slate-500">
-                        {baseCredits} base{bonusCredits ? ` + ${bonusCredits} gift` : ""}
+                        {baseCredits} ana{bonusCredits ? ` + ${bonusCredits} hediye` : ""}
                       </p>
                     </td>
                     <td className="px-4 py-4 text-slate-300">
                       ${Number(pack.price).toFixed(2)} {pack.currency.toUpperCase()}
                     </td>
                     <td className="max-w-sm px-4 py-4 text-xs leading-5 text-slate-400">
-                      <p className="font-bold text-slate-300">{pack.audience || "Audience yok"}</p>
-                      <p className="mt-1">{pack.description || "Description yok"}</p>
+                      <p className="font-bold text-slate-300">{pack.audience || "Hedef kitle yok"}</p>
+                      <p className="mt-1">{pack.description || "Açıklama yok"}</p>
                     </td>
                     <td className="px-4 py-4 text-xs text-slate-400">{pack.stripePriceId || "Henüz yok"}</td>
                     <td className="px-4 py-4 text-slate-400">{formatAdminDate(pack.updatedAt)}</td>
@@ -147,21 +147,21 @@ export default async function AdminPricingPage({
                         <input type="hidden" name="packageId" value={pack.id} />
                         <AdminInput name="name" defaultValue={pack.name} />
                         <div className="grid gap-2 sm:grid-cols-2">
-                          <AdminInput name="baseCredits" type="number" min="1" step="1" defaultValue={baseCredits} placeholder="Base credits" />
-                          <AdminInput name="bonusCredits" type="number" min="0" step="1" defaultValue={bonusCredits} placeholder="Gift credits" />
+                          <AdminInput name="baseCredits" type="number" min="1" step="1" defaultValue={baseCredits} placeholder="Ana kredi" />
+                          <AdminInput name="bonusCredits" type="number" min="0" step="1" defaultValue={bonusCredits} placeholder="Hediye kredi" />
                         </div>
                         <div className="grid gap-2 sm:grid-cols-2">
                           <AdminInput name="price" type="number" min="1" step="0.01" defaultValue={Number(pack.price)} />
                           <AdminInput name="sortOrder" type="number" step="1" defaultValue={pack.sortOrder} />
                         </div>
-                        <AdminInput name="badgeText" defaultValue={pack.badgeText || ""} placeholder="Popular / Best Value" />
+                        <AdminInput name="badgeText" defaultValue={pack.badgeText || ""} placeholder="Popüler / En avantajlı" />
                         <AdminInput name="stripePriceId" defaultValue={pack.stripePriceId || ""} placeholder="stripe_price_id" />
                         <AdminInput name="featureFlagKey" defaultValue={pack.featureFlagKey || ""} placeholder="pricing_pack_creator" />
-                        <AdminInput name="audience" defaultValue={pack.audience || ""} placeholder="Audience" />
+                        <AdminInput name="audience" defaultValue={pack.audience || ""} placeholder="Hedef kitle" />
                         <textarea
                           name="description"
                           defaultValue={pack.description || ""}
-                          placeholder="Public card description"
+                          placeholder="Public kart açıklaması"
                           className="min-h-20 rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm font-bold text-white outline-none focus:border-cyan"
                         />
                         <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
@@ -170,13 +170,13 @@ export default async function AdminPricingPage({
                             defaultValue={pack.status}
                             className="h-10 rounded-xl border border-white/10 bg-[#101525] px-3 text-sm font-bold text-white outline-none focus:border-cyan"
                           >
-                            <option value="ACTIVE">ACTIVE</option>
-                            <option value="INACTIVE">INACTIVE</option>
-                            <option value="SUSPENDED">SUSPENDED</option>
+                            <option value="ACTIVE">Aktif</option>
+                            <option value="INACTIVE">Pasif</option>
+                            <option value="SUSPENDED">Askıda</option>
                           </select>
                           <label className="flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 text-sm font-bold text-slate-200">
                             <input name="highlight" type="checkbox" defaultChecked={Boolean(pack.highlight)} className="size-4 accent-cyan" />
-                            Highlight
+                            Öne çıkar
                           </label>
                         </div>
                         <button className="h-10 rounded-full bg-zeylora-brand text-sm font-black text-white shadow-glow transition hover:brightness-110">
@@ -202,9 +202,9 @@ export default async function AdminPricingPage({
 }
 
 function PackageStatus({ status }: { status: string }) {
-  if (status === "ACTIVE") return <AdminStatusPill tone="good">ACTIVE</AdminStatusPill>;
-  if (status === "SUSPENDED") return <AdminStatusPill tone="warn">SUSPENDED</AdminStatusPill>;
-  return <AdminStatusPill tone="bad">{status}</AdminStatusPill>;
+  if (status === "ACTIVE") return <AdminStatusPill tone="good">Aktif</AdminStatusPill>;
+  if (status === "SUSPENDED") return <AdminStatusPill tone="warn">Askıda</AdminStatusPill>;
+  return <AdminStatusPill tone="bad">Pasif</AdminStatusPill>;
 }
 
 function AdminInput({

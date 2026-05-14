@@ -34,16 +34,16 @@ export default async function AdminJobsPage({
 
   return (
     <AppShell area="admin" title="AI işlem kayıtları" description="Tüm tool run, provider, hata ve export kayıtlarını izle.">
-      <AdminSection title="Recent jobs" description="Silme yok; sorunlu kayıtlar incelenir ve soft-delete politikası korunur.">
+      <AdminSection title="Son işlemler" description="Silme yok; sorunlu kayıtlar incelenir ve soft-delete politikası korunur.">
         <form className="mb-4 grid gap-2 rounded-2xl border border-white/10 bg-white/5 p-3 md:grid-cols-[180px_220px_1fr_auto]">
           <select name="status" defaultValue={status} className="h-10 rounded-xl border border-white/10 bg-[#080d1f] px-3 text-sm font-bold text-white outline-none focus:border-cyan">
-            <option value="all">All statuses</option>
-            <option value="completed">Completed</option>
-            <option value="failed">Failed</option>
+            <option value="all">Tüm durumlar</option>
+            <option value="completed">Tamamlandı</option>
+            <option value="failed">Hatalı</option>
           </select>
-          <input name="tool" defaultValue={params?.tool || ""} placeholder="Tool slug" className="h-10 rounded-xl border border-white/10 bg-[#080d1f] px-3 text-sm text-white outline-none focus:border-cyan" />
-          <input name="user" defaultValue={params?.user || ""} placeholder="User email" className="h-10 rounded-xl border border-white/10 bg-[#080d1f] px-3 text-sm text-white outline-none focus:border-cyan" />
-          <button className="h-10 rounded-full bg-cyan px-5 text-sm font-black text-ink transition hover:bg-cyan/90">Filter</button>
+          <input name="tool" defaultValue={params?.tool || ""} placeholder="Araç slug" className="h-10 rounded-xl border border-white/10 bg-[#080d1f] px-3 text-sm text-white outline-none focus:border-cyan" />
+          <input name="user" defaultValue={params?.user || ""} placeholder="Kullanıcı email" className="h-10 rounded-xl border border-white/10 bg-[#080d1f] px-3 text-sm text-white outline-none focus:border-cyan" />
+          <button className="h-10 rounded-full bg-cyan px-5 text-sm font-black text-ink transition hover:bg-cyan/90">Filtrele</button>
         </form>
         <div className="mb-3">
           <AdminPaginationControls
@@ -103,8 +103,9 @@ export default async function AdminJobsPage({
 }
 
 function Status({ status }: { status: string }) {
-  if (status === "COMPLETED") return <AdminStatusPill tone="good">COMPLETED</AdminStatusPill>;
-  if (status === "FAILED") return <AdminStatusPill tone="bad">FAILED</AdminStatusPill>;
-  if (status === "PROCESSING" || status === "PENDING") return <AdminStatusPill tone="warn">{status}</AdminStatusPill>;
+  if (status === "COMPLETED") return <AdminStatusPill tone="good">Tamamlandı</AdminStatusPill>;
+  if (status === "FAILED") return <AdminStatusPill tone="bad">Hatalı</AdminStatusPill>;
+  if (status === "PROCESSING") return <AdminStatusPill tone="warn">İşleniyor</AdminStatusPill>;
+  if (status === "PENDING") return <AdminStatusPill tone="warn">Bekliyor</AdminStatusPill>;
   return <AdminStatusPill>{status}</AdminStatusPill>;
 }
