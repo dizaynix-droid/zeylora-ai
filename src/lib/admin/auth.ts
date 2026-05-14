@@ -2,6 +2,7 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { createClient } from "@/lib/supabase/server";
+import { requireMfaIfNeeded } from "@/lib/auth/mfa";
 import { adminPerfNow, logAdminPerf } from "@/lib/admin/perf";
 
 export type AdminSession = {
@@ -17,6 +18,8 @@ export async function requireAdmin(): Promise<AdminSession> {
   if (!admin) {
     redirect(`/auth/sign-in?next=${encodeURIComponent("/admin")}`);
   }
+
+  await requireMfaIfNeeded("/admin");
 
   return admin;
 }

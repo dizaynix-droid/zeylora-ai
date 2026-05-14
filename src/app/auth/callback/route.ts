@@ -96,6 +96,18 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  const { data: aalData, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (!aalError && aalData.nextLevel === "aal2" && aalData.currentLevel !== "aal2") {
+    const mfaUrl = new URL("/auth/mfa", requestUrl.origin);
+    mfaUrl.searchParams.set("next", nextPath);
+    const mfaResponse = NextResponse.redirect(mfaUrl, { status: 303 });
+    redirectResponse.cookies.getAll().forEach((cookie) => {
+      mfaResponse.cookies.set(cookie);
+    });
+
+    return mfaResponse;
+  }
+
   return redirectResponse;
 }
 

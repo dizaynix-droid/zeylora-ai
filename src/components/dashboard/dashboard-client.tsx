@@ -17,6 +17,7 @@ import {
   UserCircle,
   Wand2
 } from "lucide-react";
+import { MfaSettingsPanel } from "@/components/auth/mfa-settings-panel";
 import { CleanExportButton } from "@/components/jobs/clean-export-button";
 import { DownloadResultButton } from "@/components/jobs/download-result-button";
 import { Card } from "@/components/ui/card";
@@ -534,13 +535,18 @@ export function DashboardClient({
                     >
                       Send password reset
                     </button>
-                    <span className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2 text-center text-sm font-black leading-5 text-slate-300">
-                      2FA coming soon
+                  <span className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-emerald/20 bg-emerald/10 px-3 py-2 text-center text-sm font-black leading-5 text-emerald">
+                      2FA available
                     </span>
                   </div>
                   <p className="text-sm text-slate-300">
-                    Admin accounts should use a unique password. Mandatory 2FA is prepared as a future admin security requirement.
+                    Admin accounts should use a unique password. Optional authenticator-app 2FA is available below.
                   </p>
+                </div>
+                <MfaSettingsPanel />
+                <div className="mt-5 grid gap-3 rounded-2xl border border-white/10 bg-white/[0.035] p-4">
+                  <p className="text-xs font-black uppercase text-slate-500">Session controls</p>
+                  <p className="text-sm text-slate-300">Logout other sessions is prepared for a later session management phase.</p>
                   <p className="text-xs font-black uppercase text-slate-500">Notification preferences</p>
                   <p className="text-sm text-slate-300">Product updates and billing/support emails are prepared for a later preference center.</p>
                   <p className="text-xs font-black uppercase text-slate-500">Danger zone</p>

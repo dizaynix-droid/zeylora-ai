@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { DashboardClient } from "@/components/dashboard/dashboard-client";
 import { AppShell } from "@/components/layout/app-shell";
 import { getCurrentSessionUser } from "@/lib/auth/current-user";
+import { requireMfaIfNeeded } from "@/lib/auth/mfa";
 import { type DashboardFilter } from "@/lib/dashboard/data";
 import { createMetadata } from "@/lib/seo";
 
@@ -29,6 +30,8 @@ export default async function DashboardPage({
   if (!sessionUser) {
     redirect("/auth/sign-in?next=/dashboard");
   }
+
+  await requireMfaIfNeeded("/dashboard");
 
   if (process.env.NODE_ENV === "development") {
     console.info("[dashboard-shell-timing]", {

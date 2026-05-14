@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { AuthForm } from "@/components/auth/auth-form";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
+import { getMfaRedirectPath } from "@/lib/auth/mfa";
 import { syncSupabaseUserProfile } from "@/lib/auth/profile";
 import { createClient } from "@/lib/supabase/server";
 import { createMetadata } from "@/lib/seo";
@@ -29,6 +30,8 @@ export default async function SignInPage({
 
     if (user) {
       await syncSupabaseUserProfile(user).catch(() => null);
+      const mfaRedirectPath = await getMfaRedirectPath(getSafeNextPath(params?.next));
+      if (mfaRedirectPath) redirect(mfaRedirectPath);
       redirect(getSafeNextPath(params?.next));
     }
   }

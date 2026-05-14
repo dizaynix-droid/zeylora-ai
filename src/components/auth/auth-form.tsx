@@ -94,9 +94,19 @@ export function AuthForm({ authStatus, authError, next = "/dashboard" }: { authS
       return;
     }
 
+    const safeNextPath = getSafeNextPath(next);
+    const aal = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+
+    if (!aal.error && aal.data.nextLevel === "aal2" && aal.data.currentLevel !== "aal2") {
+      setStatus("success");
+      setMessage("Password accepted. Enter your authenticator code to continue.");
+      window.location.assign(`/auth/mfa?next=${encodeURIComponent(safeNextPath)}`);
+      return;
+    }
+
     setStatus("success");
     setMessage("Signed in. Opening your workspace...");
-    window.location.assign(getSafeNextPath(next));
+    window.location.assign(safeNextPath);
   }
 
   return (
