@@ -648,10 +648,10 @@ export function HeroUpload() {
   }
 
   return (
-    <section id="top" className="relative overflow-hidden bg-cinematic-depth pb-12 pt-10 md:pb-20 md:pt-20">
+    <section id="top" className="relative overflow-hidden bg-cinematic-depth pb-8 pt-6 md:pb-20 md:pt-20">
       <div className="subtle-grid pointer-events-none absolute inset-x-0 top-0 h-[520px] opacity-50" />
       <div className="pointer-events-none absolute left-1/2 top-20 h-72 w-72 -translate-x-1/2 rounded-full bg-cyan/10 blur-3xl" />
-      <div className={`section-shell relative grid gap-8 lg:gap-10 lg:items-start ${
+      <div className={`section-shell relative grid gap-5 lg:gap-10 lg:items-start ${
         isResultMode
           ? "lg:grid-cols-[minmax(0,1.35fr)_420px] xl:grid-cols-[minmax(0,1.5fr)_430px]"
           : "lg:grid-cols-[minmax(0,1fr)_460px] xl:grid-cols-[minmax(0,1fr)_480px]"
@@ -693,52 +693,52 @@ export function HeroUpload() {
                 <Sparkles size={14} />
                 AI Product Photo Editor / Ecommerce Studio
               </p>
-              <h1 className="mt-5 max-w-4xl text-4xl font-black leading-tight tracking-tight text-white md:text-6xl lg:text-7xl">
+              <h1 className="mt-4 max-w-4xl text-[2.45rem] font-black leading-[1.04] tracking-tight text-white min-[390px]:text-[2.65rem] md:mt-5 md:text-6xl lg:text-7xl">
                 Turn product photos into <span className="gradient-text">premium ecommerce</span> visuals.
               </h1>
-              <p className="mt-5 max-w-2xl text-base leading-8 text-slate-300 md:text-lg">
+              <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-300 md:mt-5 md:text-lg md:leading-8">
                 Upscale, relight, enhance, crop, remove backgrounds, and prepare seller-ready visuals for Shopify, Etsy, Amazon, and TikTok Shop.
               </p>
 
-              <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-                <Button href="#upload" className="h-14 px-8 text-base shadow-[0_0_42px_rgba(32,211,255,.28)]">
+              <div className="mt-5 flex flex-col gap-2 sm:flex-row md:mt-7 md:gap-3">
+                <Button href="#upload" className="h-12 px-6 text-sm shadow-[0_0_42px_rgba(32,211,255,.28)] md:h-14 md:px-8 md:text-base">
                   Upload product photo
                   <ArrowRight className="ml-2" size={18} />
                 </Button>
-                <Button href="#examples" variant="secondary" className="h-12 px-6">
+                <Button href="#examples" variant="secondary" className="h-11 px-5 md:h-12 md:px-6">
                   View examples
                 </Button>
               </div>
 
-              <div className="mt-8 grid gap-3 text-sm text-slate-300 sm:grid-cols-3">
+              <div className="mt-5 grid gap-2 text-xs text-slate-300 sm:grid-cols-3 md:mt-8 md:gap-3 md:text-sm">
                 {trustItems.map(([label, Icon]) => (
-                  <div key={label} className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.045] px-3 py-2">
-                    <span className="grid size-8 shrink-0 place-items-center rounded-full bg-cyan/10 text-cyan">
-                      <Icon size={16} />
+                  <div key={label} className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.045] px-3 py-2 md:rounded-2xl">
+                    <span className="grid size-7 shrink-0 place-items-center rounded-full bg-cyan/10 text-cyan md:size-8">
+                      <Icon size={15} />
                     </span>
                     <span>{label}</span>
                   </div>
                 ))}
               </div>
 
-              <div className="mt-8 grid max-w-2xl grid-cols-3 gap-3 border-t border-white/10 pt-6">
+              <div className="mt-5 grid max-w-2xl grid-cols-3 gap-3 border-t border-white/10 pt-4 md:mt-8 md:pt-6">
                 {[
                   ["6", "live tools"],
                   ["Private", "signed exports"],
                   ["Credits", "clean downloads"]
                 ].map(([value, label]) => (
                   <div key={label}>
-                    <p className="text-2xl font-black text-white md:text-3xl">{value}</p>
+                    <p className="text-xl font-black text-white md:text-3xl">{value}</p>
                     <p className="mt-1 text-xs font-semibold text-slate-400">{label}</p>
                   </div>
                 ))}
               </div>
 
-              <div className="mt-8 grid gap-3 sm:grid-cols-3">
-                {heroProductStories.map((story) => (
+              <div className="mt-5 grid gap-3 sm:grid-cols-3 md:mt-8">
+                {heroProductStories.map((story, index) => (
                   <div
                     key={story.name}
-                    className="group overflow-hidden rounded-3xl border border-white/10 bg-white/[0.045] p-2 shadow-cinematic"
+                    className={`group overflow-hidden rounded-2xl border border-white/10 bg-white/[0.045] p-2 shadow-cinematic md:rounded-3xl ${index === 2 ? "hidden sm:block" : ""}`}
                   >
                     <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-black/30">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -763,8 +763,8 @@ export function HeroUpload() {
           )}
         </div>
 
-        <div id="upload" className={`premium-ring rounded-[2rem] lg:sticky lg:top-24 ${hasActivePreview ? "" : "animate-float"}`}>
-          <div className={`glass-panel overflow-hidden rounded-[2rem] p-4 md:p-5 ${
+        <div id="upload" className={`premium-ring rounded-3xl lg:sticky lg:top-24 lg:rounded-[2rem] ${hasActivePreview ? "" : "md:animate-float"}`}>
+          <div className={`glass-panel overflow-hidden rounded-3xl p-3 md:p-5 lg:rounded-[2rem] ${
             isResultMode ? "" : "lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto"
           }`}>
             <input
@@ -936,15 +936,15 @@ export function HeroUpload() {
                 </div>
               </div>
             ) : (
-              <div className="relative overflow-hidden rounded-[1.5rem] border border-dashed border-cyan/[0.45] bg-[linear-gradient(145deg,rgba(32,211,255,.16),rgba(139,92,246,.1),rgba(255,255,255,.045))] p-5 text-center shadow-[0_0_54px_rgba(32,211,255,.16)] md:p-6">
+              <div className="relative overflow-hidden rounded-2xl border border-dashed border-cyan/[0.45] bg-[linear-gradient(145deg,rgba(32,211,255,.16),rgba(139,92,246,.1),rgba(255,255,255,.045))] p-4 text-center shadow-[0_0_54px_rgba(32,211,255,.16)] md:rounded-[1.5rem] md:p-6">
                 <div className="absolute inset-x-0 top-0 h-px overflow-hidden bg-white/10">
                   <div className="h-full w-1/2 animate-shimmer bg-gradient-to-r from-transparent via-cyan to-transparent" />
                 </div>
-                <div className="mx-auto grid size-16 place-items-center rounded-2xl bg-[linear-gradient(135deg,#20D3FF,#8B5CF6)] text-white shadow-glow">
-                  <ImagePlus size={28} />
+                <div className="mx-auto grid size-13 place-items-center rounded-2xl bg-[linear-gradient(135deg,#20D3FF,#8B5CF6)] text-white shadow-glow md:size-16">
+                  <ImagePlus size={24} />
                 </div>
-                <h2 className="mt-5 text-2xl font-black text-white">Upload product photo</h2>
-                <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-300">
+                <h2 className="mt-4 text-xl font-black text-white md:mt-5 md:text-2xl">Upload product photo</h2>
+                <p className="mx-auto mt-2 max-w-sm text-xs leading-5 text-slate-300 md:text-sm md:leading-6">
                   Preview a branded edit first. Use credits when you want the clean watermark-free export.
                 </p>
                 <button
@@ -957,7 +957,7 @@ export function HeroUpload() {
                     }
                     fileInputRef.current?.click();
                   }}
-                  className="focus-lift mt-5 inline-flex h-14 w-full items-center justify-center rounded-full bg-zeylora-brand text-base font-black text-white shadow-[0_0_46px_rgba(32,211,255,.32)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+                  className="focus-lift mt-4 inline-flex h-12 w-full items-center justify-center rounded-full bg-zeylora-brand text-sm font-black text-white shadow-[0_0_46px_rgba(32,211,255,.32)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70 md:mt-5 md:h-14 md:text-base"
                 >
                   {status === "uploading" || status === "processing" ? (
                     <>
@@ -991,12 +991,12 @@ export function HeroUpload() {
               </div>
             )}
 
-            <div ref={toolControlsRef} className="mt-4 scroll-mt-24 rounded-2xl border border-white/10 bg-white/[0.06] p-2">
+            <div ref={toolControlsRef} className="mt-3 scroll-mt-24 rounded-2xl border border-white/10 bg-white/[0.06] p-2 md:mt-4">
               <p className="mb-2 flex items-center gap-2 px-2 text-xs font-black uppercase text-slate-400">
                 <Wand2 size={14} />
                 AI tool
               </p>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
                 {homeToolOptions.map((tool) => (
                   <button
                     key={tool.key}
@@ -1021,7 +1021,7 @@ export function HeroUpload() {
                       setRating(null);
                       if (status === "succeeded" || status === "failed") setStatus(inputPreviewUrl ? "selected" : "idle");
                     }}
-                    className={`min-h-11 rounded-full px-2 py-2 text-xs font-black leading-tight transition ${
+                    className={`min-h-9 rounded-full px-1.5 py-1.5 text-[10px] font-black leading-tight transition sm:min-h-11 sm:px-2 sm:py-2 sm:text-xs ${
                       selectedTool === tool.key
                         ? "bg-cyan text-ink"
                         : "border border-white/10 bg-black/20 text-slate-300 hover:bg-white/10"
@@ -1041,7 +1041,7 @@ export function HeroUpload() {
             </div>
 
             {selectedTool === "background-remover" ? (
-              <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.06] p-2">
+              <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.06] p-2 md:mt-4">
                 <p className="mb-2 flex items-center gap-2 px-2 text-xs font-black uppercase text-slate-400">
                   <Gauge size={14} />
                   Quality mode
@@ -1057,7 +1057,7 @@ export function HeroUpload() {
                       type="button"
                       disabled={status === "uploading" || status === "processing"}
                       onClick={() => setQualityMode(value as QualityMode)}
-                      className={`min-h-10 rounded-full px-2 py-2 text-xs font-black leading-tight transition ${
+                    className={`min-h-9 rounded-full px-1.5 py-1.5 text-[10px] font-black leading-tight transition sm:min-h-10 sm:px-2 sm:py-2 sm:text-xs ${
                         qualityMode === value
                           ? "bg-cyan text-ink"
                           : "border border-white/10 bg-black/20 text-slate-300 hover:bg-white/10"
@@ -1087,7 +1087,7 @@ export function HeroUpload() {
                       disabled={status === "uploading" || status === "processing"}
                       onClick={() => void handleMarketplaceFormatChange(format.value)}
                       title={format.label}
-                      className={`min-h-10 rounded-full px-2 py-2 text-xs font-black leading-tight transition ${
+                      className={`min-h-9 rounded-full px-1.5 py-1.5 text-[10px] sm:min-h-10 sm:px-2 sm:py-2 sm:text-xs font-black leading-tight transition ${
                         marketplaceCropFormat === format.value
                           ? "bg-cyan text-ink"
                           : "border border-white/10 bg-black/20 text-slate-300 hover:bg-white/10"
@@ -1115,7 +1115,7 @@ export function HeroUpload() {
                       disabled={status === "uploading" || status === "processing"}
                       onClick={() => void handleProductShadowPresetChange(preset.value)}
                       title={preset.label}
-                      className={`min-h-10 rounded-full px-2 py-2 text-xs font-black leading-tight transition ${
+                      className={`min-h-9 rounded-full px-1.5 py-1.5 text-[10px] sm:min-h-10 sm:px-2 sm:py-2 sm:text-xs font-black leading-tight transition ${
                         productShadowPreset === preset.value
                           ? "bg-cyan text-ink"
                           : "border border-white/10 bg-black/20 text-slate-300 hover:bg-white/10"
@@ -1143,7 +1143,7 @@ export function HeroUpload() {
                       disabled={status === "uploading" || status === "processing"}
                       onClick={() => void handleAiRelightPresetChange(preset.value)}
                       title={preset.label}
-                      className={`min-h-10 rounded-full px-2 py-2 text-xs font-black leading-tight transition ${
+                      className={`min-h-9 rounded-full px-1.5 py-1.5 text-[10px] sm:min-h-10 sm:px-2 sm:py-2 sm:text-xs font-black leading-tight transition ${
                         aiRelightPreset === preset.value
                           ? "bg-cyan text-ink"
                           : "border border-white/10 bg-black/20 text-slate-300 hover:bg-white/10"
@@ -1171,7 +1171,7 @@ export function HeroUpload() {
                       disabled={status === "uploading" || status === "processing"}
                       onClick={() => void handleHdUpscalePresetChange(preset.value)}
                       title={preset.label}
-                      className={`min-h-10 rounded-full px-2 py-2 text-xs font-black leading-tight transition ${
+                      className={`min-h-9 rounded-full px-1.5 py-1.5 text-[10px] sm:min-h-10 sm:px-2 sm:py-2 sm:text-xs font-black leading-tight transition ${
                         hdUpscalePreset === preset.value
                           ? "bg-cyan text-ink"
                           : "border border-white/10 bg-black/20 text-slate-300 hover:bg-white/10"

@@ -33,12 +33,12 @@ export function ToolGrid() {
     .filter((tool): tool is NonNullable<typeof tool> => Boolean(tool));
 
   return (
-    <section className="section-band py-12 md:py-20">
+    <section className="section-band py-9 md:py-20">
       <div className="section-shell">
         <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
           <div className="max-w-2xl">
             <p className="eyebrow">Product photo tools</p>
-            <h2 className="mt-4 text-3xl font-black tracking-tight text-white md:text-5xl">
+            <h2 className="mt-3 text-2xl font-black tracking-tight text-white md:mt-4 md:text-5xl">
               Start with the strongest ecommerce workflows.
             </h2>
           </div>
@@ -47,16 +47,16 @@ export function ToolGrid() {
           </p>
         </div>
 
-        <div className="mt-9 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-6 grid gap-3 md:mt-9 md:grid-cols-2 md:gap-4 xl:grid-cols-3">
           {launchTools.map((tool, index) => {
             const badge = toolBadges[tool.slug as (typeof launchToolOrder)[number]];
             return (
             <Link key={tool.slug} href={`/tools/${tool.slug}`} className="group block">
-              <Card className="cinematic-card-hover relative h-full overflow-hidden p-5">
+              <Card className="cinematic-card-hover relative h-full overflow-hidden p-4 md:p-5">
                 <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan/60 to-transparent opacity-0 transition group-hover:opacity-100" />
                 <div className="flex items-start justify-between gap-4">
                   <span className="grid size-12 place-items-center rounded-2xl bg-[linear-gradient(135deg,rgba(32,211,255,.18),rgba(139,92,246,.18))] text-cyan ring-1 ring-white/10">
-                    {index % 2 === 0 ? <Wand2 size={20} /> : <ImageIcon size={20} />}
+                    {index % 2 === 0 ? <Wand2 size={18} /> : <ImageIcon size={18} />}
                   </span>
                   <span className={`rounded-full border px-3 py-1 text-xs font-black ${
                     badge?.tone === "primary"
@@ -70,9 +70,9 @@ export function ToolGrid() {
                     {badge?.label ?? "Preview first"}
                   </span>
                 </div>
-                <h3 className="mt-6 text-xl font-black text-white">{tool.name}</h3>
-                <p className="mt-2 min-h-16 text-sm leading-6 text-slate-300">{tool.description}</p>
-                <p className="mt-3 min-h-12 text-xs font-semibold leading-5 text-slate-400">
+                <h3 className="mt-4 text-lg font-black text-white md:mt-6 md:text-xl">{tool.name}</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-300 md:min-h-16">{tool.description}</p>
+                <p className="mt-3 text-xs font-semibold leading-5 text-slate-400 md:min-h-12">
                   {toolPositioning[tool.slug as (typeof launchToolOrder)[number]]}
                 </p>
                 <div className="mt-5 flex items-center justify-between border-t border-white/10 pt-4">

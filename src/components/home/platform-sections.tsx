@@ -28,8 +28,8 @@ export async function PlatformSections() {
 
   return (
     <>
-      <section id="examples" className="section-shell py-10 md:py-14">
-        <div className="glass-panel rounded-[2rem] p-5 md:p-6">
+      <section id="examples" className="section-shell py-8 md:py-14">
+        <div className="glass-panel rounded-2xl p-4 md:rounded-[2rem] md:p-6">
           <div className="grid gap-4 md:grid-cols-[1fr_1.4fr] md:items-center">
             <div>
               <p className="text-sm font-black uppercase text-cyan">Trust layer</p>
@@ -54,9 +54,9 @@ export async function PlatformSections() {
 
       <section className="section-band py-12 md:py-20">
         <div className="section-shell">
-          <div className="mb-8 max-w-2xl">
+          <div className="mb-6 max-w-2xl md:mb-8">
             <p className="eyebrow">Feature explanation</p>
-            <h2 className="mt-4 text-3xl font-black tracking-tight text-white md:text-5xl">
+            <h2 className="mt-3 text-2xl font-black tracking-tight text-white md:mt-4 md:text-5xl">
               Built for repeat ecommerce product-photo production.
             </h2>
             <p className="mt-4 text-sm leading-7 text-slate-300">
@@ -65,7 +65,7 @@ export async function PlatformSections() {
           </div>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             {trustItems.map(([title, description, Icon]) => (
-              <Card key={title} className="cinematic-card-hover p-5">
+              <Card key={title} className="cinematic-card-hover p-4 md:p-5">
                 <span className="grid size-10 place-items-center rounded-xl bg-white/10 text-cyan">
                   <Icon size={18} />
                 </span>
@@ -77,11 +77,11 @@ export async function PlatformSections() {
         </div>
       </section>
 
-      <section className="section-shell py-12 md:py-20">
-        <div className="mb-7 flex flex-col justify-between gap-4 md:flex-row md:items-end">
+      <section className="section-shell py-9 md:py-20">
+        <div className="mb-5 flex flex-col justify-between gap-3 md:mb-7 md:flex-row md:items-end md:gap-4">
           <div>
             <p className="eyebrow">Credit packs</p>
-            <h2 className="mt-4 text-3xl font-black tracking-tight text-white md:text-5xl">
+            <h2 className="mt-3 text-2xl font-black tracking-tight text-white md:mt-4 md:text-5xl">
               Export clean results when the image is ready.
             </h2>
           </div>
@@ -96,7 +96,7 @@ export async function PlatformSections() {
             ["2 credits", "HD Upscale and Background Remover use 2 credits for clean exports."],
             ["3 credits", "Photo Enhancer uses 3 credits for a polished clean export."]
           ].map(([label, description]) => (
-            <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.045] p-4">
+            <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.045] p-3 md:p-4">
               <p className="text-sm font-black uppercase text-cyan">{label}</p>
               <p className="mt-2 text-sm leading-6 text-slate-300">{description}</p>
             </div>
@@ -107,7 +107,7 @@ export async function PlatformSections() {
           {creditPackages.slice(0, 4).map((pack) => (
             <Card
               key={pack.key}
-              className={pack.highlight ? "premium-ring cinematic-card-hover p-6 md:-mt-4" : "cinematic-card-hover p-6"}
+              className={pack.highlight ? "premium-ring cinematic-card-hover p-4 md:-mt-4 md:p-6" : "cinematic-card-hover p-4 md:p-6"}
             >
               <div className="flex items-center justify-between">
                 <h3 className="text-xl font-black text-white">{pack.name}</h3>
@@ -116,11 +116,11 @@ export async function PlatformSections() {
                 ) : null}
               </div>
               <p className="mt-3 text-sm leading-6 text-slate-300">{pack.description}</p>
-              <p className="mt-6 text-4xl font-black text-white">${pack.price}</p>
+              <p className="mt-4 text-3xl font-black text-white md:mt-6 md:text-4xl">${pack.price}</p>
               <p className="mt-1 text-sm font-bold text-cyan">
                 {pack.totalCredits} credits{pack.bonusCredits ? ` (${pack.credits} + ${pack.bonusCredits} bonus)` : ""}
               </p>
-              <div className="mt-5 grid gap-2 border-t border-white/10 pt-5 text-sm text-slate-300">
+              <div className="mt-4 grid gap-2 border-t border-white/10 pt-4 text-sm text-slate-300 md:mt-5 md:pt-5">
                 <p className="flex items-center gap-2">
                   <CheckCircle2 size={15} className="text-emerald" />
                   Free watermarked previews before export
