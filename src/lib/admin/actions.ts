@@ -649,17 +649,21 @@ export async function updateOperationalSettingsAction(formData: FormData) {
   const settings: OperationalSettings = {
     brandName: getFormString(formData, "brandName", 80),
     supportEmail: getFormString(formData, "supportEmail", 160),
+    billingEmail: getFormString(formData, "billingEmail", 160),
     defaultCurrency: getFormString(formData, "defaultCurrency", 8).toUpperCase() || "USD",
     maintenanceMode: formData.get("maintenanceMode") === "on",
+    uploadsEnabled: formData.get("uploadsEnabled") === "on",
     cleanExportsEnabled: formData.get("cleanExportsEnabled") === "on",
     checkoutEnabled: formData.get("checkoutEnabled") === "on",
     previewEnabled: formData.get("previewEnabled") === "on",
     registrationEnabled: formData.get("registrationEnabled") === "on",
+    emailsEnabled: formData.get("emailsEnabled") === "on",
     uploadMaxSizeMb: Number(formData.get("uploadMaxSizeMb") || 10),
     guestPreviewPerMinute: Number(formData.get("guestPreviewPerMinute") || 3),
     guestPreviewPerHour: Number(formData.get("guestPreviewPerHour") || 15),
     userJobsPerMinute: Number(formData.get("userJobsPerMinute") || 10),
-    userJobsPerDay: Number(formData.get("userJobsPerDay") || 100)
+    userJobsPerDay: Number(formData.get("userJobsPerDay") || 100),
+    estimatedCreditUsdValue: Number(formData.get("estimatedCreditUsdValue") || 0.7)
   };
 
   await prisma.siteSetting.upsert({
@@ -679,23 +683,48 @@ export async function updateOperationalSettingsAction(formData: FormData) {
     metadata: {
       brandName: settings.brandName,
       supportEmail: settings.supportEmail,
+      billingEmail: settings.billingEmail,
       defaultCurrency: settings.defaultCurrency,
       maintenanceMode: settings.maintenanceMode,
+      uploadsEnabled: settings.uploadsEnabled,
       cleanExportsEnabled: settings.cleanExportsEnabled,
       checkoutEnabled: settings.checkoutEnabled,
       previewEnabled: settings.previewEnabled,
       registrationEnabled: settings.registrationEnabled,
+      emailsEnabled: settings.emailsEnabled,
       uploadMaxSizeMb: settings.uploadMaxSizeMb,
       guestPreviewPerMinute: settings.guestPreviewPerMinute,
       guestPreviewPerHour: settings.guestPreviewPerHour,
       userJobsPerMinute: settings.userJobsPerMinute,
-      userJobsPerDay: settings.userJobsPerDay
+      userJobsPerDay: settings.userJobsPerDay,
+      estimatedCreditUsdValue: settings.estimatedCreditUsdValue
     }
   });
 
   revalidatePath("/admin/settings");
+  revalidatePath("/admin/system");
   revalidatePath("/", "layout");
   redirect("/admin/settings?saved=operations");
+}
+
+export async function pauseAllProvidersAction() {
+  const admin = await requireAdmin();
+  const result = await prisma.providerSetting.updateMany({
+    where: { status: "ACTIVE" },
+    data: { status: "INACTIVE" }
+  });
+
+  await logAdminAction({
+    admin,
+    action: "providers.pause_all",
+    entityType: "ProviderSetting",
+    metadata: { updated: result.count }
+  });
+
+  revalidatePath("/admin/providers");
+  revalidatePath("/admin/system");
+  revalidatePath("/admin");
+  redirect("/admin/system?saved=providers-paused");
 }
 
 function getFormString(formData: FormData, key: string, maxLength = 240) {

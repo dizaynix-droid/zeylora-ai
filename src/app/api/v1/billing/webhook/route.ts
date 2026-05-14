@@ -31,6 +31,7 @@ export async function POST(request: Request) {
     await prisma.webhookLog.create({
       data: {
         source: "stripe",
+        externalEventId: null,
         eventType: "signature_verification_failed",
         payloadJson: { received: true },
         status: "failed",
@@ -41,12 +42,39 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "Invalid Stripe signature." }, { status: 400 });
   }
 
+  const webhookLog = await prisma.webhookLog
+    .create({
+      data: {
+        source: "stripe",
+        externalEventId: event.id,
+        eventType: event.type,
+        payloadJson: event as unknown as Prisma.InputJsonObject,
+        status: "received"
+      },
+      select: { id: true }
+    })
+    .catch((error) => {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        return null;
+      }
+      throw error;
+    });
+
+  if (!webhookLog) {
+    return NextResponse.json({ ok: true, received: true, duplicate: true });
+  }
+
   try {
+    let linkedPaymentId: string | undefined;
+    let linkedUserId: string | undefined;
+
     if (event.type === "checkout.session.completed") {
       const session = event.data.object;
       const paymentId = session.metadata?.paymentId;
       const userId = session.metadata?.userId;
       const credits = Number(session.metadata?.credits || 0);
+      linkedPaymentId = paymentId;
+      linkedUserId = userId;
 
       if (paymentId && userId && credits > 0) {
         const processed = await prisma.$transaction(async (tx) => {
@@ -150,16 +178,24 @@ export async function POST(request: Request) {
         status: "processed"
       }
     });
+    await prisma.webhookLog.update({
+      where: { id: webhookLog.id },
+      data: {
+        status: "processed",
+        paymentId: linkedPaymentId || null,
+        userId: linkedUserId || null,
+        processedAt: new Date()
+      }
+    });
 
     return NextResponse.json({ ok: true, received: true });
   } catch (error) {
-    await prisma.webhookLog.create({
+    await prisma.webhookLog.update({
+      where: { id: webhookLog.id },
       data: {
-        source: "stripe",
-        eventType: event.type,
-        payloadJson: event as unknown as Prisma.InputJsonObject,
         status: "failed",
-        errorMessage: error instanceof Error ? error.message : "Stripe webhook processing failed."
+        errorMessage: error instanceof Error ? error.message : "Stripe webhook processing failed.",
+        processedAt: new Date()
       }
     });
 

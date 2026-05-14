@@ -92,6 +92,8 @@ async function buildAdminOverviewData() {
           id: true,
           providerKey: true,
           createdAt: true,
+          estimatedCostAtRun: true,
+          estimatedCostSource: true,
           tool: { select: { estimatedCostPerRun: true } }
         }
       })
@@ -844,7 +846,8 @@ export async function getAdminReportsData(input: {
     expenses,
     topPaymentUsers,
     providerSettings,
-    activeTools
+    activeTools,
+    operations
   ] = await Promise.all([
     measureAdminQuery(
       "reports.payments.paid.list",
@@ -901,6 +904,13 @@ export async function getAdminReportsData(input: {
           id: true,
           providerKey: true,
           createdAt: true,
+          creditCost: true,
+          estimatedCostAtRun: true,
+          estimatedCostCurrency: true,
+          estimatedCostProvider: true,
+          estimatedCostSource: true,
+          estimatedRevenueAtRun: true,
+          estimatedProfitAtRun: true,
           tool: {
             select: {
               id: true,
@@ -995,7 +1005,8 @@ export async function getAdminReportsData(input: {
         }
       }),
       { range }
-    )
+    ),
+    getOperationalSettings()
   ]);
   const providerDefaults = new Map(providerSettings.map((provider) => [provider.providerKey, provider]));
 
@@ -1016,12 +1027,19 @@ export async function getAdminReportsData(input: {
   const creditsSold = paidPaymentAggregate._sum.creditsDelivered ?? 0;
   const creditsUsed = Math.abs(creditUsage._sum.amount ?? 0);
   const providerCost = completedJobs.reduce((sum, job) => sum + getJobEstimatedCost(job, providerDefaults), 0);
+  const snapshotProviderCost = completedJobs.reduce((sum, job) => sum + decimalToNumber(job.estimatedCostAtRun), 0);
+  const estimatedRevenue = completedJobs.reduce((sum, job) => sum + getJobEstimatedRevenue(job, operations.estimatedCreditUsdValue), 0);
+  const estimatedProfit = completedJobs.reduce((sum, job) => sum + getJobEstimatedProfit(job, providerDefaults, operations.estimatedCreditUsdValue), 0);
   const manualExpenses = expenses.reduce((sum, expense) => sum + decimalToNumber(expense.amount), 0);
   const refundAmount = decimalToNumber(refundAggregate._sum.amount);
   const grossProfit = revenue - providerCost;
   const netProfit = grossProfit - manualExpenses;
   const profitMargin = revenue > 0 ? (netProfit / revenue) * 100 : null;
+  const estimatedExportCount = completedJobs.length;
   const costPerCleanExport = creditUsage._count._all > 0 ? providerCost / creditUsage._count._all : null;
+  const averageProfitPerExport = estimatedExportCount > 0 ? estimatedProfit / estimatedExportCount : null;
+  const averageProviderCostPerTool = toolUsageAverageProviderCost(completedJobs, providerDefaults);
+  const averageRevenuePerExport = estimatedExportCount > 0 ? estimatedRevenue / estimatedExportCount : null;
   const missingCostTools = Array.from(
     new Map(
       completedJobs
@@ -1038,14 +1056,14 @@ export async function getAdminReportsData(input: {
     completedJobs,
     providerDefaults
   });
-  const toolUsage = buildToolUsageReport(completedJobs, providerDefaults);
+  const toolUsage = buildToolUsageReport(completedJobs, providerDefaults, operations.estimatedCreditUsdValue);
   const providerUsage = buildProviderUsageReport(completedJobs, failedJobs, providerDefaults);
   const packageRevenue = buildPackageRevenueReport(paidPayments);
   const failedByTool = buildFailedJobsReport(failedJobs);
 
   logAdminPerf("admin.reports.data", {
     duration: `${adminPerfNow() - startedAt}ms`,
-    queryCount: topUserIds.length ? 11 : 10,
+    queryCount: topUserIds.length ? 12 : 11,
     range,
     grouping,
     completedJobs: completedJobs.length,
@@ -1074,6 +1092,12 @@ export async function getAdminReportsData(input: {
       refundCount: refundAggregate._count._all,
       failedJobCount: failedJobs.length,
       costPerCleanExport,
+      snapshotProviderCost,
+      estimatedRevenue,
+      estimatedProfit,
+      averageProfitPerExport,
+      averageProviderCostPerTool,
+      averageRevenuePerExport,
       missingCostTools,
       missingActiveCostTargets
     },
@@ -1208,6 +1232,15 @@ type AdminCacheEntry<T> = {
   value: T;
 };
 
+type CostedJob = {
+  providerKey: string | null;
+  creditCost?: number;
+  estimatedCostAtRun?: unknown;
+  estimatedRevenueAtRun?: unknown;
+  estimatedProfitAtRun?: unknown;
+  tool: { estimatedCostPerRun: unknown; creditCost?: number } | null;
+};
+
 function getAdminCache<T>(entry: AdminCacheEntry<T> | null) {
   if (!entry || entry.expiresAt <= Date.now()) return null;
   return entry.value;
@@ -1228,7 +1261,7 @@ function summarizeOverviewRange(input: {
   start: Date;
   end: Date;
   payments: Array<{ amount: unknown; creditsDelivered: number; createdAt: Date }>;
-  completedJobs: Array<{ providerKey: string | null; createdAt: Date; tool: { estimatedCostPerRun: unknown } | null }>;
+  completedJobs: Array<CostedJob & { createdAt: Date }>;
   creditUses: Array<{ amount: number; createdAt: Date }>;
   expenses: Array<{ amount: unknown; expenseDate: Date }>;
   providerDefaults: Map<string, { estimatedCostPerRun: unknown }>;
@@ -1306,7 +1339,7 @@ function buildReportSeries(input: {
   grouping: AdminReportGrouping;
   paidPayments: Array<{ amount: unknown; createdAt: Date }>;
   expenses: Array<{ amount: unknown; expenseDate: Date }>;
-  completedJobs: Array<{ providerKey: string | null; createdAt: Date; tool: { estimatedCostPerRun: unknown } | null }>;
+  completedJobs: Array<CostedJob & { createdAt: Date }>;
   providerDefaults: Map<string, { estimatedCostPerRun: unknown }>;
 }) {
   const buckets = new Map<string, { period: string; revenue: number; providerCost: number; expenses: number; netProfit: number }>();
@@ -1329,6 +1362,10 @@ function buildReportSeries(input: {
 function buildToolUsageReport(
   completedJobs: Array<{
     providerKey: string | null;
+    creditCost?: number;
+    estimatedCostAtRun?: unknown;
+    estimatedRevenueAtRun?: unknown;
+    estimatedProfitAtRun?: unknown;
     tool: {
       name: string;
       slug: string;
@@ -1337,11 +1374,12 @@ function buildToolUsageReport(
       estimatedCostProvider: string | null;
     } | null;
   }>,
-  providerDefaults: Map<string, { estimatedCostPerRun: unknown }>
+  providerDefaults: Map<string, { estimatedCostPerRun: unknown }>,
+  estimatedCreditUsdValue: number
 ) {
   const byTool = new Map<
     string,
-    { slug: string; name: string; provider: string; runs: number; credits: number; costPerRun: number; estimatedCost: number; missingCost: boolean }
+    { slug: string; name: string; provider: string; runs: number; credits: number; costPerRun: number; estimatedCost: number; estimatedRevenue: number; estimatedProfit: number; averageProfit: number; missingCost: boolean }
   >();
 
   for (const job of completedJobs) {
@@ -1356,13 +1394,21 @@ function buildToolUsageReport(
         credits: 0,
         costPerRun: getJobEstimatedCost(job, providerDefaults),
         estimatedCost: 0,
+        estimatedRevenue: 0,
+        estimatedProfit: 0,
+        averageProfit: 0,
         missingCost: false
       };
     const cost = getJobEstimatedCost(job, providerDefaults);
+    const revenue = getJobEstimatedRevenue(job, estimatedCreditUsdValue);
+    const profit = getJobEstimatedProfit(job, providerDefaults, estimatedCreditUsdValue);
     existing.runs += 1;
-    existing.credits += job.tool?.creditCost || 0;
+    existing.credits += job.creditCost ?? job.tool?.creditCost ?? 0;
     existing.costPerRun = cost;
     existing.estimatedCost += cost;
+    existing.estimatedRevenue += revenue;
+    existing.estimatedProfit += profit;
+    existing.averageProfit = existing.runs > 0 ? existing.estimatedProfit / existing.runs : 0;
     existing.missingCost ||= cost <= 0;
     byTool.set(slug, existing);
   }
@@ -1371,7 +1417,7 @@ function buildToolUsageReport(
 }
 
 function buildProviderUsageReport(
-  completedJobs: Array<{ providerKey: string | null; tool: { estimatedCostPerRun: unknown } | null }>,
+  completedJobs: Array<CostedJob>,
   failedJobs: Array<{ providerKey: string | null }>,
   providerDefaults: Map<string, { name?: string; estimatedCostPerRun: unknown; monthlyBudgetLimit?: unknown; dailyBudgetLimit?: unknown; monthlyBudgetUsed?: unknown; budgetEnforcementMode?: string }>
 ) {
@@ -1432,12 +1478,41 @@ function buildMissingActiveCostWarnings(
 }
 
 function getJobEstimatedCost(
-  job: { providerKey: string | null; tool: { estimatedCostPerRun: unknown } | null },
+  job: CostedJob,
   providerDefaults: Map<string, { estimatedCostPerRun: unknown }>
 ) {
+  if (job.estimatedCostAtRun !== null && job.estimatedCostAtRun !== undefined) {
+    return decimalToNumber(job.estimatedCostAtRun);
+  }
   const toolCost = decimalToNumber(job.tool?.estimatedCostPerRun);
   if (toolCost > 0) return toolCost;
   return decimalToNumber(providerDefaults.get(job.providerKey || "")?.estimatedCostPerRun);
+}
+
+function getJobEstimatedRevenue(job: CostedJob, estimatedCreditUsdValue: number) {
+  if (job.estimatedRevenueAtRun !== null && job.estimatedRevenueAtRun !== undefined) {
+    return decimalToNumber(job.estimatedRevenueAtRun);
+  }
+  return (job.creditCost ?? job.tool?.creditCost ?? 0) * estimatedCreditUsdValue;
+}
+
+function getJobEstimatedProfit(
+  job: CostedJob,
+  providerDefaults: Map<string, { estimatedCostPerRun: unknown }>,
+  estimatedCreditUsdValue: number
+) {
+  if (job.estimatedProfitAtRun !== null && job.estimatedProfitAtRun !== undefined) {
+    return decimalToNumber(job.estimatedProfitAtRun);
+  }
+  return getJobEstimatedRevenue(job, estimatedCreditUsdValue) - getJobEstimatedCost(job, providerDefaults);
+}
+
+function toolUsageAverageProviderCost(
+  completedJobs: CostedJob[],
+  providerDefaults: Map<string, { estimatedCostPerRun: unknown }>
+) {
+  if (!completedJobs.length) return null;
+  return completedJobs.reduce((sum, job) => sum + getJobEstimatedCost(job, providerDefaults), 0) / completedJobs.length;
 }
 
 function buildPackageRevenueReport(payments: Array<{ amount: unknown; creditsDelivered: number; rawEventJson: unknown }>) {

@@ -9,15 +9,19 @@ export type OperationalSettings = {
   supportEmail: string;
   defaultCurrency: string;
   maintenanceMode: boolean;
+  uploadsEnabled: boolean;
   cleanExportsEnabled: boolean;
   checkoutEnabled: boolean;
   previewEnabled: boolean;
   registrationEnabled: boolean;
+  emailsEnabled: boolean;
+  billingEmail: string;
   uploadMaxSizeMb: number;
   guestPreviewPerMinute: number;
   guestPreviewPerHour: number;
   userJobsPerMinute: number;
   userJobsPerDay: number;
+  estimatedCreditUsdValue: number;
 };
 
 export const defaultOperationalSettings: OperationalSettings = {
@@ -25,15 +29,19 @@ export const defaultOperationalSettings: OperationalSettings = {
   supportEmail: appConfig.supportEmail,
   defaultCurrency: "USD",
   maintenanceMode: false,
+  uploadsEnabled: true,
   cleanExportsEnabled: true,
   checkoutEnabled: true,
   previewEnabled: true,
   registrationEnabled: true,
+  emailsEnabled: false,
+  billingEmail: appConfig.supportEmail,
   uploadMaxSizeMb: 10,
   guestPreviewPerMinute: 3,
   guestPreviewPerHour: 15,
   userJobsPerMinute: 10,
-  userJobsPerDay: 100
+  userJobsPerDay: 100,
+  estimatedCreditUsdValue: 0.7
 };
 
 export async function getOperationalSettings({ bypassCache = false } = {}) {
@@ -69,15 +77,19 @@ export function normalizeOperationalSettings(value: unknown): OperationalSetting
     supportEmail: normalizeString(raw.supportEmail, defaultOperationalSettings.supportEmail, 160),
     defaultCurrency: normalizeString(raw.defaultCurrency, defaultOperationalSettings.defaultCurrency, 8).toUpperCase(),
     maintenanceMode: Boolean(raw.maintenanceMode),
+    uploadsEnabled: raw.uploadsEnabled === undefined ? true : Boolean(raw.uploadsEnabled),
     cleanExportsEnabled: raw.cleanExportsEnabled === undefined ? true : Boolean(raw.cleanExportsEnabled),
     checkoutEnabled: raw.checkoutEnabled === undefined ? true : Boolean(raw.checkoutEnabled),
     previewEnabled: raw.previewEnabled === undefined ? true : Boolean(raw.previewEnabled),
     registrationEnabled: raw.registrationEnabled === undefined ? true : Boolean(raw.registrationEnabled),
+    emailsEnabled: raw.emailsEnabled === undefined ? false : Boolean(raw.emailsEnabled),
+    billingEmail: normalizeString(raw.billingEmail, defaultOperationalSettings.billingEmail, 160),
     uploadMaxSizeMb: normalizeNumber(raw.uploadMaxSizeMb, defaultOperationalSettings.uploadMaxSizeMb),
     guestPreviewPerMinute: normalizeNumber(raw.guestPreviewPerMinute, defaultOperationalSettings.guestPreviewPerMinute),
     guestPreviewPerHour: normalizeNumber(raw.guestPreviewPerHour, defaultOperationalSettings.guestPreviewPerHour),
     userJobsPerMinute: normalizeNumber(raw.userJobsPerMinute, defaultOperationalSettings.userJobsPerMinute),
-    userJobsPerDay: normalizeNumber(raw.userJobsPerDay, defaultOperationalSettings.userJobsPerDay)
+    userJobsPerDay: normalizeNumber(raw.userJobsPerDay, defaultOperationalSettings.userJobsPerDay),
+    estimatedCreditUsdValue: normalizeDecimal(raw.estimatedCreditUsdValue, defaultOperationalSettings.estimatedCreditUsdValue)
   };
 }
 
@@ -87,15 +99,19 @@ export function toOperationalSettingsJson(settings: OperationalSettings) {
     supportEmail: settings.supportEmail,
     defaultCurrency: settings.defaultCurrency,
     maintenanceMode: settings.maintenanceMode,
+    uploadsEnabled: settings.uploadsEnabled,
     cleanExportsEnabled: settings.cleanExportsEnabled,
     checkoutEnabled: settings.checkoutEnabled,
     previewEnabled: settings.previewEnabled,
     registrationEnabled: settings.registrationEnabled,
+    emailsEnabled: settings.emailsEnabled,
+    billingEmail: settings.billingEmail,
     uploadMaxSizeMb: settings.uploadMaxSizeMb,
     guestPreviewPerMinute: settings.guestPreviewPerMinute,
     guestPreviewPerHour: settings.guestPreviewPerHour,
     userJobsPerMinute: settings.userJobsPerMinute,
-    userJobsPerDay: settings.userJobsPerDay
+    userJobsPerDay: settings.userJobsPerDay,
+    estimatedCreditUsdValue: settings.estimatedCreditUsdValue
   };
 }
 
@@ -109,4 +125,10 @@ function normalizeNumber(value: unknown, fallback: number) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed < 0) return fallback;
   return Math.floor(parsed);
+}
+
+function normalizeDecimal(value: unknown, fallback: number) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) return fallback;
+  return Math.round(parsed * 10000) / 10000;
 }

@@ -265,6 +265,12 @@ model AiJob {
   outputImageId        String?
   creditCost           Int
   costEstimate         Decimal?  @db.Decimal(10, 4)
+  estimatedCostAtRun   Decimal?  @db.Decimal(10, 4)
+  estimatedCostCurrency String?
+  estimatedCostProvider String?
+  estimatedCostSource  String?
+  estimatedRevenueAtRun Decimal? @db.Decimal(10, 4)
+  estimatedProfitAtRun Decimal?  @db.Decimal(10, 4)
   errorMessage         String?
   providerResponseJson Json?
   processingTimeMs     Int?
@@ -291,6 +297,7 @@ model AiJob {
   @@index([providerKey, status])
   @@index([createdAt])
   @@index([createdAt, status, toolId, providerKey])
+  @@index([completedAt, estimatedCostSource])
 }
 
 model Ticket {
@@ -600,13 +607,19 @@ model TrackingSetting {
 model WebhookLog {
   id           String   @id @default(cuid())
   source       String
+  externalEventId String?
   eventType    String
   payloadJson  Json
   status       String
   errorMessage String?
+  paymentId    String?
+  userId       String?
+  processedAt  DateTime?
   createdAt    DateTime @default(now())
 
   @@index([source, eventType])
+  @@index([status, createdAt])
+  @@unique([source, externalEventId])
 }
 
 model EmailEvent {

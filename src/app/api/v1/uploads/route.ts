@@ -6,11 +6,25 @@ import { checkRateLimit, rateLimitResponse } from "@/lib/abuse/rate-limit";
 import { prisma } from "@/lib/db";
 import { buildUploadStorageKey, createPrivateReadUrl, uploadPrivateObject } from "@/lib/storage/s3-client";
 import { getCacheControl } from "@/lib/storage/policy";
+import { getOperationalSettings } from "@/lib/settings/operations";
 import { validateImageUpload } from "@/lib/validators/image-upload";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
+  const operations = await getOperationalSettings();
+  if (!operations.uploadsEnabled || !operations.previewEnabled || operations.maintenanceMode) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: operations.maintenanceMode
+          ? "Zeylora AI is in maintenance mode. Please try again shortly."
+          : "Uploads are temporarily paused. Please try again shortly."
+      },
+      { status: 503 }
+    );
+  }
+
   const user = await getCurrentUser(request);
 
   if (!user) {

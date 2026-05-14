@@ -17,6 +17,7 @@ import {
   refundJobCredits,
   reserveJobCredits
 } from "@/lib/jobs/credit-policy";
+import { buildJobCostSnapshotUpdate } from "@/lib/jobs/cost-snapshot";
 import {
   buildCleanExportStorageKey,
   createCleanExportMetadata,
@@ -259,6 +260,7 @@ export async function POST(request: Request) {
       }
     });
 
+    const costSnapshot = await buildJobCostSnapshotUpdate(job.id);
     const completedJob = await prisma.aiJob.update({
       where: { id: job.id },
       data: {
@@ -277,7 +279,8 @@ export async function POST(request: Request) {
         }),
         processingTimeMs: Date.now() - startedAt,
         retryCount: 0,
-        completedAt: new Date()
+        completedAt: new Date(),
+        ...costSnapshot
       },
       select: {
         id: true,

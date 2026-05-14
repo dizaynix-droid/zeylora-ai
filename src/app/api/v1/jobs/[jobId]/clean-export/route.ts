@@ -7,6 +7,7 @@ import { CLEAN_EXPORT_UNLOCK_NOTE, getCleanExportMetadata } from "@/lib/jobs/cle
 import { deleteDashboardCache } from "@/lib/dashboard/cache";
 import { prisma } from "@/lib/db";
 import { createResultDownloadUrl } from "@/lib/media/signed-url";
+import { getOperationalSettings } from "@/lib/settings/operations";
 
 export const runtime = "nodejs";
 
@@ -17,6 +18,14 @@ type RouteContext = {
 };
 
 export async function POST(request: Request, context: RouteContext) {
+  const operations = await getOperationalSettings();
+  if (!operations.cleanExportsEnabled || operations.maintenanceMode) {
+    return NextResponse.json(
+      { ok: false, error: operations.maintenanceMode ? "Clean exports are paused during maintenance." : "Clean exports are temporarily paused." },
+      { status: 503 }
+    );
+  }
+
   const user = await getCurrentUser(request);
 
   if (!user) {

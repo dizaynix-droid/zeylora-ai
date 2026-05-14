@@ -113,6 +113,11 @@ export default async function AdminReportsPage({
         <AdminMetricCard label="İade tutarı" value={formatCurrency(data.summary.refundAmount)} note={`${data.summary.refundCount} iade kaydı`} />
         <AdminMetricCard label="Hatalı işlem" value={data.summary.failedJobCount} note="Provider/tool hata takibi" />
         <AdminMetricCard label="Clean export maliyeti" value={data.summary.costPerCleanExport === null ? "-" : formatCurrency(data.summary.costPerCleanExport)} note="Tahmini maliyet / clean export" />
+        <AdminMetricCard label="Snapshot maliyet" value={formatCurrency(data.summary.snapshotProviderCost)} note="Job tamamlandığı andaki mühürlü maliyet" />
+        <AdminMetricCard label="Snapshot kâr" value={formatCurrency(data.summary.estimatedProfit)} note="Kredi değeri - snapshot maliyet" />
+        <AdminMetricCard label="Ort. kâr/export" value={data.summary.averageProfitPerExport === null ? "-" : formatCurrency(data.summary.averageProfitPerExport)} note="Tamamlanan job başına tahmini kâr" />
+        <AdminMetricCard label="Ort. gelir/export" value={data.summary.averageRevenuePerExport === null ? "-" : formatCurrency(data.summary.averageRevenuePerExport)} note="Kredi değeri üzerinden tahmini gelir" />
+        <AdminMetricCard label="Ort. provider/job" value={data.summary.averageProviderCostPerTool === null ? "-" : formatCurrency(data.summary.averageProviderCostPerTool)} note="Snapshot öncelikli ortalama maliyet" />
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_0.9fr]">
@@ -179,6 +184,8 @@ export default async function AdminReportsPage({
                   <th className="px-4 py-3">Run maliyeti</th>
                   <th className="px-4 py-3">Kredi</th>
                   <th className="px-4 py-3">Maliyet</th>
+                  <th className="px-4 py-3">Tahmini gelir</th>
+                  <th className="px-4 py-3">Tahmini kâr</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/10">
@@ -193,9 +200,11 @@ export default async function AdminReportsPage({
                     <td className="px-4 py-3 text-slate-300">{formatCurrency(row.costPerRun)}</td>
                     <td className="px-4 py-3 text-slate-300">{row.credits}</td>
                     <td className="px-4 py-3 text-amber">{formatCurrency(row.estimatedCost)}</td>
+                    <td className="px-4 py-3 text-emerald">{formatCurrency(row.estimatedRevenue)}</td>
+                    <td className="px-4 py-3 font-black text-white">{formatCurrency(row.estimatedProfit)}</td>
                   </tr>
                 ))}
-                {data.toolUsage.length === 0 ? <EmptyRow colSpan={6} message="Tamamlanan işlem yok." /> : null}
+                {data.toolUsage.length === 0 ? <EmptyRow colSpan={8} message="Tamamlanan işlem yok." /> : null}
               </tbody>
             </table>
           </AdminTable>
@@ -233,6 +242,60 @@ export default async function AdminReportsPage({
                   </tr>
                 ))}
                 {data.providerUsage.length === 0 ? <EmptyRow colSpan={6} message="Provider kullanımı yok." /> : null}
+              </tbody>
+            </table>
+          </AdminTable>
+        </AdminSection>
+      </div>
+
+      <div className="mt-4 grid gap-4 xl:grid-cols-2">
+        <AdminSection title="En kârlı araçlar" description="Snapshot gelir/kâr alanlarına göre en iyi araçlar.">
+          <AdminTable>
+            <table className="min-w-[680px] w-full divide-y divide-white/10 text-sm">
+              <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
+                <tr>
+                  <th className="px-4 py-3">Araç</th>
+                  <th className="px-4 py-3">İşlem</th>
+                  <th className="px-4 py-3">Toplam kâr</th>
+                  <th className="px-4 py-3">Ort. kâr</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/10">
+                {[...data.toolUsage].sort((a, b) => b.estimatedProfit - a.estimatedProfit).slice(0, 5).map((row) => (
+                  <tr key={row.slug}>
+                    <td className="px-4 py-3 font-black text-white">{row.name}</td>
+                    <td className="px-4 py-3 text-slate-300">{row.runs}</td>
+                    <td className="px-4 py-3 text-emerald">{formatCurrency(row.estimatedProfit)}</td>
+                    <td className="px-4 py-3 text-white">{formatCurrency(row.averageProfit)}</td>
+                  </tr>
+                ))}
+                {data.toolUsage.length === 0 ? <EmptyRow colSpan={4} message="Kâr hesaplanacak işlem yok." /> : null}
+              </tbody>
+            </table>
+          </AdminTable>
+        </AdminSection>
+
+        <AdminSection title="En düşük kârlı araçlar" description="Maliyeti yüksek veya kredi değeri düşük kalan araçları hızlı yakala.">
+          <AdminTable>
+            <table className="min-w-[680px] w-full divide-y divide-white/10 text-sm">
+              <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
+                <tr>
+                  <th className="px-4 py-3">Araç</th>
+                  <th className="px-4 py-3">İşlem</th>
+                  <th className="px-4 py-3">Toplam kâr</th>
+                  <th className="px-4 py-3">Ort. kâr</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/10">
+                {[...data.toolUsage].sort((a, b) => a.estimatedProfit - b.estimatedProfit).slice(0, 5).map((row) => (
+                  <tr key={row.slug}>
+                    <td className="px-4 py-3 font-black text-white">{row.name}</td>
+                    <td className="px-4 py-3 text-slate-300">{row.runs}</td>
+                    <td className="px-4 py-3 text-rose-200">{formatCurrency(row.estimatedProfit)}</td>
+                    <td className="px-4 py-3 text-white">{formatCurrency(row.averageProfit)}</td>
+                  </tr>
+                ))}
+                {data.toolUsage.length === 0 ? <EmptyRow colSpan={4} message="Kâr hesaplanacak işlem yok." /> : null}
               </tbody>
             </table>
           </AdminTable>
