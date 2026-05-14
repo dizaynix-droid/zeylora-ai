@@ -7,11 +7,6 @@ import { isSupabaseAuthConfigured } from "@/lib/supabase/config";
 
 type AuthMode = "signin" | "signup";
 
-const optionalAuthProviders = {
-  google: false,
-  magicLink: false
-} as const;
-
 export function AuthForm({ authStatus, authError, next = "/dashboard" }: { authStatus?: string; authError?: string; next?: string }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,9 +15,38 @@ export function AuthForm({ authStatus, authError, next = "/dashboard" }: { authS
   const [message, setMessage] = useState(
     authStatus === "retry"
       ? authError || "Your sign-in could not be completed. Sign in with your email and password to continue."
+      : authStatus === "password-reset"
+      ? "Check your email for a secure password reset link."
       : "Sign in to save edits, downloads, credits, and dashboard history."
   );
   const configured = isSupabaseAuthConfigured();
+
+  async function handleGoogleAuth() {
+    if (!configured) {
+      setStatus("error");
+      setMessage("Supabase Auth is not configured yet.");
+      return;
+    }
+
+    setStatus("loading");
+    setMessage("Opening Google sign-in...");
+    const supabase = createClient();
+    const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(getSafeNextPath(next))}`;
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo,
+        queryParams: {
+          prompt: "select_account"
+        }
+      }
+    });
+
+    if (error) {
+      setStatus("error");
+      setMessage(error.message);
+    }
+  }
 
   async function handlePasswordAuth(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -43,11 +67,15 @@ export function AuthForm({ authStatus, authError, next = "/dashboard" }: { authS
     setMessage(mode === "signup" ? "Creating your account..." : "Signing you in...");
 
     const supabase = createClient();
+    const emailRedirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(getSafeNextPath(next))}`;
     const result =
       mode === "signup"
         ? await supabase.auth.signUp({
             email,
-            password
+            password,
+            options: {
+              emailRedirectTo
+            }
           })
         : await supabase.auth.signInWithPassword({
             email,
@@ -109,13 +137,23 @@ export function AuthForm({ authStatus, authError, next = "/dashboard" }: { authS
           ))}
         </div>
 
-        {optionalAuthProviders.google || optionalAuthProviders.magicLink ? null : (
-          <p className="mt-4 rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-3 text-xs font-semibold leading-5 text-slate-400">
-            Email and password login is active for launch testing.
-          </p>
-        )}
+        <button
+          type="button"
+          onClick={() => void handleGoogleAuth()}
+          disabled={status === "loading" || !configured}
+          className="mt-4 inline-flex h-12 w-full items-center justify-center rounded-full border border-white/15 bg-white/[0.06] px-5 text-sm font-black text-white transition hover:border-cyan/40 hover:bg-white/[0.09] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {status === "loading" ? <Loader2 className="mr-2 animate-spin" size={18} /> : <span className="mr-2 text-lg">G</span>}
+          Continue with Google
+        </button>
 
-        <form onSubmit={(event) => void handlePasswordAuth(event)} className="mt-5">
+        <div className="my-5 flex items-center gap-3 text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+          <span className="h-px flex-1 bg-white/10" />
+          or use email
+          <span className="h-px flex-1 bg-white/10" />
+        </div>
+
+        <form onSubmit={(event) => void handlePasswordAuth(event)}>
           <label htmlFor="auth-email" className="text-xs font-black uppercase text-slate-400">
             Email address
           </label>
@@ -170,12 +208,56 @@ export function AuthForm({ authStatus, authError, next = "/dashboard" }: { authS
           </button>
         </form>
 
+        <button
+          type="button"
+          onClick={() => void handlePasswordReset(email, next, setStatus, setMessage)}
+          disabled={status === "loading"}
+          className="mt-3 text-sm font-bold text-cyan transition hover:text-white disabled:opacity-60"
+        >
+          Forgot password?
+        </button>
+
         <p className={`mt-4 text-sm font-semibold ${status === "success" ? "text-emerald" : status === "error" ? "text-danger" : "text-slate-400"}`}>
           {message}
         </p>
       </div>
     </div>
   );
+}
+
+async function handlePasswordReset(
+  email: string,
+  next: string,
+  setStatus: (status: "idle" | "loading" | "success" | "error") => void,
+  setMessage: (message: string) => void
+) {
+  if (!isSupabaseAuthConfigured()) {
+    setStatus("error");
+    setMessage("Supabase Auth is not configured yet.");
+    return;
+  }
+  if (!email.trim()) {
+    setStatus("error");
+    setMessage("Enter your email first, then request a password reset link.");
+    return;
+  }
+
+  setStatus("loading");
+  setMessage("Sending password reset link...");
+  const supabase = createClient();
+  const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent("/auth/update-password?next=" + encodeURIComponent(getSafeNextPath(next)))}`;
+  const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+    redirectTo
+  });
+
+  if (error) {
+    setStatus("error");
+    setMessage(error.message);
+    return;
+  }
+
+  setStatus("success");
+  setMessage("Check your email for a secure password reset link.");
 }
 
 function getSafeNextPath(next: string) {

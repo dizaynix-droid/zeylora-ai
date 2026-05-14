@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { AuthForm } from "@/components/auth/auth-form";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
+import { syncSupabaseUserProfile } from "@/lib/auth/profile";
 import { createClient } from "@/lib/supabase/server";
 import { createMetadata } from "@/lib/seo";
 
@@ -27,6 +28,7 @@ export default async function SignInPage({
     } = await supabase.auth.getUser();
 
     if (user) {
+      await syncSupabaseUserProfile(user).catch(() => null);
       redirect(getSafeNextPath(params?.next));
     }
   }

@@ -21,6 +21,7 @@ import { CleanExportButton } from "@/components/jobs/clean-export-button";
 import { DownloadResultButton } from "@/components/jobs/download-result-button";
 import { Card } from "@/components/ui/card";
 import { type DashboardFilter } from "@/lib/dashboard/data";
+import { createClient } from "@/lib/supabase/client";
 
 type Pagination = {
   page: number;
@@ -285,6 +286,19 @@ export function DashboardClient({
     }
   }
 
+  async function sendPasswordReset() {
+    setSettingsMessage("Sending password reset email...");
+    try {
+      const supabase = createClient();
+      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent("/auth/update-password?next=/dashboard%23settings")}`;
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+      if (error) throw error;
+      setSettingsMessage("Password reset email sent.");
+    } catch (error) {
+      setSettingsMessage(error instanceof Error ? error.message : "Could not send password reset email.");
+    }
+  }
+
   return (
     <>
       <section id="overview" className="scroll-mt-8">
@@ -491,6 +505,8 @@ export function DashboardClient({
                 <h2 className="mt-1 text-xl font-black text-white">Account settings</h2>
                 <div className="mt-4 grid gap-3">
                   <InfoRow label="Email" value={email} />
+                  <InfoRow label="Login method" value="Email/password or Google via Supabase Auth" />
+                  <InfoRow label="Last login" value="Session activity placeholder" />
                   <InfoRow label="Created" value={overview?.user?.createdAt ? formatDate(overview.user.createdAt) : "Loading..."} />
                   <InfoRow label="Credit balance" value={`${creditBalance} credits`} />
                   <InfoRow label="Support" value="support@zeylora.ai" />
@@ -509,6 +525,22 @@ export function DashboardClient({
                   {settingsMessage ? <p className="text-xs font-bold text-cyan">{settingsMessage}</p> : null}
                 </form>
                 <div className="mt-5 grid gap-3 rounded-2xl border border-white/10 bg-white/[0.035] p-4">
+                  <p className="text-xs font-black uppercase text-slate-500">Login & security</p>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <button
+                      type="button"
+                      onClick={() => void sendPasswordReset()}
+                      className="inline-flex h-10 items-center justify-center rounded-full border border-cyan/30 bg-cyan/10 px-4 text-sm font-black text-cyan transition hover:bg-cyan/15"
+                    >
+                      Send password reset
+                    </button>
+                    <span className="inline-flex h-10 items-center rounded-full border border-white/10 bg-white/[0.04] px-4 text-sm font-black text-slate-300">
+                      2FA optional / coming soon
+                    </span>
+                  </div>
+                  <p className="text-sm text-slate-300">
+                    Admin accounts should use a unique password. Mandatory 2FA is prepared as a future admin security requirement.
+                  </p>
                   <p className="text-xs font-black uppercase text-slate-500">Notification preferences</p>
                   <p className="text-sm text-slate-300">Product updates and billing/support emails are prepared for a later preference center.</p>
                   <p className="text-xs font-black uppercase text-slate-500">Danger zone</p>

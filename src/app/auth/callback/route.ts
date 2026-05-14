@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { syncSupabaseUserProfile } from "@/lib/auth/profile";
 import { getSupabaseBrowserEnv, isSupabaseAuthConfigured } from "@/lib/supabase/config";
 
 export const dynamic = "force-dynamic";
@@ -67,6 +68,24 @@ export async function GET(request: NextRequest) {
     }
 
     return redirectToSignIn(requestUrl, nextPath, error.message);
+  }
+
+  const {
+    data: { user },
+    error: userError
+  } = await supabase.auth.getUser();
+
+  if (user?.email) {
+    await syncSupabaseUserProfile(user).catch((profileError) => {
+      if (process.env.NODE_ENV === "development") {
+        console.error(
+          "[auth/callback-route] profile sync failed",
+          profileError instanceof Error ? profileError.message : profileError
+        );
+      }
+    });
+  } else if (process.env.NODE_ENV === "development" && userError) {
+    console.error("[auth/callback-route] user fetch after exchange failed", userError.message);
   }
 
   if (process.env.NODE_ENV === "development") {
