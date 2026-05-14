@@ -52,6 +52,6 @@ export default async function DashboardPage({
 }
 
 function normalizeFilter(filter?: string): DashboardFilter {
-  if (filter === "completed" || filter === "failed") return filter;
+  if (filter === "completed" || filter === "failed" || filter === "clean-export" || filter === "preview-only") return filter;
   return "all";
 }

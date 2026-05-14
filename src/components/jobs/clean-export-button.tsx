@@ -9,6 +9,8 @@ import { trackingEvents } from "@/config/tracking";
 type CleanExportButtonProps = {
   jobId: string;
   creditsRequired: number;
+  creditBalance?: number;
+  initialUnlocked?: boolean;
   filename?: string;
   className?: string;
 };
@@ -26,12 +28,24 @@ type CleanExportResponse = {
 export function CleanExportButton({
   jobId,
   creditsRequired,
+  creditBalance,
+  initialUnlocked = false,
   filename = "zeylora-clean-export.png",
   className
 }: CleanExportButtonProps) {
   const [isPreparing, setIsPreparing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [needsCredits, setNeedsCredits] = useState(false);
+  const [isUnlocked, setIsUnlocked] = useState(initialUnlocked);
+
+  if (!isUnlocked && typeof creditBalance === "number" && creditBalance < creditsRequired) {
+    return (
+      <Link href="/pricing" className={className}>
+        <Download className="mr-2" size={16} />
+        <span>Buy credits to export clean</span>
+      </Link>
+    );
+  }
 
   async function exportClean() {
     if (isPreparing) return;
@@ -58,6 +72,7 @@ export function CleanExportButton({
       }
 
       triggerHiddenDownload(payload.downloadUrl, payload.filename || filename);
+      setIsUnlocked(true);
       trackEvent({
         event: trackingEvents.watermarkFreeExport,
         properties: {
@@ -75,8 +90,14 @@ export function CleanExportButton({
   return (
     <div className="grid gap-2">
       <button type="button" onClick={exportClean} disabled={isPreparing} aria-busy={isPreparing} className={className}>
-        {isPreparing ? <Loader2 className="mr-2 animate-spin" size={16} /> : <Sparkles className="mr-2" size={16} />}
-        <span>{isPreparing ? "Preparing clean export..." : `Export clean image (${creditsRequired} credits)`}</span>
+        {isPreparing ? <Loader2 className="mr-2 animate-spin" size={16} /> : isUnlocked ? <Download className="mr-2" size={16} /> : <Sparkles className="mr-2" size={16} />}
+        <span>
+          {isPreparing
+            ? "Preparing clean export..."
+            : isUnlocked
+              ? "Download clean export"
+              : `Export clean image (${creditsRequired} credits)`}
+        </span>
       </button>
       {message ? (
         <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-3 text-xs font-semibold text-slate-300">

@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server";
-import { getCurrentSessionUser } from "@/lib/auth/current-user";
+import { getCurrentAppUserForRead } from "@/lib/auth/current-user";
+import { loadDashboardOverview } from "@/lib/dashboard/data";
 
 export async function GET() {
   const startedAt = Date.now();
-  const user = await getCurrentSessionUser();
+  const user = await getCurrentAppUserForRead();
 
   if (!user) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
+  const overview = await loadDashboardOverview(user.id);
   const totalMs = Date.now() - startedAt;
 
   if (process.env.NODE_ENV === "development") {
@@ -20,9 +22,14 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     user: {
-      email: user.email
+      email: overview.user.email || user.email,
+      name: overview.user.name,
+      createdAt: overview.user.createdAt,
+      creditBalance: overview.user.creditBalance
     },
+    metrics: overview.metrics,
     timing: {
+      ...overview.timing,
       totalMs
     }
   });
