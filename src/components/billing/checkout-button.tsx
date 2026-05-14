@@ -11,6 +11,7 @@ type CheckoutButtonProps = {
 
 type CheckoutResponse = {
   ok: boolean;
+  url?: string;
   checkoutUrl?: string;
   error?: string;
   code?: string;
@@ -26,6 +27,7 @@ export function CheckoutButton({ packageId, label = "Get credits", className }: 
     setError(null);
 
     try {
+      console.info("[checkout-client]", { event: "started", packageId });
       const response = await fetch("/api/v1/billing/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -33,18 +35,33 @@ export function CheckoutButton({ packageId, label = "Get credits", className }: 
         body: JSON.stringify({ packageId })
       });
       const payload = (await response.json().catch(() => null)) as CheckoutResponse | null;
+      const checkoutUrl = payload?.url || payload?.checkoutUrl;
+
+      console.info("[checkout-client]", {
+        event: "response",
+        packageId,
+        status: response.status,
+        ok: Boolean(payload?.ok),
+        hasUrl: Boolean(checkoutUrl),
+        code: payload?.code
+      });
 
       if (response.status === 401 || payload?.code === "unauthenticated") {
         window.location.assign(`/auth/sign-in?next=${encodeURIComponent("/pricing")}`);
         return;
       }
 
-      if (!response.ok || !payload?.ok || !payload.checkoutUrl) {
+      if (!response.ok || !payload?.ok || !checkoutUrl) {
         throw new Error(payload?.error || "Could not start checkout.");
       }
 
-      window.location.assign(payload.checkoutUrl);
+      window.location.href = checkoutUrl;
     } catch (checkoutError) {
+      console.error("[checkout-client]", {
+        event: "failed",
+        packageId,
+        message: checkoutError instanceof Error ? checkoutError.message : "Could not start checkout."
+      });
       setError(checkoutError instanceof Error ? checkoutError.message : "Could not start checkout.");
     } finally {
       setIsLoading(false);
