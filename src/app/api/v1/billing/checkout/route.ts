@@ -81,8 +81,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: "Active credit package not found." }, { status: 404 });
     }
 
-    const successUrl = process.env.STRIPE_SUCCESS_URL || "https://www.zeylora.ai/dashboard?checkout=success";
-    const cancelUrl = process.env.STRIPE_CANCEL_URL || "https://www.zeylora.ai/pricing?checkout=cancelled";
+    const checkoutUrls = getCheckoutUrls();
+    const successUrl = checkoutUrls.successUrl;
+    const cancelUrl = checkoutUrls.cancelUrl;
     const amount = Number(selectedPackage.price);
     const currency = selectedPackage.currency.toLowerCase();
     const credits = selectedPackage.credits + selectedPackage.bonusCredits;
@@ -102,7 +103,9 @@ export async function POST(request: Request) {
       currency,
       credits,
       hasStripePriceId: Boolean(stripePriceId),
-      ignoredStripePriceId: Boolean(selectedPackage.stripePriceId && !stripePriceId)
+      ignoredStripePriceId: Boolean(selectedPackage.stripePriceId && !stripePriceId),
+      successUrl: sanitizeUrlForLog(successUrl),
+      cancelUrl: sanitizeUrlForLog(cancelUrl)
     });
 
     const payment = await prisma.payment.create({
@@ -262,6 +265,56 @@ function normalizeStripePriceId(value: string | null) {
   }
 
   return priceId;
+}
+
+function getCheckoutUrls() {
+  const siteUrl = normalizeAbsoluteUrl(process.env.NEXT_PUBLIC_SITE_URL, "https://www.zeylora.ai");
+
+  return {
+    successUrl: normalizeAbsoluteUrl(
+      process.env.STRIPE_SUCCESS_URL,
+      `${siteUrl.origin}/dashboard?checkout=success`
+    ).toString(),
+    cancelUrl: normalizeAbsoluteUrl(
+      process.env.STRIPE_CANCEL_URL,
+      `${siteUrl.origin}/pricing?checkout=cancelled`
+    ).toString()
+  };
+}
+
+function normalizeAbsoluteUrl(value: string | undefined, fallback: string) {
+  const rawValue = stripWrappingQuotes(value?.trim() || "");
+  const rawFallback = stripWrappingQuotes(fallback.trim());
+  const candidate = rawValue || rawFallback;
+
+  try {
+    const url = new URL(candidate);
+    if (url.protocol !== "https:" && url.protocol !== "http:") {
+      throw new Error("Checkout URL must use http or https.");
+    }
+
+    return url;
+  } catch {
+    const fallbackUrl = new URL(rawFallback);
+    if (fallbackUrl.protocol !== "https:" && fallbackUrl.protocol !== "http:") {
+      return new URL("https://www.zeylora.ai");
+    }
+
+    return fallbackUrl;
+  }
+}
+
+function stripWrappingQuotes(value: string) {
+  return value.replace(/^["']|["']$/g, "");
+}
+
+function sanitizeUrlForLog(value: string) {
+  try {
+    const url = new URL(value);
+    return `${url.origin}${url.pathname}${url.search}`;
+  } catch {
+    return "invalid_url";
+  }
 }
 
 function checkoutLog(event: string, payload: Record<string, unknown>) {
