@@ -1,7 +1,7 @@
 import { CheckCircle2, Clock3, CreditCard, History, Lock, ShieldCheck, Sparkles, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { CheckoutButton } from "@/components/billing/checkout-button";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { getCreditPackagesForDisplay } from "@/lib/pricing/packages";
 
 const trustItems: Array<[string, string, LucideIcon]> = [
@@ -134,9 +134,15 @@ export async function PlatformSections() {
                   Works across all six product photo tools
                 </p>
               </div>
-              <Button href="#upload" variant={pack.highlight ? "primary" : "secondary"} className="mt-6 h-11 w-full">
-                Start with a preview
-              </Button>
+              <CheckoutButton
+                packageId={pack.id}
+                label="Buy credits"
+                className={
+                  pack.highlight
+                    ? "mt-6 inline-flex h-11 w-full items-center justify-center rounded-full bg-zeylora-brand px-4 text-sm font-black text-white shadow-glow transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+                    : "mt-6 inline-flex h-11 w-full items-center justify-center rounded-full border border-cyan/30 bg-cyan/10 px-4 text-sm font-black text-cyan transition hover:bg-cyan/15 disabled:cursor-not-allowed disabled:opacity-70"
+                }
+              />
             </Card>
           ))}
         </div>

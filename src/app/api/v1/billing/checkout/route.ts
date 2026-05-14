@@ -125,25 +125,19 @@ export async function POST(request: Request) {
       }
     });
 
-    const lineItem = stripePriceId
-      ? {
-          price: stripePriceId,
-          quantity: 1
+    const priceDataLineItem = {
+      quantity: 1,
+      price_data: {
+        currency,
+        unit_amount: Math.round(amount * 100),
+        product_data: {
+          name: `${selectedPackage.name} Credits`,
+          description: `${credits} Zeylora AI credits for watermark-free clean exports.`
         }
-      : {
-          quantity: 1,
-          price_data: {
-            currency,
-            unit_amount: Math.round(amount * 100),
-            product_data: {
-              name: `${selectedPackage.name} Credits`,
-              description: `${credits} Zeylora AI credits for watermark-free clean exports.`
-            }
-          }
-        };
-
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
+      }
+    };
+    const sessionBase = {
+      mode: "payment" as const,
       customer_email: user.email,
       client_reference_id: payment.id,
       success_url: successUrl,
@@ -153,9 +147,43 @@ export async function POST(request: Request) {
         userId: user.id,
         packageId: selectedPackage.id,
         credits: String(credits)
-      },
-      line_items: [lineItem]
-    });
+      }
+    };
+    let lineItemMode = stripePriceId ? "stripe_price_id" : "price_data";
+    let session;
+
+    try {
+      session = await stripe.checkout.sessions.create({
+        ...sessionBase,
+        line_items: [
+          stripePriceId
+            ? {
+                price: stripePriceId,
+                quantity: 1
+              }
+            : priceDataLineItem
+        ]
+      });
+    } catch (stripeError) {
+      if (!stripePriceId) {
+        throw stripeError;
+      }
+
+      checkoutLog("stripe_price_failed_retrying_price_data", {
+        requestId,
+        userId: user.id,
+        packageId: selectedPackage.id,
+        stripePriceId,
+        errorName: stripeError instanceof Error ? stripeError.name : "UnknownError",
+        errorMessage: stripeError instanceof Error ? stripeError.message : "Stripe price checkout failed."
+      });
+
+      lineItemMode = "price_data_fallback";
+      session = await stripe.checkout.sessions.create({
+        ...sessionBase,
+        line_items: [priceDataLineItem]
+      });
+    }
 
     if (!session.url) {
       throw new Error("Stripe did not return a checkout URL.");
@@ -171,7 +199,7 @@ export async function POST(request: Request) {
           packageId: selectedPackage.id,
           packageName: selectedPackage.name,
           credits,
-          lineItemMode: stripePriceId ? "stripe_price_id" : "price_data",
+          lineItemMode,
           successUrl,
           cancelUrl,
           checkoutRequestId: requestId
@@ -191,7 +219,7 @@ export async function POST(request: Request) {
       packageId: selectedPackage.id,
       paymentId: payment.id,
       sessionId: session.id,
-      lineItemMode: stripePriceId ? "stripe_price_id" : "price_data",
+      lineItemMode,
       ms: Date.now() - startedAt
     });
 
