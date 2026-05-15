@@ -1,6 +1,9 @@
 export const trackingEvents = {
   pageView: "page_view",
   landingView: "landing_view",
+  uploadClick: "upload_click",
+  authRequired: "auth_required",
+  trialPackView: "trial_pack_view",
   toolPageView: "tool_page_view",
   uploadStarted: "upload_started",
   uploadCompleted: "upload_completed",
@@ -21,6 +24,7 @@ export const trackingEvents = {
   jobCompleted: "job_completed",
   jobFailed: "job_failed",
   signup: "signup",
+  signupCompleted: "signup_completed",
   checkoutStarted: "checkout_started",
   checkoutCompleted: "checkout_completed",
   purchase: "purchase",
@@ -29,6 +33,7 @@ export const trackingEvents = {
   downloadResult: "download_result",
   presetSelected: "preset_selected",
   watermarkFreeExport: "watermark_free_export",
+  firstCleanExport: "first_clean_export",
   abuseBlocked: "abuse_blocked",
   rateLimited: "rate_limited"
 } as const;

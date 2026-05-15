@@ -205,7 +205,7 @@ function fireMarketingPixels(event: string, properties: Record<string, unknown>)
     return;
   }
 
-  if (event === "signup") {
+  if (event === "signup" || event === "signup_completed") {
     window.fbq?.("track", "CompleteRegistration", properties);
   }
 

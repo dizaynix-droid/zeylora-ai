@@ -210,6 +210,8 @@ const heroProductStories = [
   }
 ] as const;
 
+const trialPackUrl = "/pricing?trial=1";
+
 export function HeroUpload() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const toolControlsRef = useRef<HTMLDivElement>(null);
@@ -296,6 +298,12 @@ export function HeroUpload() {
   async function handleFileSelected(file: File | undefined) {
     if (!file) return;
 
+    const hasAccess = await ensureProcessingAccess({
+      intent: "upload_file",
+      tool: selectedTool
+    });
+    if (!hasAccess) return;
+
     jobRequestRef.current += 1;
     setSelectedFileName(file.name);
     setUploadedMediaId(null);
@@ -379,6 +387,12 @@ export function HeroUpload() {
     upscalePreset: HdUpscalePreset;
     quality: QualityMode;
   }) {
+    const hasAccess = await ensureProcessingAccess({
+      intent: "run_tool",
+      tool: input.tool
+    });
+    if (!hasAccess) return;
+
     const requestId = jobRequestRef.current + 1;
     jobRequestRef.current = requestId;
     const toolConfig = homeToolOptions.find((tool) => tool.key === input.tool) ?? homeToolOptions[0];
@@ -473,6 +487,63 @@ export function HeroUpload() {
         upscalePreset: input.upscalePreset
       }
     });
+  }
+
+  async function ensureProcessingAccess(input: { intent: string; tool: HomeToolMode }) {
+    try {
+      const authResponse = await fetch("/api/auth/me", {
+        cache: "no-store"
+      });
+      const authJson = (await authResponse.json().catch(() => null)) as { authenticated?: boolean } | null;
+
+      if (!authResponse.ok || !authJson?.authenticated) {
+        trackEvent({
+          event: trackingEvents.authRequired,
+          properties: {
+            intent: input.intent,
+            tool: input.tool
+          }
+        });
+        redirectToSignIn();
+        return false;
+      }
+
+      const creditsResponse = await fetch("/api/v1/dashboard/credits", {
+        cache: "no-store"
+      });
+      const creditsJson = (await creditsResponse.json().catch(() => null)) as { creditBalance?: number } | null;
+
+      if (creditsResponse.status === 401) {
+        trackEvent({
+          event: trackingEvents.authRequired,
+          properties: {
+            intent: input.intent,
+            tool: input.tool
+          }
+        });
+        redirectToSignIn();
+        return false;
+      }
+
+      const creditBalance = Number(creditsJson?.creditBalance ?? 0);
+      if (!creditsResponse.ok || creditBalance <= 0) {
+        trackEvent({
+          event: trackingEvents.trialPackView,
+          properties: {
+            reason: creditsResponse.ok ? "no_credits" : "credits_check_failed",
+            intent: input.intent,
+            tool: input.tool
+          }
+        });
+        window.location.assign(trialPackUrl);
+        return false;
+      }
+
+      return true;
+    } catch {
+      window.location.assign(trialPackUrl);
+      return false;
+    }
   }
 
   async function handleMarketplaceFormatChange(format: MarketplaceCropFormat) {
@@ -726,15 +797,15 @@ export function HeroUpload() {
                 AI Product Photo Editor / Ecommerce Studio
               </p>
               <h1 className="mt-4 max-w-4xl text-[2.45rem] font-black leading-[1.04] tracking-tight text-white min-[390px]:text-[2.65rem] md:mt-5 md:text-6xl lg:text-7xl">
-                Turn product photos into <span className="gradient-text">premium ecommerce</span> visuals.
+                Bad product photos <span className="gradient-text">kill conversions</span>.
               </h1>
               <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-300 md:mt-5 md:text-lg md:leading-8">
-                Upscale, relight, enhance, crop, remove backgrounds, and prepare seller-ready visuals for Shopify, Etsy, Amazon, and TikTok Shop.
+                Turn blurry, dark, amateur product shots into sharper, brighter, marketplace-ready visuals for Shopify, Amazon, Etsy, and TikTok Shop.
               </p>
 
               <div className="mt-5 flex flex-col gap-2 sm:flex-row md:mt-7 md:gap-3">
                 <Button href="#upload" className="h-12 px-6 text-sm shadow-[0_0_42px_rgba(32,211,255,.28)] md:h-14 md:px-8 md:text-base">
-                  Upload product photo
+                  Try your first product
                   <ArrowRight className="ml-2" size={18} />
                 </Button>
                 <Button href="#examples" variant="secondary" className="h-11 px-5 md:h-12 md:px-6">
@@ -756,8 +827,9 @@ export function HeroUpload() {
               <div className="mt-5 grid max-w-2xl grid-cols-3 gap-3 border-t border-white/10 pt-4 md:mt-8 md:pt-6">
                 {[
                   ["6", "live tools"],
-                  ["Private", "signed exports"],
-                  ["Credits", "clean downloads"]
+                  ["$7.99", "starter trial"],
+                  ["10", "trial credits"],
+                  ["No", "subscription"]
                 ].map(([value, label]) => (
                   <div key={label}>
                     <p className="text-xl font-black text-white md:text-3xl">{value}</p>
@@ -895,6 +967,7 @@ export function HeroUpload() {
                         <CleanExportButton
                           jobId={jobId}
                           creditsRequired={selectedEconomy.creditCost}
+                          initialUnlocked
                           filename={getDownloadFilename(
                             selectedToolConfig,
                             appliedMarketplaceCropFormat ?? marketplaceCropFormat,
@@ -914,7 +987,7 @@ export function HeroUpload() {
                           appliedAiRelightPreset ?? aiRelightPreset,
                           appliedHdUpscalePreset ?? hdUpscalePreset
                         )}
-                        label="Download preview"
+                        label="Download result"
                         className="inline-flex h-11 items-center justify-center rounded-full border border-white/15 px-4 text-sm font-black text-white transition hover:bg-white/10"
                       />
                     </div>
@@ -972,14 +1045,21 @@ export function HeroUpload() {
                 <div className="mx-auto grid size-13 place-items-center rounded-2xl bg-[linear-gradient(135deg,#20D3FF,#8B5CF6)] text-white shadow-glow md:size-16">
                   <ImagePlus size={24} />
                 </div>
-                <h2 className="mt-4 text-xl font-black text-white md:mt-5 md:text-2xl">Upload product photo</h2>
+                <h2 className="mt-4 text-xl font-black text-white md:mt-5 md:text-2xl">Upgrade your product photo</h2>
                 <p className="mx-auto mt-2 max-w-sm text-xs leading-5 text-slate-300 md:text-sm md:leading-6">
-                  Preview a branded edit first. Use credits when you want the clean watermark-free export.
+                  Real processing requires credits. Start with 10 credits for $7.99 and test your first seller-ready product image.
                 </p>
                 <button
                   type="button"
                   disabled={status === "uploading" || status === "processing"}
                   onClick={() => {
+                    trackEvent({
+                      event: trackingEvents.uploadClick,
+                      properties: {
+                        tool: selectedTool,
+                        source: "hero_upload_panel"
+                      }
+                    });
                     if (canRunExistingSource) {
                       void runCurrentToolAgain();
                       return;
@@ -996,7 +1076,7 @@ export function HeroUpload() {
                   ) : (
                     <>
                       {canRunExistingSource ? <Zap className="mr-2" size={18} /> : <ImagePlus className="mr-2" size={18} />}
-                      {canRunExistingSource ? "Run selected tool" : "Choose image"}
+                      {canRunExistingSource ? "Run selected tool" : "Start with image"}
                     </>
                   )}
                 </button>
@@ -1015,7 +1095,7 @@ export function HeroUpload() {
                   </button>
                 ) : null}
                 <p className="mt-3 text-xs font-semibold text-slate-400">
-                  {selectedFileName ? selectedFileName : "Preview first. Export clean with credits."}
+                  {selectedFileName ? selectedFileName : "Login required before processing. Trial pack starts at $7.99."}
                 </p>
               </div>
             )}
@@ -1251,11 +1331,11 @@ export function HeroUpload() {
                     <div className="rounded-2xl border border-cyan/20 bg-[linear-gradient(135deg,rgba(32,211,255,.12),rgba(139,92,246,.08),rgba(255,255,255,.035))] p-4 text-left">
                       <p className="flex items-center gap-2 text-xs font-black uppercase text-cyan">
                         <Sparkles size={14} />
-                        Branded preview ready
+                        Product edit ready
                       </p>
                       <h3 className="mt-2 text-lg font-black text-white">{selectedToolConfig.successMessage}</h3>
                       <p className="mt-2 text-xs font-semibold leading-5 text-slate-300">
-                        Review the branded result first. Accounts with credits receive clean watermark-free exports.
+                        Your credit-based edit is complete. Download the result or re-run another preset from the same source image.
                       </p>
                       {selectedTool === "background-remover" && appliedQualityMode ? (
                         <div className="mt-2 flex flex-wrap gap-2">
@@ -1378,11 +1458,11 @@ export function HeroUpload() {
                 <div className="rounded-2xl border border-cyan/20 bg-[linear-gradient(135deg,rgba(32,211,255,.12),rgba(139,92,246,.08),rgba(255,255,255,.035))] p-4 text-left">
                   <p className="flex items-center gap-2 text-xs font-black uppercase text-cyan">
                     <Sparkles size={14} />
-                    Branded preview ready
+                    Product edit ready
                   </p>
                   <h3 className="mt-2 text-lg font-black text-white">{selectedToolConfig.successMessage}</h3>
                   <p className="mt-2 text-xs font-semibold leading-5 text-slate-300">
-                    Review the branded result first. Accounts with credits receive clean watermark-free exports.
+                    Your credit-based edit is complete. Download the result or re-run another preset from the same source image.
                   </p>
                   {selectedTool === "background-remover" && appliedQualityMode ? (
                     <div className="mt-3 flex flex-wrap gap-2">
@@ -1601,7 +1681,7 @@ export function HeroUpload() {
               <div className="mt-3 rounded-2xl border border-emerald/20 bg-emerald/10 p-4">
                 <p className="flex items-center gap-2 text-sm font-bold text-emerald">
                   <CheckCircle2 size={16} />
-                  Preview anytime. Clean watermark-free exports use credits when available.
+                  Processing uses credits from the first real edit. The Starter Trial Pack is built for your first product test.
                 </p>
               </div>
             ) : null}
@@ -1707,7 +1787,7 @@ function waitForPreviewPaint() {
 }
 
 function redirectToSignIn() {
-  window.location.href = `/auth/sign-in?next=${encodeURIComponent("/#upload")}`;
+  window.location.href = `/auth/sign-in?next=${encodeURIComponent(trialPackUrl)}`;
 }
 
 function getQualityModeLabel(quality: QualityMode) {

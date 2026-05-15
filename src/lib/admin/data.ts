@@ -894,11 +894,13 @@ function buildBehaviorAnalytics(
   const dailyVisitors = new Set(todayVisitors.map(visitorKey)).size;
   const funnelSteps = [
     { key: "landing_view", label: "Landing" },
-    { key: "upload_started", label: "Upload" },
-    { key: "preview_generated", label: "Preview" },
-    { key: "pricing_view", label: "Pricing" },
+    { key: "upload_click", label: "Upload intent" },
+    { key: "auth_required", label: "Login wall" },
+    { key: "signup_completed", label: "Signup" },
+    { key: "trial_pack_view", label: "Trial pack" },
     { key: "checkout_started", label: "Checkout" },
-    { key: "checkout_completed", label: "Payment" }
+    { key: "checkout_completed", label: "Payment" },
+    { key: "first_clean_export", label: "First export" }
   ].map((step, index, steps) => {
     const count = eventCounts.get(step.key) ?? 0;
     const previousCount = index === 0 ? count : eventCounts.get(steps[index - 1].key) ?? 0;
@@ -911,12 +913,12 @@ function buildBehaviorAnalytics(
 
   return {
     dailyVisitors,
-    uploads: eventCounts.get("upload_started") ?? 0,
+    uploads: eventCounts.get("upload_click") ?? eventCounts.get("upload_started") ?? 0,
     previews: eventCounts.get("preview_generated") ?? 0,
     checkoutStarts: eventCounts.get("checkout_started") ?? 0,
     payments: eventCounts.get("checkout_completed") ?? 0,
-    landingToUploadRate: percent(eventCounts.get("upload_started") ?? 0, eventCounts.get("landing_view") ?? 0),
-    uploadToPreviewRate: percent(eventCounts.get("preview_generated") ?? 0, eventCounts.get("upload_started") ?? 0),
+    landingToUploadRate: percent(eventCounts.get("upload_click") ?? eventCounts.get("upload_started") ?? 0, eventCounts.get("landing_view") ?? 0),
+    uploadToPreviewRate: percent(eventCounts.get("preview_generated") ?? 0, eventCounts.get("upload_click") ?? eventCounts.get("upload_started") ?? 0),
     checkoutToPaymentRate: percent(eventCounts.get("checkout_completed") ?? 0, eventCounts.get("checkout_started") ?? 0),
     funnelSteps,
     topCountries: topBreakdown(breakdownRows.map((row) => row.country || "unknown")),
@@ -960,7 +962,7 @@ function buildDailyTrend(rows: Array<{ event: string; createdAt: Date; sessionId
     const date = row.createdAt.toISOString().slice(0, 10);
     const current = byDay.get(date) ?? { date, visitors: new Set<string>(), uploads: 0, previews: 0, checkouts: 0, payments: 0 };
     current.visitors.add(row.sessionId || row.anonymousId || "unknown");
-    if (row.event === "upload_started") current.uploads += 1;
+    if (row.event === "upload_click" || row.event === "upload_started") current.uploads += 1;
     if (row.event === "preview_generated") current.previews += 1;
     if (row.event === "checkout_started") current.checkouts += 1;
     if (row.event === "checkout_completed") current.payments += 1;

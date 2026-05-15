@@ -8,10 +8,10 @@ const trustItems: Array<[string, string, LucideIcon]> = [
   ["Private uploads", "Product photos are stored privately and served through temporary signed links.", Lock],
   ["Six seller workflows", "Upscale, relight, enhance, crop, cutout, and creative shadow tools in one ecommerce studio.", Sparkles],
   ["Dashboard history", "Every completed edit stays available in your workspace.", History],
-  ["Credit clean exports", "Credits unlock watermark-free files when the preview is ready.", CreditCard],
+  ["Trial pack access", "Start with 10 credits, pay once, and test your first product workflow.", CreditCard],
   ["Signed downloads", "Preview and export URLs are temporary instead of exposed as raw storage links.", ShieldCheck],
   ["Fast seller workflow", "Upload, preview, adjust, export, and repeat without leaving the page.", Zap],
-  ["Free branded preview", "Free previews are visibly branded so clean exports stay credit-based.", CheckCircle2],
+  ["Buyer-intent workflow", "Processing is credit-based from the first real edit, reducing low-quality free abuse.", CheckCircle2],
   ["Seller-ready formats", "Prepare visuals for Shopify, Amazon, Etsy, TikTok Shop, social ads, and catalog pages.", Clock3]
 ];
 
@@ -19,7 +19,7 @@ const credibility = [
   "Private uploads",
   "Signed preview and download links",
   "Dashboard history",
-  "Credit-based clean exports",
+  "Starter Trial Pack",
   "Seller-ready workflows"
 ] as const;
 
@@ -35,7 +35,7 @@ export async function PlatformSections() {
               <p className="text-sm font-black uppercase text-cyan">Trust layer</p>
               <h2 className="mt-2 text-2xl font-black text-white">A secure product photo workspace for serious sellers.</h2>
               <p className="mt-2 text-sm leading-6 text-slate-300">
-              Upload privately, preview branded edits for free, keep results in your dashboard, and export clean seller-ready assets with credits.
+              Upload privately, run credit-based product edits, keep results in your dashboard, and export clean seller-ready assets for your store.
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -82,19 +82,19 @@ export async function PlatformSections() {
           <div>
             <p className="eyebrow">Credit packs</p>
             <h2 className="mt-3 text-2xl font-black tracking-tight text-white md:mt-4 md:text-5xl">
-              Export clean results when the image is ready.
+              Start with a serious first product test.
             </h2>
           </div>
           <p className="max-w-md text-sm leading-6 text-slate-300">
-            Previews are free and watermarked. Credits are used when you want clean files without the Zeylora watermark.
+            The Starter Trial Pack gives you 10 credits for $7.99. No subscription, no long commitment, just a focused test for real ecommerce images.
           </p>
         </div>
 
         <div className="mb-5 grid gap-3 md:grid-cols-3">
           {[
-            ["1 credit", "One clean export for selected lightweight tools like crop, relight, or shadow."],
-            ["2 credits", "HD Upscale and Background Remover use 2 credits for clean exports."],
-            ["3 credits", "Photo Enhancer uses 3 credits for a polished clean export."]
+            ["$7.99 trial", "10 credits for your first product test and marketplace-ready workflow."],
+            ["No subscription", "Pay once, use credits, and re-download unlocked clean exports."],
+            ["Seller-focused", "Built for Shopify, Amazon, Etsy, TikTok Shop, catalogs, and ads."]
           ].map(([label, description]) => (
             <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.045] p-3 md:p-4">
               <p className="text-sm font-black uppercase text-cyan">{label}</p>
@@ -123,7 +123,7 @@ export async function PlatformSections() {
               <div className="mt-4 grid gap-2 border-t border-white/10 pt-4 text-sm text-slate-300 md:mt-5 md:pt-5">
                 <p className="flex items-center gap-2">
                   <CheckCircle2 size={15} className="text-emerald" />
-                  Free watermarked previews before export
+                  Credit-based real processing
                 </p>
                 <p className="flex items-center gap-2">
                   <CheckCircle2 size={15} className="text-emerald" />

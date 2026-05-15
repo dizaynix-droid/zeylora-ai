@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { CheckoutButton } from "@/components/billing/checkout-button";
+import { TrialPackTracker } from "@/components/billing/trial-pack-tracker";
 import { Card } from "@/components/ui/card";
 import { getCreditPackagesForDisplay } from "@/lib/pricing/packages";
 import { createMetadata } from "@/lib/seo";
@@ -14,27 +15,35 @@ export const metadata: Metadata = createMetadata({
 
 export const dynamic = "force-dynamic";
 
-export default async function PricingPage() {
+export default async function PricingPage({
+  searchParams
+}: {
+  searchParams?: Promise<{ trial?: string; checkout?: string }>;
+}) {
+  const params = await searchParams;
   const creditPackages = await getCreditPackagesForDisplay();
+  const trialMode = params?.trial === "1";
 
   return (
     <>
       <SiteHeader />
+      <TrialPackTracker enabled={trialMode} />
       <main className="min-h-screen bg-premium-radial py-14">
         <section className="section-shell">
           <p className="eyebrow">Pricing</p>
           <h1 className="mt-5 text-4xl font-black tracking-tight text-white md:text-6xl">
-            Buy credits for clean product exports.
+            Start with 10 credits. Upgrade your product photos today.
           </h1>
           <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-300">
-            Preview edits with Zeylora branding, then use credits to unlock watermark-free clean exports for your store, marketplace, or ad creative.
+            Bad product photos kill conversions. Zeylora turns low-quality uploads into sharper, brighter,
+            marketplace-ready visuals for Shopify, Amazon, Etsy, and TikTok Shop.
           </p>
 
           <div className="mt-6 grid gap-3 md:grid-cols-3">
             {[
-              ["Free preview", "Generate branded previews before spending credits."],
-              ["Clean export", "Credits are spent only when you unlock a watermark-free file."],
-              ["Re-downloads", "Unlocked clean exports can be downloaded again without another charge."]
+              ["No subscription", "Buy credits once and use them for professional product-photo workflows."],
+              ["Starter trial", "$7.99 gets 10 credits for your first serious product test."],
+              ["Clean ownership", "Unlocked clean exports can be downloaded again without another charge."]
             ].map(([label, copy]) => (
               <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.045] p-4">
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan">{label}</p>
@@ -62,7 +71,7 @@ export default async function PricingPage() {
                 <p className="mt-2 text-xs font-bold uppercase text-slate-500">one time credits</p>
                 <CheckoutButton
                   packageId={pack.id}
-                  label="Buy credits"
+                  label={pack.key === "starter-trial" ? "Start with 10 Credits" : "Buy credits"}
                   className="mt-6 inline-flex h-11 w-full items-center justify-center rounded-full bg-cyan text-sm font-black text-ink transition hover:bg-cyan/90"
                 />
               </Card>

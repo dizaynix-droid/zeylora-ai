@@ -17,11 +17,13 @@ export type JobCreditPlan = {
 
 export function createJobCreditPlan(user: AuthenticatedUser, creditCost: number): JobCreditPlan {
   void businessFoundation;
+  const normalizedCost = Math.max(0, creditCost);
+  const canCharge = normalizedCost > 0 && user.creditBalance >= normalizedCost;
 
   return {
-    exportMode: "free_watermarked",
-    creditCost,
-    canCharge: false,
+    exportMode: canCharge ? "paid_clean" : "free_watermarked",
+    creditCost: normalizedCost,
+    canCharge,
     charged: false,
     balanceBefore: user.creditBalance
   };
@@ -34,7 +36,7 @@ export async function reserveJobCredits(input: {
   plan: JobCreditPlan;
 }) {
   if (!input.plan.canCharge) {
-    return input.plan;
+    throw new Error("insufficient_credits");
   }
 
   const reservation = await reserveCreditsForJob({
@@ -45,13 +47,7 @@ export async function reserveJobCredits(input: {
   });
 
   if (!reservation.ok) {
-    return {
-      ...input.plan,
-      exportMode: "free_watermarked" as const,
-      canCharge: false,
-      charged: false,
-      balanceAfter: reservation.balance
-    };
+    throw new Error("insufficient_credits");
   }
 
   trackServerEvent(trackingEvents.creditsSpent, {

@@ -2,6 +2,8 @@
 
 import { type FormEvent, useState } from "react";
 import { KeyRound, Loader2, Mail, Sparkles } from "lucide-react";
+import { trackingEvents } from "@/config/tracking";
+import { trackEvent } from "@/lib/analytics/events";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseAuthConfigured } from "@/lib/supabase/config";
 
@@ -89,6 +91,13 @@ export function AuthForm({ authStatus, authError, next = "/dashboard" }: { authS
     }
 
     if (mode === "signup" && !result.data.session) {
+      trackEvent({
+        event: trackingEvents.signupCompleted,
+        properties: {
+          method: "email_password",
+          requiresEmailConfirmation: true
+        }
+      });
       void fetch("/api/v1/email/welcome", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -100,6 +109,12 @@ export function AuthForm({ authStatus, authError, next = "/dashboard" }: { authS
     }
 
     if (mode === "signup") {
+      trackEvent({
+        event: trackingEvents.signupCompleted,
+        properties: {
+          method: "email_password"
+        }
+      });
       void fetch("/api/v1/email/welcome", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

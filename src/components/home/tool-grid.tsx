@@ -67,7 +67,7 @@ export function ToolGrid() {
                           ? "border-warning/30 bg-warning/10 text-warning"
                           : "border-white/10 bg-white/10 text-slate-100"
                   }`}>
-                    {badge?.label ?? "Preview first"}
+                    {badge?.label ?? "Seller tool"}
                   </span>
                 </div>
                 <h3 className="mt-4 text-lg font-black text-white md:mt-6 md:text-xl">{tool.name}</h3>
@@ -76,7 +76,7 @@ export function ToolGrid() {
                   {toolPositioning[tool.slug as (typeof launchToolOrder)[number]]}
                 </p>
                 <div className="mt-5 flex items-center justify-between border-t border-white/10 pt-4">
-                  <p className="text-xs font-bold uppercase text-cyan">{tool.creditCost} credits for clean export</p>
+                  <p className="text-xs font-bold uppercase text-cyan">{tool.creditCost} credits per clean workflow</p>
                   <span className="grid size-8 place-items-center rounded-full bg-white/10 text-white transition group-hover:bg-cyan group-hover:text-ink">
                     <ArrowUpRight size={15} />
                   </span>

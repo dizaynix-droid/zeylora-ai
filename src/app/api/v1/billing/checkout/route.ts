@@ -1,5 +1,6 @@
 import { PaymentStatus } from "@prisma/client";
 import { NextResponse } from "next/server";
+import { creditPackages } from "@/config/pricing";
 import { trackingEvents } from "@/config/tracking";
 import { checkRateLimit, rateLimitResponse } from "@/lib/abuse/rate-limit";
 import { trackServerEvent } from "@/lib/analytics/server";
@@ -59,7 +60,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: "Credit package is required." }, { status: 400 });
     }
 
-    const selectedPackage = await prisma.creditPackage.findFirst({
+    const dbPackage = await prisma.creditPackage.findFirst({
       where: {
         id: packageId,
         status: "ACTIVE",
@@ -75,6 +76,7 @@ export async function POST(request: Request) {
         stripePriceId: true
       }
     });
+    const selectedPackage = dbPackage ?? getConfigPackageFallback(packageId);
 
     if (!selectedPackage) {
       checkoutLog("package_not_found", { requestId, userId: user.id, packageId, ms: Date.now() - startedAt });
@@ -99,6 +101,7 @@ export async function POST(request: Request) {
       userId: user.id,
       packageId: selectedPackage.id,
       packageName: selectedPackage.name,
+      packageSource: dbPackage ? "db" : "config_fallback",
       amount,
       currency,
       credits,
@@ -119,6 +122,7 @@ export async function POST(request: Request) {
           provider: "stripe",
           packageId: selectedPackage.id,
           packageName: selectedPackage.name,
+          packageSource: dbPackage ? "db" : "config_fallback",
           credits,
           checkoutRequestId: requestId
         }
@@ -149,6 +153,7 @@ export async function POST(request: Request) {
         paymentId: payment.id,
         userId: user.id,
         packageId: selectedPackage.id,
+        packageName: selectedPackage.name,
         credits: String(credits)
       }
     };
@@ -201,6 +206,7 @@ export async function POST(request: Request) {
           checkoutSessionId: session.id,
           packageId: selectedPackage.id,
           packageName: selectedPackage.name,
+          packageSource: dbPackage ? "db" : "config_fallback",
           credits,
           lineItemMode,
           successUrl,
@@ -253,6 +259,22 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
+}
+
+function getConfigPackageFallback(packageId: string) {
+  const pack = creditPackages.find((item) => item.key === packageId || item.featureFlagKey === packageId);
+
+  if (!pack) return null;
+
+  return {
+    id: pack.key,
+    name: pack.name,
+    credits: pack.credits,
+    bonusCredits: pack.bonusCredits,
+    price: pack.price,
+    currency: pack.currency.toLowerCase(),
+    stripePriceId: pack.paymentProviderPriceIds.stripe ?? null
+  };
 }
 
 function normalizeStripePriceId(value: string | null) {

@@ -336,7 +336,7 @@ export function DashboardClient({
                 <p className="text-xs font-black uppercase text-cyan">Credits</p>
                 <h2 className="mt-2 text-2xl font-black text-white">Credit balance and activity</h2>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
-                  Previews are free and branded. Credits are spent only when you unlock clean watermark-free exports.
+                  Credits power real processing and clean exports. Re-downloading an unlocked clean file does not charge again.
                 </p>
               </div>
               <div className="rounded-2xl border border-cyan/25 bg-black/25 px-5 py-4 text-left shadow-glow md:text-right">
@@ -392,7 +392,7 @@ export function DashboardClient({
               ) : null}
               {transactionsStatus === "ready" && creditTransactions.length === 0 ? (
                 <p className="mt-3 text-sm leading-6 text-slate-400">
-                  No credit transactions yet. Preview edits for free, then use credits when you want clean exports.
+                  No credit transactions yet. Buy the Starter Trial Pack when you are ready to process your first product photos.
                 </p>
               ) : null}
               {transactionsStatus === "error" ? <ErrorBox message={transactionsPayload?.error || "Credit activity could not be loaded."} /> : null}

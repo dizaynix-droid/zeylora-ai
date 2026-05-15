@@ -50,14 +50,14 @@ export async function getCreditPackagesForDisplay(): Promise<PublicCreditPackage
     });
 
     if (dbPackages.length > 0) {
-      return dedupePackages(dbPackages.map((pack) => {
-        const fallback = creditPackages.find((item) => item.name === pack.name || item.featureFlagKey === pack.featureFlagKey);
+      const mappedDbPackages = dbPackages.map((pack) => {
+        const fallback = findPackageConfig(pack.name, pack.featureFlagKey);
         const bonusCredits = Math.max(0, pack.bonusCredits);
 
         return {
           id: pack.id,
           key: fallback?.key ?? slugify(pack.name),
-          name: pack.name,
+          name: pack.name === "Studio" && fallback ? fallback.name : pack.name,
           credits: Math.max(0, pack.credits),
           bonusCredits,
           totalCredits: Math.max(0, pack.credits) + bonusCredits,
@@ -71,7 +71,17 @@ export async function getCreditPackagesForDisplay(): Promise<PublicCreditPackage
           status: pack.status,
           sortOrder: pack.sortOrder
         };
-      }));
+      });
+      const dbConfigKeys = new Set(
+        dbPackages
+          .map((pack) => findPackageConfig(pack.name, pack.featureFlagKey)?.key)
+          .filter((key): key is (typeof creditPackages)[number]["key"] => Boolean(key))
+      );
+      const missingConfigPackages = getFallbackCreditPackages().filter(
+        (pack) => !dbConfigKeys.has(pack.key as (typeof creditPackages)[number]["key"])
+      );
+
+      return dedupePackages([...mappedDbPackages, ...missingConfigPackages]);
     }
   } catch (error) {
     if (process.env.NODE_ENV === "development") {
@@ -199,10 +209,19 @@ function slugify(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
 
+function findPackageConfig(name: string, featureFlagKey: string | null) {
+  return creditPackages.find(
+    (item) =>
+      item.name === name ||
+      item.featureFlagKey === featureFlagKey ||
+      (item.key === "pro-seller" && name === "Studio")
+  );
+}
+
 function dedupePackages(packages: PublicCreditPackage[]) {
   const seen = new Map<string, PublicCreditPackage>();
   for (const pack of packages) {
-    const key = pack.name.toLowerCase();
+    const key = pack.key.toLowerCase();
     const existing = seen.get(key);
     if (!existing || pack.sortOrder < existing.sortOrder) {
       seen.set(key, pack);

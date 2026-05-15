@@ -3,6 +3,10 @@ import { trackEvent as trackClientEvent } from "@/lib/analytics/track";
 
 export const behaviorAnalyticsEvents = {
   landingView: "landing_view",
+  uploadClick: "upload_click",
+  authRequired: "auth_required",
+  signupCompleted: "signup_completed",
+  trialPackView: "trial_pack_view",
   toolPageView: "tool_page_view",
   uploadStarted: "upload_started",
   uploadCompleted: "upload_completed",
@@ -11,6 +15,7 @@ export const behaviorAnalyticsEvents = {
   pricingView: "pricing_view",
   checkoutStarted: "checkout_started",
   checkoutCompleted: "checkout_completed",
+  firstCleanExport: "first_clean_export",
   dashboardOpened: "dashboard_opened",
   cleanExportClicked: "clean_export_clicked",
   creditsPageView: "credits_page_view",
