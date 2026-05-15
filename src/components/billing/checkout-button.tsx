@@ -47,7 +47,7 @@ export function CheckoutButton({ packageId, label = "Get credits", className }: 
       });
 
       if (response.status === 401 || payload?.code === "unauthenticated") {
-        window.location.assign(`/auth/sign-in?next=${encodeURIComponent("/pricing")}`);
+        window.location.assign(`/auth/sign-in?next=${encodeURIComponent(`/pricing?checkoutPackage=${encodeURIComponent(packageId)}`)}`);
         return;
       }
 

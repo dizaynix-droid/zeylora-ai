@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { creditPackages } from "@/config/pricing";
+import { ensureLaunchCreditPackageDefaults } from "@/lib/pricing/packages";
 import { adminPerfNow, logAdminPerf, measureAdminQuery } from "@/lib/admin/perf";
 import { getOperationalSettings } from "@/lib/settings/operations";
 import { getMarketingTrackingSettings } from "@/lib/settings/marketing";
@@ -346,6 +347,7 @@ export async function getAdminToolsData() {
 
 export async function getAdminPricingData() {
   const startedAt = adminPerfNow();
+  await ensureLaunchCreditPackageDefaults();
   const packages = await measureAdminQuery(
     "pricing.packages.list",
     prisma.creditPackage.findMany({
@@ -374,7 +376,7 @@ export async function getAdminPricingData() {
   const result = dedupeCreditPackages(sourcePackages);
   logAdminPerf("admin.pricing.data", {
     duration: `${adminPerfNow() - startedAt}ms`,
-    queryCount: 1,
+    queryCount: 2,
     resultCount: result.length,
     source: packages.length ? "db" : "fallback"
   });

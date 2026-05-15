@@ -451,7 +451,13 @@ export async function syncLaunchCreditPackagesAction() {
   await prisma.$transaction(async (tx) => {
     for (const [index, pack] of creditPackages.entries()) {
       const existing = await tx.creditPackage.findFirst({
-        where: { name: pack.name, deletedAt: null },
+        where: {
+          deletedAt: null,
+          OR: [
+            { name: pack.name },
+            { featureFlagKey: pack.featureFlagKey }
+          ]
+        },
         orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
         select: { id: true }
       });

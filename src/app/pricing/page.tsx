@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { CheckoutButton } from "@/components/billing/checkout-button";
+import { CheckoutResume } from "@/components/billing/checkout-resume";
 import { TrialPackTracker } from "@/components/billing/trial-pack-tracker";
 import { Card } from "@/components/ui/card";
 import { getCreditPackagesForDisplay } from "@/lib/pricing/packages";
@@ -18,11 +19,12 @@ export const dynamic = "force-dynamic";
 export default async function PricingPage({
   searchParams
 }: {
-  searchParams?: Promise<{ trial?: string; checkout?: string }>;
+  searchParams?: Promise<{ trial?: string; checkout?: string; checkoutPackage?: string }>;
 }) {
   const params = await searchParams;
   const creditPackages = await getCreditPackagesForDisplay();
   const trialMode = params?.trial === "1";
+  const checkoutPackage = sanitizePackageId(params?.checkoutPackage);
 
   return (
     <>
@@ -30,6 +32,7 @@ export default async function PricingPage({
       <TrialPackTracker enabled={trialMode} />
       <main className="min-h-screen bg-premium-radial py-14">
         <section className="section-shell">
+          <CheckoutResume packageId={checkoutPackage} />
           <p className="eyebrow">Pricing</p>
           <h1 className="mt-5 text-4xl font-black tracking-tight text-white md:text-6xl">
             Start with 10 credits. Upgrade your product photos today.
@@ -100,4 +103,15 @@ export default async function PricingPage({
       <SiteFooter />
     </>
   );
+}
+
+function sanitizePackageId(value: string | undefined) {
+  if (!value) return undefined;
+  try {
+    const decoded = decodeURIComponent(value);
+    if (!/^[a-zA-Z0-9_-]+$/.test(decoded)) return undefined;
+    return decoded.slice(0, 120);
+  } catch {
+    return undefined;
+  }
 }
