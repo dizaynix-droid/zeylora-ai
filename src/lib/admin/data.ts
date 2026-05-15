@@ -1700,11 +1700,11 @@ function sortLaunchToolsFirst<T extends { slug: string; status?: string }>(tools
   });
 }
 
-function dedupeCreditPackages<T extends { name: string; status?: string; sortOrder?: number; id: string }>(packages: T[]) {
+function dedupeCreditPackages<T extends { name: string; featureFlagKey?: string | null; status?: string; sortOrder?: number; id: string }>(packages: T[]) {
   const byName = new Map<string, T>();
 
   for (const pack of packages) {
-    const key = pack.name.toLowerCase();
+    const key = getAdminCreditPackageKey(pack);
     const existing = byName.get(key);
     if (!existing) {
       byName.set(key, pack);
@@ -1718,7 +1718,33 @@ function dedupeCreditPackages<T extends { name: string; status?: string; sortOrd
     }
   }
 
-  return Array.from(byName.values()).sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
+  return Array.from(byName.values()).sort((a, b) => {
+    const aRank = getAdminCreditPackageRank(a);
+    const bRank = getAdminCreditPackageRank(b);
+    if (aRank !== bRank) return aRank - bRank;
+    return (a.sortOrder ?? 999) - (b.sortOrder ?? 999);
+  });
+}
+
+function getAdminCreditPackageKey(pack: { name: string; featureFlagKey?: string | null }) {
+  const config = findAdminCreditPackageConfig(pack);
+  return config?.key ?? pack.name.toLowerCase();
+}
+
+function getAdminCreditPackageRank(pack: { name: string; featureFlagKey?: string | null }) {
+  const config = findAdminCreditPackageConfig(pack);
+  if (!config) return 999;
+  const rank = creditPackages.findIndex((item) => item.key === config.key);
+  return rank === -1 ? 999 : rank;
+}
+
+function findAdminCreditPackageConfig(pack: { name: string; featureFlagKey?: string | null }) {
+  return creditPackages.find(
+    (item) =>
+      item.name === pack.name ||
+      item.featureFlagKey === pack.featureFlagKey ||
+      (item.key === "pro-seller" && pack.name === "Studio")
+  );
 }
 
 type AdminCacheEntry<T> = {

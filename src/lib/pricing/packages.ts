@@ -227,5 +227,15 @@ function dedupePackages(packages: PublicCreditPackage[]) {
       seen.set(key, pack);
     }
   }
-  return Array.from(seen.values()).sort((a, b) => a.sortOrder - b.sortOrder);
+  return Array.from(seen.values()).sort((a, b) => {
+    const aRank = getLaunchPackageRank(a.key);
+    const bRank = getLaunchPackageRank(b.key);
+    if (aRank !== bRank) return aRank - bRank;
+    return a.sortOrder - b.sortOrder;
+  });
+}
+
+function getLaunchPackageRank(key: string) {
+  const rank = creditPackages.findIndex((pack) => pack.key === key);
+  return rank === -1 ? 999 : rank;
 }
