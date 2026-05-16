@@ -245,6 +245,7 @@ export function HeroUpload({
   const hasActivePreview = Boolean(inputPreviewUrl || resultPreviewUrl || status === "failed");
   const isResultMode = status === "succeeded" && Boolean(inputPreviewUrl && resultPreviewUrl);
   const selectedToolConfig = homeToolOptions.find((tool) => tool.key === selectedTool) ?? homeToolOptions[0];
+  const selectedToolWorkspaceUrl = `/tools/${getToolPageSlug(selectedTool)}`;
   const selectedEconomy = useMemo(
     () => resolveToolEconomy({
       toolSlug: getEconomyToolSlug(selectedTool),
@@ -309,6 +310,10 @@ export function HeroUpload({
 
   async function handleFileSelected(file: File | undefined) {
     if (!file) return;
+    if (!workspaceMode) {
+      window.location.href = selectedToolWorkspaceUrl;
+      return;
+    }
 
     const hasAccess = await ensureProcessingAccess({
       intent: "upload_file",
@@ -411,6 +416,11 @@ export function HeroUpload({
     upscalePreset: HdUpscalePreset;
     quality: QualityMode;
   }) {
+    if (!workspaceMode) {
+      window.location.href = `/tools/${getToolPageSlug(input.tool)}`;
+      return;
+    }
+
     if (input.tool === "object-remover" && !objectRemovalPrompt.trim()) {
       setStatus(inputPreviewUrl ? "selected" : "idle");
       setErrorMessage("Describe what to remove first. Example: remove the cable on the left.");
@@ -840,7 +850,7 @@ export function HeroUpload({
                     </p>
                   </div>
                   <p className="rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs font-black uppercase text-cyan">
-                    {selectedEconomy.publicName} · {getQualityTierLabel(selectedEconomy.qualityTier)} · {selectedEconomy.creditCost} credits
+                    {selectedEconomy.publicName} · {getQualityTierLabel(selectedEconomy.qualityTier)}
                   </p>
                 </div>
                 <BeforeAfterResultSlider
@@ -870,7 +880,7 @@ export function HeroUpload({
                     </p>
                   </div>
                   <p className="w-fit rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs font-black uppercase text-cyan">
-                    {selectedEconomy.publicName} · {selectedEconomy.creditCost} credits
+                    {selectedEconomy.publicName} · {getQualityTierLabel(selectedEconomy.qualityTier)}
                   </p>
                 </div>
                 <div className="mt-4">
@@ -1163,7 +1173,9 @@ export function HeroUpload({
                 </div>
                 <h2 className="mt-4 text-xl font-black text-white md:mt-5 md:text-2xl">Upload one product photo</h2>
                 <p className="mx-auto mt-2 max-w-sm text-xs leading-5 text-slate-300 md:text-sm md:leading-6">
-                  First, choose a product photo. Processing starts after login and credits, so every run is tied to your dashboard history.
+                  {workspaceMode
+                    ? "Choose a product photo, tune the tool settings, and generate a result from this focused workspace."
+                    : "Open the focused editor to upload, choose a workflow, and generate your product result."}
                 </p>
                 <button
                   type="button"
@@ -1176,6 +1188,10 @@ export function HeroUpload({
                         source: "hero_upload_panel"
                       }
                     });
+                    if (!workspaceMode) {
+                      window.location.href = selectedToolWorkspaceUrl;
+                      return;
+                    }
                     if (canRunExistingSource) {
                       void runCurrentToolAgain();
                       return;
@@ -1196,9 +1212,11 @@ export function HeroUpload({
                     </>
                   )}
                 </button>
-                <p className="mt-2 text-[11px] font-black uppercase tracking-[0.18em] text-cyan">
-                  {trialCredits} credits · ${trialPrice} trial · no subscription
-                </p>
+                {workspaceMode ? null : (
+                  <p className="mt-2 text-[11px] font-black uppercase tracking-[0.18em] text-cyan">
+                    {trialCredits} credits · ${trialPrice} trial · no subscription
+                  </p>
+                )}
                 {uploadedMediaId && inputPreviewUrl ? (
                   <button
                     type="button"
@@ -1211,7 +1229,7 @@ export function HeroUpload({
                   </button>
                 ) : null}
                 <p className="mt-3 text-xs font-semibold text-slate-400">
-                  {selectedFileName ? selectedFileName : `Login required before processing. Trial pack starts at $${trialPrice}.`}
+                  {selectedFileName ? selectedFileName : workspaceMode ? "Upload a product photo to begin." : "Open the focused editor to upload and process."}
                 </p>
               </div>
             )}
@@ -1234,6 +1252,10 @@ export function HeroUpload({
                           tool: tool.key
                         }
                       });
+                      if (!workspaceMode) {
+                        window.location.href = `/tools/${getToolPageSlug(tool.key)}`;
+                        return;
+                      }
                       setSelectedTool(tool.key);
                       setResultPreviewUrl(null);
                       setJobId(null);
@@ -1446,8 +1468,8 @@ export function HeroUpload({
                 </div>
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   {[
-                    ["standard", "Standard · 4 credits"],
-                    ["pro", "Pro · 6 credits"]
+                    ["standard", "Standard cleanup"],
+                    ["pro", "Pro cleanup"]
                   ].map(([value, label]) => (
                     <button
                       key={value}
@@ -1886,7 +1908,7 @@ export function HeroUpload({
                 </p>
                 <p className="mt-2 font-black text-white">{selectedToolConfig.name}</p>
                 <p className="mt-1 text-xs font-bold text-cyan">
-                  {getQualityTierLabel(selectedEconomy.qualityTier)} · {selectedEconomy.creditCost} credits
+                  {getQualityTierLabel(selectedEconomy.qualityTier)}
                   {selectedEconomy.highQuality ? " · High quality provider" : ""}
                 </p>
               </div>
@@ -1899,7 +1921,7 @@ export function HeroUpload({
               </div>
             </div>
 
-            {!isResultMode ? (
+            {!isResultMode && !workspaceMode ? (
               <div className="mt-3 rounded-2xl border border-emerald/20 bg-emerald/10 p-4">
                 <p className="flex items-center gap-2 text-sm font-bold text-emerald">
                   <CheckCircle2 size={16} />
@@ -2122,6 +2144,11 @@ function getHdUpscaleFilenamePart(preset: HdUpscalePreset) {
 }
 
 function getEconomyToolSlug(tool: HomeToolMode) {
+  if (tool === "photo-enhancer") return "ai-photo-enhancer";
+  return tool;
+}
+
+function getToolPageSlug(tool: HomeToolMode) {
   if (tool === "photo-enhancer") return "ai-photo-enhancer";
   return tool;
 }
