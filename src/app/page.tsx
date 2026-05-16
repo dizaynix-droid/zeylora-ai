@@ -32,7 +32,7 @@ export default async function HomePage() {
   return (
     <>
       <SiteHeader />
-      <main>
+      <main className="max-w-[100vw] overflow-x-clip">
         <HeroUpload
           trialCredits={trialPack?.totalCredits ?? 15}
           trialPrice={trialPack?.price ?? 7.99}

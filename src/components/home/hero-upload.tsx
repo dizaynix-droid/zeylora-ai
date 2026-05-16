@@ -1,11 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   CheckCircle2,
   Gauge,
   History,
+  Home,
   ImagePlus,
   Layers3,
   Loader2,
@@ -1153,6 +1155,13 @@ export function HeroUpload({
                       <RotateCcw className="mr-2" size={15} />
                       Upload new
                     </button>
+                    <Link
+                      href="/"
+                      className="inline-flex h-10 items-center justify-center rounded-full border border-white/15 px-3 text-xs font-black text-white transition hover:bg-white/10"
+                    >
+                      <Home className="mr-2" size={15} />
+                      Home
+                    </Link>
                     <a
                       href="/dashboard"
                       className="inline-flex h-10 items-center justify-center rounded-full border border-white/15 px-3 text-xs font-black text-white transition hover:bg-white/10"

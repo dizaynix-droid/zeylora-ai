@@ -37,7 +37,7 @@ export default async function ToolPage({ params }: ToolPageProps) {
   return (
     <>
       <SiteHeader />
-      <main className="min-h-screen bg-premium-radial">
+      <main className="min-h-screen max-w-[100vw] overflow-x-clip bg-premium-radial">
         <section className="border-b border-white/10 bg-[#070b16]/80 py-4 backdrop-blur-xl">
           <div className="mx-auto flex w-full max-w-[1580px] flex-col gap-3 px-3 sm:px-4 md:flex-row md:items-center md:justify-between">
             <div>
@@ -46,6 +46,9 @@ export default async function ToolPage({ params }: ToolPageProps) {
               <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-300">{tool.description}</p>
             </div>
             <div className="flex shrink-0 gap-2">
+              <Button href="/" variant="secondary" className="h-10 px-4 text-xs md:h-11">
+                Home
+              </Button>
               <Button href="/tools" variant="secondary" className="h-10 px-4 text-xs md:h-11">
                 All tools
               </Button>

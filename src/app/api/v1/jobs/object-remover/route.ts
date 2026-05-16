@@ -91,6 +91,8 @@ export async function POST(request: Request) {
   }
 
   const providerPrompt = buildObjectRemovalProviderPrompt(removalPrompt);
+  const removalIntent = getRemovalPromptIntent(removalPrompt);
+  const preferredProvider = removalIntent.textOnly && process.env.PHOTOROOM_API_KEY ? "photoroom" : "replicate";
 
   const economy = resolveToolEconomy({
     toolSlug: objectRemoverConfig.slug,
@@ -173,12 +175,13 @@ export async function POST(request: Request) {
     });
 
     const inputUrl = await createPrivateReadUrl(inputMedia.storageKey);
-    await createJobEvent(job.id, "provider_attempt_started", "Replicate object removal attempt started.", {
-      providerKey: objectRemoverConfig.providerKey,
+    await createJobEvent(job.id, "provider_attempt_started", `${preferredProvider === "photoroom" ? "PhotoRoom text removal" : "Replicate object removal"} attempt started.`, {
+      providerKey: preferredProvider,
       model: resolveToolModel(tool.providerConfigJson, qualityMode),
       qualityMode,
       prompt: removalPrompt,
       providerPrompt,
+      removalIntent,
       input: sanitizeInputUrl(inputUrl)
     });
 
@@ -186,9 +189,10 @@ export async function POST(request: Request) {
       imageUrl: inputUrl,
       prompt: providerPrompt,
       qualityMode,
-      modelOverride: resolveToolModel(tool.providerConfigJson, qualityMode)
+      modelOverride: resolveToolModel(tool.providerConfigJson, qualityMode),
+      preferredProvider
     });
-    const outputBuffer = await downloadOutput(removal.outputUrl);
+    const outputBuffer = removal.outputBuffer ?? await downloadOutput(removal.outputUrl);
     const exportOutput = await prepareExportBuffer(outputBuffer, creditPlan.exportMode);
 
     await prisma.providerLog.create({
@@ -202,6 +206,7 @@ export async function POST(request: Request) {
           qualityMode,
           prompt: removalPrompt,
           providerPrompt,
+          preferredProvider,
           input: sanitizeInputUrl(inputUrl)
         },
         responseJson: toPrismaJson(removal.rawResponse),
@@ -536,7 +541,11 @@ async function ensureObjectRemoverTool(economy: ReturnType<typeof resolveToolEco
   });
 }
 
-async function downloadOutput(url: string) {
+async function downloadOutput(url?: string) {
+  if (!url) {
+    throw new Error("Object removal provider output is missing.");
+  }
+
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(`Could not download provider output: ${response.status}`);
@@ -581,32 +590,7 @@ function normalizeRemovalPrompt(value?: string) {
 }
 
 function buildObjectRemovalProviderPrompt(prompt: string) {
-  const normalized = prompt.toLowerCase();
-  const asksForTextCleanup = [
-    "text",
-    "writing",
-    "letters",
-    "lettering",
-    "words",
-    "word",
-    "label",
-    "brand name",
-    "typography",
-    "caption",
-    "sticker",
-    "yazi",
-    "yazı",
-    "metin",
-    "etiket"
-  ].some((term) => normalized.includes(term));
-  const asksForLogoCleanup = [
-    "logo",
-    "brand mark",
-    "icon",
-    "logotype",
-    "amblem",
-    "marka logosu"
-  ].some((term) => normalized.includes(term));
+  const { asksForTextCleanup, asksForLogoCleanup } = getRemovalPromptIntent(prompt);
 
   if (asksForTextCleanup && !asksForLogoCleanup) {
     return [
@@ -644,6 +628,42 @@ function buildObjectRemovalProviderPrompt(prompt: string) {
     "Do not remove the main product. Keep the result realistic for ecommerce.",
     `User request: ${prompt}`
   ].join(" ");
+}
+
+function getRemovalPromptIntent(prompt: string) {
+  const normalized = prompt.toLowerCase();
+  const asksForTextCleanup = [
+    "text",
+    "writing",
+    "letters",
+    "lettering",
+    "words",
+    "word",
+    "label",
+    "brand name",
+    "typography",
+    "caption",
+    "sticker",
+    "yazi",
+    "yazı",
+    "metin",
+    "etiket"
+  ].some((term) => normalized.includes(term));
+  const asksForLogoCleanup = [
+    "logo",
+    "brand mark",
+    "icon",
+    "logotype",
+    "amblem",
+    "marka logosu"
+  ].some((term) => normalized.includes(term));
+
+  return {
+    asksForTextCleanup,
+    asksForLogoCleanup,
+    textOnly: asksForTextCleanup && !asksForLogoCleanup,
+    logoOnly: asksForLogoCleanup && !asksForTextCleanup
+  };
 }
 
 function isUnsafeRemovalPrompt(prompt: string) {
