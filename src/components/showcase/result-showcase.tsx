@@ -90,7 +90,7 @@ export function ResultShowcase() {
                     <p className="text-2xl font-black text-white">{example.afterLabel}</p>
                     <p className="mt-1 text-xs font-bold uppercase text-slate-400">{example.metricLabel}</p>
                   </div>
-                  <Button href="#upload" className="mt-4 h-11 w-full md:h-12">
+                  <Button href="/tools/hd-upscale" className="mt-4 h-11 w-full md:h-12">
                     Start your product test
                     <ArrowRight className="ml-2" size={18} />
                   </Button>

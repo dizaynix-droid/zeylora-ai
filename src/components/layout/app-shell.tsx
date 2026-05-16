@@ -61,7 +61,7 @@ export function AppShell({ title, description, area, children }: AppShellProps) 
           {area === "dashboard" ? (
             <div className="mt-2 hidden rounded-2xl border border-cyan/25 bg-[linear-gradient(135deg,rgba(32,211,255,.18),rgba(139,92,246,.14),rgba(255,255,255,.05))] p-3 shadow-glow lg:block">
               <Link
-                href="/#upload"
+                href="/tools/hd-upscale"
                 className="inline-flex h-11 w-full items-center justify-center rounded-full bg-zeylora-brand px-4 text-sm font-black text-white shadow-glow transition hover:brightness-110"
               >
                 <ImagePlus className="mr-2" size={17} />

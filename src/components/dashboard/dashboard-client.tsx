@@ -319,7 +319,7 @@ export function DashboardClient({
               <h2 className="mt-1 text-xl font-black text-white">Keep production moving.</h2>
             </div>
             <div className="flex flex-wrap gap-2">
-              <ActionLink href="/#upload" label="New edit" primary />
+              <ActionLink href="/tools/hd-upscale" label="New edit" primary />
               <ActionLink href="/pricing" label="Buy credits" />
               <ActionLink href="/dashboard/support" label="Open support ticket" />
               <ActionLink href="/dashboard?filter=clean-export#jobs" label="View clean exports" />
@@ -453,7 +453,7 @@ export function DashboardClient({
                 <option value="all">All tools</option>
                 {tools.map((tool) => <option key={tool.slug} value={tool.slug}>{tool.name}</option>)}
               </select>
-              <Link href="/#upload" className="inline-flex h-11 items-center justify-center rounded-full bg-zeylora-brand px-5 text-sm font-black text-white shadow-glow">
+              <Link href="/tools/hd-upscale" className="inline-flex h-11 items-center justify-center rounded-full bg-zeylora-brand px-5 text-sm font-black text-white shadow-glow">
                 New edit
               </Link>
             </div>
@@ -711,7 +711,7 @@ function JobsEmptyState() {
         <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-cyan/10 text-cyan"><Wand2 size={20} /></span>
         <h3 className="mt-4 text-lg font-black text-white">No matching edits</h3>
         <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-400">Try another filter or upload a product photo to create a new edit.</p>
-        <Link href="/#upload" className="mt-4 inline-flex h-10 items-center justify-center rounded-full bg-zeylora-brand px-4 text-sm font-black text-white shadow-glow">
+        <Link href="/tools/hd-upscale" className="mt-4 inline-flex h-10 items-center justify-center rounded-full bg-zeylora-brand px-4 text-sm font-black text-white shadow-glow">
           Start an edit
         </Link>
       </div>

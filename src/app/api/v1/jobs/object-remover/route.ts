@@ -589,7 +589,6 @@ function buildObjectRemovalProviderPrompt(prompt: string) {
     "lettering",
     "words",
     "word",
-    "logo",
     "label",
     "brand name",
     "typography",
@@ -598,15 +597,43 @@ function buildObjectRemovalProviderPrompt(prompt: string) {
     "yazi",
     "yazı",
     "metin",
-    "logo",
     "etiket"
   ].some((term) => normalized.includes(term));
+  const asksForLogoCleanup = [
+    "logo",
+    "brand mark",
+    "icon",
+    "logotype",
+    "amblem",
+    "marka logosu"
+  ].some((term) => normalized.includes(term));
 
-  if (asksForTextCleanup) {
+  if (asksForTextCleanup && !asksForLogoCleanup) {
     return [
-      "Remove the specified visible text, letters, logo, label, typography, sticker, or writing from this product photo.",
+      "Remove only the specified visible text, letters, label text, typography, caption, sticker, or writing from this product photo.",
+      "Preserve logos, icons, product silhouettes, packaging shape, and non-text design elements unless the user explicitly asks to remove them.",
       "Reconstruct the cleaned area with matching product surface, lighting, texture, and perspective.",
       "Do not remove the product itself. Do not change the product shape. Keep the result realistic for ecommerce.",
+      `User request: ${prompt}`
+    ].join(" ");
+  }
+
+  if (asksForLogoCleanup && !asksForTextCleanup) {
+    return [
+      "Remove only the specified logo, icon, brand mark, or graphic mark from this product photo.",
+      "Preserve readable text, product silhouettes, packaging shape, and unrelated design elements unless the user explicitly asks to remove them.",
+      "Reconstruct the cleaned area with matching product surface, lighting, texture, and perspective.",
+      "Do not remove the product itself. Do not change the product shape. Keep the result realistic for ecommerce.",
+      `User request: ${prompt}`
+    ].join(" ");
+  }
+
+  if (asksForTextCleanup && asksForLogoCleanup) {
+    return [
+      "Remove only the text or logo elements explicitly described by the user, without removing the main product or unrelated design areas.",
+      "If the request is ambiguous, prioritize removing readable text first and preserve product shape and important visual structure.",
+      "Reconstruct the cleaned area with matching product surface, lighting, texture, and perspective.",
+      "Keep the result realistic for ecommerce.",
       `User request: ${prompt}`
     ].join(" ");
   }

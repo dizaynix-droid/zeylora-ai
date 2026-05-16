@@ -33,7 +33,7 @@ type AiRelightPreset = "soft-studio-light" | "luxury-glow" | "bright-catalog" | 
 type HdUpscalePreset = "2x-hd" | "4x-ultra" | "sharp-catalog" | "social-cleanup";
 type ObjectRemovalQualityMode = "standard" | "pro";
 type ResultRating = "looks_good" | "needs_improvement";
-type HomeToolMode = "background-remover" | "photo-enhancer" | "marketplace-crop" | "product-shadow" | "ai-relight" | "hd-upscale" | "object-remover";
+export type HomeToolMode = "background-remover" | "photo-enhancer" | "marketplace-crop" | "product-shadow" | "ai-relight" | "hd-upscale" | "object-remover";
 
 type UploadResponse = {
   ok: boolean;
@@ -206,10 +206,14 @@ const trialPackUrl = "/pricing?trial=1";
 
 export function HeroUpload({
   trialCredits = 15,
-  trialPrice = 7.99
+  trialPrice = 7.99,
+  initialTool = "hd-upscale",
+  workspaceMode = false
 }: {
   trialCredits?: number;
   trialPrice?: number;
+  initialTool?: HomeToolMode;
+  workspaceMode?: boolean;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const toolControlsRef = useRef<HTMLDivElement>(null);
@@ -236,7 +240,7 @@ export function HeroUpload({
   const [appliedObjectRemovalQualityMode, setAppliedObjectRemovalQualityMode] = useState<ObjectRemovalQualityMode | null>(null);
   const [objectRemovalPrompt, setObjectRemovalPrompt] = useState("");
   const [appliedObjectRemovalPrompt, setAppliedObjectRemovalPrompt] = useState<string | null>(null);
-  const [selectedTool, setSelectedTool] = useState<HomeToolMode>("hd-upscale");
+  const [selectedTool, setSelectedTool] = useState<HomeToolMode>(initialTool);
   const [rating, setRating] = useState<ResultRating | null>(null);
   const hasActivePreview = Boolean(inputPreviewUrl || resultPreviewUrl || status === "failed");
   const isResultMode = status === "succeeded" && Boolean(inputPreviewUrl && resultPreviewUrl);
@@ -808,15 +812,17 @@ export function HeroUpload({
   }
 
   return (
-    <section id="top" className="relative overflow-hidden bg-cinematic-depth pb-8 pt-6 md:pb-20 md:pt-20">
+    <section id="top" className={`relative overflow-hidden bg-cinematic-depth ${
+      workspaceMode ? "pb-8 pt-3 md:pb-12 md:pt-6" : "pb-8 pt-6 md:pb-20 md:pt-20"
+    }`}>
       <div className="subtle-grid pointer-events-none absolute inset-x-0 top-0 h-[520px] opacity-50" />
       <div className="pointer-events-none absolute left-1/2 top-20 h-72 w-72 -translate-x-1/2 rounded-full bg-cyan/10 blur-3xl" />
-      <div className={`section-shell relative grid gap-5 lg:gap-10 lg:items-start ${
+      <div className={`${workspaceMode ? "relative mx-auto grid w-full max-w-[1580px] gap-4 px-3 sm:px-4 lg:gap-6" : "section-shell relative grid gap-5 lg:gap-10"} lg:items-start ${
         isResultMode
           ? "lg:grid-cols-[minmax(0,1.35fr)_420px] xl:grid-cols-[minmax(0,1.5fr)_430px]"
           : "lg:grid-cols-[minmax(0,1fr)_460px] xl:grid-cols-[minmax(0,1fr)_480px]"
       }`}>
-        <div className="animate-fade-up">
+        <div className={`animate-fade-up ${workspaceMode && !isResultMode ? "order-2 lg:order-1" : ""}`}>
           {isResultMode && inputPreviewUrl && resultPreviewUrl ? (
             <div className="premium-ring rounded-[2rem]">
               <div className="glass-panel rounded-[2rem] p-4 md:p-5">
@@ -847,6 +853,45 @@ export function HeroUpload({
                 />
               </div>
             </div>
+          ) : workspaceMode ? (
+            <div className="premium-ring rounded-[2rem]">
+              <div className="glass-panel rounded-[2rem] p-4 md:p-5">
+                <p className="eyebrow">
+                  <Sparkles size={14} />
+                  Product photo workspace
+                </p>
+                <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                  <div>
+                    <h1 className="text-2xl font-black tracking-tight text-white md:text-4xl">
+                      Edit one product photo without hunting through the homepage.
+                    </h1>
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300 md:text-base md:leading-7">
+                      Choose a workflow, upload your product photo, and keep every new run in this focused workspace.
+                    </p>
+                  </div>
+                  <p className="w-fit rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs font-black uppercase text-cyan">
+                    {selectedEconomy.publicName} · {selectedEconomy.creditCost} credits
+                  </p>
+                </div>
+                <div className="mt-4">
+                  {inputPreviewUrl ? (
+                    <PreviewFrame label="Selected image" imageUrl={inputPreviewUrl} placeholder="Selected image appears here" />
+                  ) : (
+                    <div className="grid min-h-[260px] place-items-center rounded-2xl border border-dashed border-cyan/30 bg-[linear-gradient(135deg,rgba(32,211,255,.09),rgba(139,92,246,.08),rgba(255,255,255,.035))] p-5 text-center md:min-h-[420px]">
+                      <div className="max-w-md">
+                        <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-cyan/10 text-cyan">
+                          <ImagePlus size={25} />
+                        </div>
+                        <h2 className="mt-4 text-xl font-black text-white md:text-2xl">Start from the control panel.</h2>
+                        <p className="mt-2 text-sm leading-6 text-slate-300">
+                          On mobile, the upload and tool controls appear first so you can start editing without scrolling around the landing page.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           ) : (
             <>
               <p className="eyebrow">
@@ -865,7 +910,7 @@ export function HeroUpload({
                   Start with {trialCredits} Credits
                   <ArrowRight className="ml-2" size={18} />
                 </Button>
-                <Button href="#upload" variant="secondary" className="h-11 px-5 md:h-12 md:px-6">
+                <Button href="/tools/hd-upscale" variant="secondary" className="h-11 px-5 md:h-12 md:px-6">
                   Upload product photo
                 </Button>
               </div>
@@ -921,7 +966,7 @@ export function HeroUpload({
           )}
         </div>
 
-        <div id="upload" className={`premium-ring rounded-3xl lg:sticky lg:top-24 lg:rounded-[2rem] ${hasActivePreview ? "" : "md:animate-float"}`}>
+        <div id="upload" className={`premium-ring rounded-3xl lg:sticky lg:top-24 lg:rounded-[2rem] ${workspaceMode ? "order-1 lg:order-2" : ""} ${hasActivePreview ? "" : "md:animate-float"}`}>
           <div className={`glass-panel overflow-hidden rounded-3xl p-3 md:p-5 lg:rounded-[2rem] ${
             isResultMode ? "" : "lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto"
           }`}>
@@ -1383,7 +1428,8 @@ export function HeroUpload({
                 />
                 <div className="mt-2 flex flex-wrap gap-2">
                   {[
-                    "remove the visible text and logo on the product label",
+                    "remove only the visible text on the product label",
+                    "remove only the logo on the product label",
                     "remove the cable on the left",
                     "remove dust and stains around the product"
                   ].map((example) => (
@@ -1394,7 +1440,7 @@ export function HeroUpload({
                       onClick={() => setObjectRemovalPrompt(example)}
                       className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-slate-300 transition hover:border-cyan/40 hover:text-cyan disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {example.includes("text") ? "Text/logo" : example.includes("cable") ? "Cable" : "Dust/stains"}
+                      {example.includes("text") ? "Label text" : example.includes("logo") ? "Logo" : example.includes("cable") ? "Cable" : "Dust/stains"}
                     </button>
                   ))}
                 </div>
@@ -1863,7 +1909,7 @@ export function HeroUpload({
             ) : null}
           </div>
         </div>
-        {!isResultMode ? (
+        {!isResultMode && !workspaceMode ? (
           <div className="fixed inset-x-3 bottom-3 z-50 rounded-2xl border border-white/10 bg-[#070b16]/92 p-2 shadow-[0_18px_70px_rgba(0,0,0,.55)] backdrop-blur-xl md:hidden">
             <div className="flex items-center gap-2">
               <div className="min-w-0 flex-1 px-2">

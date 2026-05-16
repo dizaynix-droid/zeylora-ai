@@ -38,17 +38,22 @@ export function SiteHeaderAuthActions() {
   function handleUploadClick(event: MouseEvent<HTMLAnchorElement>) {
     if (typeof window === "undefined") return;
 
-    if (window.location.pathname !== "/") {
+    if (window.location.pathname.startsWith("/tools/")) {
+      event.preventDefault();
+      const uploadPanel = document.getElementById("upload");
+      uploadPanel?.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+      return;
+    }
+
+    if (window.location.pathname === "/") {
       return;
     }
 
     event.preventDefault();
-    const uploadPanel = document.getElementById("upload");
-    uploadPanel?.scrollIntoView({
-      behavior: "smooth",
-      block: "start"
-    });
-    window.history.replaceState(null, "", "/#upload");
+    window.location.href = "/tools/hd-upscale";
   }
 
   useEffect(() => {
@@ -113,7 +118,7 @@ export function SiteHeaderAuthActions() {
       )}
 
       <Link
-        href="/#upload"
+        href="/tools/hd-upscale"
         onClick={handleUploadClick}
         className="focus-lift inline-flex h-11 items-center justify-center rounded-full bg-zeylora-brand px-4 text-sm font-bold text-white shadow-glow transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
       >
