@@ -143,11 +143,16 @@ export function toAffiliateSettingsJson(settings: AffiliateSettings) {
 export function resolveAffiliateTier(settings: AffiliateSettings, input: { paidReferrals: number; referredRevenue: number; tierKey?: string | null }) {
   const activeTiers = settings.tiers.filter((tier) => tier.active);
   const explicitTier = activeTiers.find((tier) => tier.key === input.tierKey);
-  if (explicitTier) return explicitTier;
 
-  return [...activeTiers]
+  const earnedTier = [...activeTiers]
     .sort((a, b) => b.requiredReferredRevenue - a.requiredReferredRevenue || b.requiredPaidReferrals - a.requiredPaidReferrals)
     .find((tier) => input.paidReferrals >= tier.requiredPaidReferrals && input.referredRevenue >= tier.requiredReferredRevenue) ?? settings.tiers[0];
+
+  if (!explicitTier) return earnedTier;
+
+  const explicitRank = activeTiers.findIndex((tier) => tier.key === explicitTier.key);
+  const earnedRank = activeTiers.findIndex((tier) => tier.key === earnedTier.key);
+  return explicitRank > earnedRank ? explicitTier : earnedTier;
 }
 
 function normalizeTiers(value: unknown): AffiliateTierConfig[] {

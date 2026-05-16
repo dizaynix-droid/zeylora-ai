@@ -8,6 +8,7 @@ import { getCurrentUserFromSession } from "@/lib/auth/current-user";
 import { requireMfaIfNeeded } from "@/lib/auth/mfa";
 import { getAffiliateDashboardData } from "@/lib/affiliate/data";
 import { ensureAffiliateProfile } from "@/lib/affiliate/referrals";
+import { resolveAffiliateTier, type AffiliateTierConfig } from "@/lib/affiliate/settings";
 import { prisma } from "@/lib/db";
 import { createMetadata } from "@/lib/seo";
 
@@ -41,10 +42,19 @@ export default async function DashboardAffiliatePage() {
     );
   }
   const samplePayment = 50;
-  const activeTier = data.settings.tiers.find((tier) => tier.key === data.profile.tierKey) ?? data.settings.tiers[0];
+  const activeTier = resolveAffiliateTier(data.settings, {
+    paidReferrals: data.profile.totalPaidReferrals,
+    referredRevenue: Number(data.profile.totalReferredRevenue),
+    tierKey: data.profile.tierKey
+  });
   const rewardPercent = activeTier?.rewardPercent ?? data.settings.defaultRewardPercent;
   const sampleCredits = Math.floor((samplePayment * (rewardPercent / 100)) / data.settings.estimatedCreditUsdValue);
   const rewardScope = data.settings.rewardScope === "FIRST_PAYMENT_ONLY" ? "first successful payment only" : "every successful payment";
+  const activeTiers = data.settings.tiers.filter((tier) => tier.active);
+  const activeTierIndex = Math.max(0, activeTiers.findIndex((tier) => tier.key === activeTier?.key));
+  const nextTier = activeTiers[activeTierIndex + 1] ?? null;
+  const paidProgress = nextTier ? Math.min(100, Math.round((data.profile.totalPaidReferrals / Math.max(nextTier.requiredPaidReferrals, 1)) * 100)) : 100;
+  const revenueProgress = nextTier ? Math.min(100, Math.round((Number(data.profile.totalReferredRevenue) / Math.max(nextTier.requiredReferredRevenue, 1)) * 100)) : 100;
 
   return (
     <AppShell
@@ -151,6 +161,56 @@ export default async function DashboardAffiliatePage() {
         </Card>
       </div>
 
+      <Card className="mt-4 p-5">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="eyebrow">Partner tiers</p>
+            <h2 className="mt-2 text-xl font-black text-white">Higher tiers earn higher credit rewards.</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
+              Bring more paid sellers and your reward percentage increases automatically. Admin can still apply trusted/special overrides when needed.
+            </p>
+          </div>
+          {nextTier ? (
+            <div className="rounded-2xl border border-cyan/20 bg-cyan/10 px-4 py-3 text-sm font-bold text-cyan">
+              Next: {nextTier.name} · {nextTier.rewardPercent}% rewards
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-emerald-300/20 bg-emerald-300/10 px-4 py-3 text-sm font-bold text-emerald-100">
+              You are on the highest active tier.
+            </div>
+          )}
+        </div>
+
+        <div className="mt-4 grid gap-3 lg:grid-cols-3">
+          {activeTiers.map((tier, index) => (
+            <TierCard
+              key={tier.key}
+              tier={tier}
+              active={tier.key === activeTier?.key}
+              locked={index > activeTierIndex}
+              creditValue={data.settings.estimatedCreditUsdValue}
+            />
+          ))}
+        </div>
+
+        {nextTier ? (
+          <div className="mt-4 grid gap-3 lg:grid-cols-2">
+            <ProgressCard
+              label="Paid referral progress"
+              value={`${data.profile.totalPaidReferrals} / ${nextTier.requiredPaidReferrals}`}
+              percent={paidProgress}
+              helper={`${Math.max(nextTier.requiredPaidReferrals - data.profile.totalPaidReferrals, 0)} more paid referrals to reach ${nextTier.name}.`}
+            />
+            <ProgressCard
+              label="Referred revenue progress"
+              value={`$${Number(data.profile.totalReferredRevenue).toFixed(2)} / $${nextTier.requiredReferredRevenue}`}
+              percent={revenueProgress}
+              helper={`$${Math.max(nextTier.requiredReferredRevenue - Number(data.profile.totalReferredRevenue), 0).toFixed(2)} more referred revenue to reach ${nextTier.name}.`}
+            />
+          </div>
+        ) : null}
+      </Card>
+
       <div className="mt-4 grid gap-4 xl:grid-cols-[1.1fr_.9fr]">
         <Card className="p-5">
           <p className="eyebrow">Recent referred signups</p>
@@ -212,5 +272,63 @@ function ExplainerStep({ label, title, text }: { label: string; title: string; t
       <h3 className="mt-3 text-base font-black text-white">{title}</h3>
       <p className="mt-2 text-sm leading-6 text-slate-300">{text}</p>
     </Card>
+  );
+}
+
+function TierCard({
+  tier,
+  active,
+  locked,
+  creditValue
+}: {
+  tier: AffiliateTierConfig;
+  active: boolean;
+  locked: boolean;
+  creditValue: number;
+}) {
+  const examplePayment = 50;
+  const exampleCredits = Math.floor((examplePayment * (tier.rewardPercent / 100)) / Math.max(creditValue, 0.01));
+
+  return (
+    <div className={`rounded-3xl border p-4 ${active ? "border-cyan/40 bg-cyan/10" : "border-white/10 bg-white/[0.04]"}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-base font-black text-white">{tier.name}</p>
+          <p className="mt-1 text-3xl font-black text-cyan">{tier.rewardPercent}%</p>
+        </div>
+        <span className={`rounded-full border px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${active ? "border-cyan/30 bg-cyan/15 text-cyan" : locked ? "border-white/10 bg-black/20 text-slate-400" : "border-emerald-300/20 bg-emerald-300/10 text-emerald-100"}`}>
+          {active ? "Current" : locked ? "Unlock" : "Reached"}
+        </span>
+      </div>
+      <div className="mt-4 grid gap-2 text-sm leading-6 text-slate-300">
+        <p>
+          Requirement: <span className="font-black text-white">{tier.requiredPaidReferrals} paid referrals</span>
+        </p>
+        <p>
+          Revenue target: <span className="font-black text-white">${tier.requiredReferredRevenue}</span>
+        </p>
+        <p>
+          Monthly cap: <span className="font-black text-white">{tier.monthlyCapCredits} credits</span>
+        </p>
+        <p className="rounded-2xl border border-white/10 bg-black/20 p-3 font-bold text-cyan">
+          Example: ${examplePayment} referral payment = about {exampleCredits} credits.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function ProgressCard({ label, value, percent, helper }: { label: string; value: string; percent: number; helper: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{label}</p>
+        <p className="text-sm font-black text-white">{value}</p>
+      </div>
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
+        <div className="h-full rounded-full bg-gradient-to-r from-cyan to-fuchsia-400" style={{ width: `${percent}%` }} />
+      </div>
+      <p className="mt-2 text-xs font-bold leading-5 text-slate-400">{helper}</p>
+    </div>
   );
 }

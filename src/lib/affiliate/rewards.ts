@@ -71,6 +71,8 @@ export async function processAffiliateRewardForPayment(input: {
       freezeRewards: true,
       trusted: true,
       suspicious: true,
+      totalPaidReferrals: true,
+      totalReferredRevenue: true,
       user: { select: { email: true, creditBalance: true } }
     }
   });
@@ -79,16 +81,16 @@ export async function processAffiliateRewardForPayment(input: {
     return { rewarded: false as const, reason: "affiliate_not_payable" };
   }
 
+  const creditUsdValue = Math.max(settings.estimatedCreditUsdValue, 0.01);
+  const paymentAmount = Number(payment.amount || input.amount);
   const tier = resolveAffiliateTier(settings, {
-    paidReferrals: 0,
-    referredRevenue: 0,
+    paidReferrals: affiliate.totalPaidReferrals + 1,
+    referredRevenue: Number(affiliate.totalReferredRevenue) + paymentAmount,
     tierKey: affiliate.tierKey
   });
   const rewardPercent = affiliate.customRewardPercent ? Number(affiliate.customRewardPercent) : tier.rewardPercent || settings.defaultRewardPercent;
   if (!Number.isFinite(rewardPercent) || rewardPercent <= 0) return { rewarded: false as const, reason: "zero_percent" };
 
-  const creditUsdValue = Math.max(settings.estimatedCreditUsdValue, 0.01);
-  const paymentAmount = Number(payment.amount || input.amount);
   const rewardUsd = roundMoney(paymentAmount * (rewardPercent / 100));
   const uncappedRewardCredits = Math.max(1, Math.floor(rewardUsd / creditUsdValue));
   const monthlyCap = affiliate.customMonthlyCapCredits ?? tier.monthlyCapCredits ?? settings.maxMonthlyRewardCreditsPerAffiliate;
