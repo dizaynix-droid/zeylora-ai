@@ -16,6 +16,7 @@ import {
   PhotoEnhancementProviderError,
   runHdUpscale
 } from "@/lib/ai/photo-enhancement/providers";
+import { preparePhotoEnhancementProviderInput } from "@/lib/ai/photo-enhancement/provider-input";
 import { prisma } from "@/lib/db";
 import {
   createJobCreditPlan,
@@ -143,14 +144,35 @@ export async function POST(request: Request) {
     });
 
     const inputUrl = await createPrivateReadUrl(inputMedia.storageKey);
+    const providerInput = await preparePhotoEnhancementProviderInput({
+      inputUrl,
+      inputStorageKey: inputMedia.storageKey,
+      userId: user.id,
+      jobId: job.id,
+      toolKey: hdUpscaleConfig.toolKey
+    });
+
+    if (providerInput.resized) {
+      await createJobEvent(job.id, "provider_input_resized", "HD upscale input resized for provider limits.", {
+        originalWidth: providerInput.originalWidth,
+        originalHeight: providerInput.originalHeight,
+        originalPixels: providerInput.originalPixels,
+        providerWidth: providerInput.providerWidth,
+        providerHeight: providerInput.providerHeight,
+        providerPixels: providerInput.providerPixels,
+        providerStorageKey: providerInput.providerStorageKey
+      });
+    }
+
     await createJobEvent(job.id, "provider_attempt_started", "Replicate HD upscale attempt started.", {
       providerKey: hdUpscaleConfig.providerKey,
       model: hdUpscaleConfig.model,
       upscalePreset,
-      scale: hdUpscaleConfig.presets[upscalePreset].scale
+      scale: hdUpscaleConfig.presets[upscalePreset].scale,
+      providerInputResized: providerInput.resized
     });
 
-    const upscale = await runHdUpscale({ imageUrl: inputUrl, preset: upscalePreset });
+    const upscale = await runHdUpscale({ imageUrl: providerInput.url, preset: upscalePreset });
     const outputBuffer = await downloadOutput(upscale.outputUrl);
     const exportOutput = await prepareExportBuffer(outputBuffer, creditPlan.exportMode);
 
@@ -164,7 +186,9 @@ export async function POST(request: Request) {
           modelKey: upscale.modelKey,
           preset: upscale.preset,
           scale: upscale.scale,
-          input: sanitizeInputUrl(inputUrl)
+          input: sanitizeInputUrl(providerInput.url),
+          originalInput: sanitizeInputUrl(inputUrl),
+          providerInputResized: providerInput.resized
         },
         responseJson: toPrismaJson(upscale.rawResponse),
         attemptNumber: 1,
@@ -376,13 +400,18 @@ export async function POST(request: Request) {
       });
     }
 
+    const safeUserMessage =
+      providerError?.statusCode === 429
+        ? "The upscale provider is busy right now. Please try again in a few seconds."
+        : "We could not upscale this image. Please try another photo.";
+
     return NextResponse.json(
       {
         ok: false,
         job: {
           id: job.id,
           status: JobStatus.FAILED,
-          errorMessage: "We could not upscale this image. Please try another photo."
+          errorMessage: safeUserMessage
         },
         ...(process.env.NODE_ENV === "development"
           ? {

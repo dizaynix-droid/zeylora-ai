@@ -16,6 +16,7 @@ import {
   PhotoEnhancementProviderError,
   runPhotoEnhancement
 } from "@/lib/ai/photo-enhancement/providers";
+import { preparePhotoEnhancementProviderInput } from "@/lib/ai/photo-enhancement/provider-input";
 import { prisma } from "@/lib/db";
 import {
   createJobCreditPlan,
@@ -147,14 +148,35 @@ export async function POST(request: Request) {
     await createJobEvent(job.id, "job_processing", "Photo enhancer processing started.");
 
     const inputUrl = await createPrivateReadUrl(inputMedia.storageKey);
+    const providerInput = await preparePhotoEnhancementProviderInput({
+      inputUrl,
+      inputStorageKey: inputMedia.storageKey,
+      userId: user.id,
+      jobId: job.id,
+      toolKey: photoEnhancerConfig.toolKey
+    });
+
+    if (providerInput.resized) {
+      await createJobEvent(job.id, "provider_input_resized", "Photo enhancer input resized for provider limits.", {
+        originalWidth: providerInput.originalWidth,
+        originalHeight: providerInput.originalHeight,
+        originalPixels: providerInput.originalPixels,
+        providerWidth: providerInput.providerWidth,
+        providerHeight: providerInput.providerHeight,
+        providerPixels: providerInput.providerPixels,
+        providerStorageKey: providerInput.providerStorageKey
+      });
+    }
+
     await createJobEvent(job.id, "provider_attempt_started", "Replicate photo enhancement attempt started.", {
       providerKey: photoEnhancerConfig.providerKey,
       model: photoEnhancerConfig.model,
       scale: photoEnhancerConfig.scale,
-      faceEnhance: photoEnhancerConfig.faceEnhance
+      faceEnhance: photoEnhancerConfig.faceEnhance,
+      providerInputResized: providerInput.resized
     });
 
-    const enhancement = await runPhotoEnhancement({ imageUrl: inputUrl });
+    const enhancement = await runPhotoEnhancement({ imageUrl: providerInput.url });
     const outputBuffer = await downloadOutput(enhancement.outputUrl);
     const exportOutput = await prepareExportBuffer(outputBuffer, creditPlan.exportMode);
 
@@ -168,7 +190,9 @@ export async function POST(request: Request) {
           modelKey: enhancement.modelKey,
           scale: photoEnhancerConfig.scale,
           faceEnhance: photoEnhancerConfig.faceEnhance,
-          input: sanitizeInputUrl(inputUrl)
+          input: sanitizeInputUrl(providerInput.url),
+          originalInput: sanitizeInputUrl(inputUrl),
+          providerInputResized: providerInput.resized
         },
         responseJson: toPrismaJson(enhancement.rawResponse),
         attemptNumber: 1,
@@ -371,13 +395,18 @@ export async function POST(request: Request) {
       });
     }
 
+    const safeUserMessage =
+      providerError?.statusCode === 429
+        ? "The enhancement provider is busy right now. Please try again in a few seconds."
+        : "We could not enhance this image. Please try another photo.";
+
     return NextResponse.json(
       {
         ok: false,
         job: {
           id: job.id,
           status: JobStatus.FAILED,
-          errorMessage: "We could not enhance this image. Please try another photo."
+          errorMessage: safeUserMessage
         },
         ...(process.env.NODE_ENV === "development"
           ? {

@@ -914,7 +914,7 @@ export function HeroUpload({
 
   return (
     <section id="top" className={`relative overflow-hidden bg-cinematic-depth ${
-      workspaceMode ? "pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-3 md:pb-12 md:pt-6" : "pb-8 pt-6 md:pb-20 md:pt-20"
+      workspaceMode ? "pb-[calc(10rem+env(safe-area-inset-bottom))] pt-3 md:pb-12 md:pt-6" : "pb-8 pt-6 md:pb-20 md:pt-20"
     }`}>
       <div className="subtle-grid pointer-events-none absolute inset-x-0 top-0 h-[520px] opacity-50" />
       <div className="pointer-events-none absolute left-1/2 top-20 h-72 w-72 -translate-x-1/2 rounded-full bg-cyan/10 blur-3xl" />
@@ -2050,7 +2050,7 @@ export function HeroUpload({
           </div>
         </div>
         {!isResultMode && !workspaceMode ? (
-          <div className="fixed inset-x-3 bottom-3 z-50 rounded-2xl border border-white/10 bg-[#070b16]/92 p-2 shadow-[0_18px_70px_rgba(0,0,0,.55)] backdrop-blur-xl md:hidden">
+          <div className="fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-50 rounded-2xl border border-white/10 bg-[#070b16]/92 p-2 shadow-[0_18px_70px_rgba(0,0,0,.55)] backdrop-blur-xl md:hidden">
             <div className="flex items-center gap-2">
               <div className="min-w-0 flex-1 px-2">
                 <p className="truncate text-xs font-black text-white">Start with {trialCredits} credits</p>
@@ -2081,7 +2081,7 @@ function MobileStickyAction({
   disabled?: boolean;
 }) {
   return (
-    <div className="fixed inset-x-3 bottom-3 z-50 rounded-2xl border border-white/10 bg-[#070b16]/94 p-2 shadow-[0_18px_70px_rgba(0,0,0,.62)] backdrop-blur-xl md:hidden">
+    <div className="fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-50 rounded-2xl border border-white/10 bg-[#070b16]/94 p-2 shadow-[0_18px_70px_rgba(0,0,0,.62)] backdrop-blur-xl md:hidden">
       <div className="grid grid-cols-[3rem_1fr] gap-2">
         <Link
           href="/"

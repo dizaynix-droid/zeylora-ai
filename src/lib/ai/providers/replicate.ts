@@ -64,19 +64,7 @@ export async function createReplicatePrediction(input: ReplicateCreateInput) {
     hasToken: Boolean(process.env.REPLICATE_API_TOKEN)
   });
 
-  const response = await fetch(`${replicateApiBase}/predictions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${getReplicateToken()}`,
-      "Content-Type": "application/json",
-      Prefer: "wait=10"
-    },
-    body: JSON.stringify(requestBody)
-  });
-
-  if (!response.ok) {
-    throw await createReplicateHttpError("Replicate create failed", response);
-  }
+  const response = await createReplicatePredictionRequest(requestBody);
 
   const prediction = (await response.json()) as ReplicatePrediction;
   debugReplicate("create_prediction_response", summarizePrediction(prediction));
@@ -90,6 +78,50 @@ function createDefaultInput(imageUrl: string) {
     format: "png",
     background_type: "rgba"
   };
+}
+
+async function createReplicatePredictionRequest(requestBody: Record<string, unknown>) {
+  const maxAttempts = 3;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const response = await fetch(`${replicateApiBase}/predictions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${getReplicateToken()}`,
+        "Content-Type": "application/json",
+        Prefer: "wait=10"
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    if (response.ok) {
+      return response;
+    }
+
+    const responseBody = await response.text();
+    const responseJson = parseJsonSafely(responseBody);
+    const retryDelaySeconds = getRetryDelaySeconds(response, responseJson);
+
+    debugReplicate("create_prediction_error", {
+      status: response.status,
+      attempt,
+      retryDelaySeconds,
+      response: responseJson ?? truncate(responseBody, 1200)
+    });
+
+    if (response.status === 429 && retryDelaySeconds !== null && attempt < maxAttempts) {
+      await sleep(Math.min(retryDelaySeconds, 10) * 1000 + 250);
+      continue;
+    }
+
+    throw new ReplicateApiError(`Replicate create failed: ${response.status} ${responseBody}`, {
+      status: response.status,
+      responseBody,
+      responseJson
+    });
+  }
+
+  throw new Error("Replicate create failed after retries.");
 }
 
 export async function getReplicatePrediction(predictionUrl: string) {
@@ -272,6 +304,23 @@ function parseJsonSafely(value: string) {
   } catch {
     return null;
   }
+}
+
+function getRetryDelaySeconds(response: Response, responseJson: unknown) {
+  const header = response.headers.get("retry-after");
+  const headerSeconds = header ? Number(header) : NaN;
+  if (Number.isFinite(headerSeconds) && headerSeconds > 0) {
+    return headerSeconds;
+  }
+
+  if (responseJson && typeof responseJson === "object" && "retry_after" in responseJson) {
+    const retryAfter = Number((responseJson as { retry_after?: unknown }).retry_after);
+    if (Number.isFinite(retryAfter) && retryAfter > 0) {
+      return retryAfter;
+    }
+  }
+
+  return response.status === 429 ? 4 : null;
 }
 
 function truncate(value: string | null | undefined, length: number) {
