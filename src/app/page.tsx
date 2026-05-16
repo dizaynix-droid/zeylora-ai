@@ -20,10 +20,6 @@ const ToolGrid = dynamic(
   () => import("@/components/home/tool-grid").then((mod) => mod.ToolGrid),
   { loading: () => <SectionSkeleton heightClass="min-h-[420px]" /> }
 );
-const EarlyAccess = dynamic(
-  () => import("@/components/home/early-access").then((mod) => mod.EarlyAccess),
-  { loading: () => <SectionSkeleton heightClass="min-h-[280px]" /> }
-);
 const PlatformSections = dynamic(
   () => import("@/components/home/platform-sections").then((mod) => mod.PlatformSections),
   { loading: () => <SectionSkeleton heightClass="min-h-[760px]" /> }
@@ -42,9 +38,8 @@ export default async function HomePage() {
           trialPrice={trialPack?.price ?? 7.99}
         />
         <ResultShowcase />
-        <ToolGrid />
-        <EarlyAccess />
         <PlatformSections />
+        <ToolGrid />
       </main>
       <SiteFooter />
     </>

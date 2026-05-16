@@ -854,21 +854,24 @@ export function HeroUpload({
                 AI Product Photo Editor / Ecommerce Studio
               </p>
               <h1 className="mt-4 max-w-4xl text-[2.45rem] font-black leading-[1.04] tracking-tight text-white min-[390px]:text-[2.65rem] md:mt-5 md:text-6xl lg:text-7xl">
-                Bad product photos <span className="gradient-text">kill conversions</span>.
+                Product photos that look cheap <span className="gradient-text">cost you sales</span>.
               </h1>
               <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-300 md:mt-5 md:text-lg md:leading-8">
-                Turn blurry, dark, amateur product shots into sharper, brighter, marketplace-ready visuals for Shopify, Amazon, Etsy, and TikTok Shop.
+                Upgrade blurry, dark, amateur product shots into premium ecommerce visuals for Shopify, Amazon, Etsy, and TikTok Shop. Start with {trialCredits} credits, pay once, no subscription.
               </p>
 
               <div className="mt-5 flex flex-col gap-2 sm:flex-row md:mt-7 md:gap-3">
-                <Button href="#upload" className="h-12 px-6 text-sm shadow-[0_0_42px_rgba(32,211,255,.28)] md:h-14 md:px-8 md:text-base">
-                  Try your first product
+                <Button href={trialPackUrl} className="h-12 px-6 text-sm shadow-[0_0_42px_rgba(32,211,255,.28)] md:h-14 md:px-8 md:text-base">
+                  Start with {trialCredits} Credits
                   <ArrowRight className="ml-2" size={18} />
                 </Button>
-                <Button href="#examples" variant="secondary" className="h-11 px-5 md:h-12 md:px-6">
-                  View examples
+                <Button href="#upload" variant="secondary" className="h-11 px-5 md:h-12 md:px-6">
+                  Upload product photo
                 </Button>
               </div>
+              <p className="mt-2 text-xs font-bold text-slate-400">
+                ${trialPrice} one-time trial pack. Clean exports use credits. No subscription.
+              </p>
 
               <div className="mt-5 grid gap-2 text-xs text-slate-300 sm:grid-cols-3 md:mt-8 md:gap-3 md:text-sm">
                 {trustItems.map(([label, Icon]) => (
@@ -1113,9 +1116,9 @@ export function HeroUpload({
                 <div className="mx-auto grid size-13 place-items-center rounded-2xl bg-[linear-gradient(135deg,#20D3FF,#8B5CF6)] text-white shadow-glow md:size-16">
                   <ImagePlus size={24} />
                 </div>
-                <h2 className="mt-4 text-xl font-black text-white md:mt-5 md:text-2xl">Upgrade your product photo</h2>
+                <h2 className="mt-4 text-xl font-black text-white md:mt-5 md:text-2xl">Upload one product photo</h2>
                 <p className="mx-auto mt-2 max-w-sm text-xs leading-5 text-slate-300 md:text-sm md:leading-6">
-                  Real processing requires credits. Start with {trialCredits} credits for ${trialPrice} and test your first seller-ready product image.
+                  First, choose a product photo. Processing starts after login and credits, so every run is tied to your dashboard history.
                 </p>
                 <button
                   type="button"
@@ -1144,12 +1147,12 @@ export function HeroUpload({
                   ) : (
                     <>
                       {canRunExistingSource ? <Zap className="mr-2" size={18} /> : <ImagePlus className="mr-2" size={18} />}
-                      {canRunExistingSource ? "Run selected tool" : "Start with image"}
+                      {canRunExistingSource ? "Run selected tool" : "Choose product photo"}
                     </>
                   )}
                 </button>
                 <p className="mt-2 text-[11px] font-black uppercase tracking-[0.18em] text-cyan">
-                  Default: HD Upscale for seller-ready detail
+                  {trialCredits} credits · ${trialPrice} trial · no subscription
                 </p>
                 {uploadedMediaId && inputPreviewUrl ? (
                   <button
@@ -1163,7 +1166,7 @@ export function HeroUpload({
                   </button>
                 ) : null}
                 <p className="mt-3 text-xs font-semibold text-slate-400">
-                  {selectedFileName ? selectedFileName : "Login required before processing. Trial pack starts at $7.99."}
+                  {selectedFileName ? selectedFileName : `Login required before processing. Trial pack starts at $${trialPrice}.`}
                 </p>
               </div>
             )}
@@ -1860,6 +1863,22 @@ export function HeroUpload({
             ) : null}
           </div>
         </div>
+        {!isResultMode ? (
+          <div className="fixed inset-x-3 bottom-3 z-50 rounded-2xl border border-white/10 bg-[#070b16]/92 p-2 shadow-[0_18px_70px_rgba(0,0,0,.55)] backdrop-blur-xl md:hidden">
+            <div className="flex items-center gap-2">
+              <div className="min-w-0 flex-1 px-2">
+                <p className="truncate text-xs font-black text-white">Start with {trialCredits} credits</p>
+                <p className="truncate text-[11px] font-bold text-slate-400">${trialPrice} one-time · no subscription</p>
+              </div>
+              <a
+                href={trialPackUrl}
+                className="inline-flex h-11 shrink-0 items-center justify-center rounded-full bg-zeylora-brand px-4 text-xs font-black text-white shadow-glow"
+              >
+                Get credits
+              </a>
+            </div>
+          </div>
+        ) : null}
       </div>
     </section>
   );
