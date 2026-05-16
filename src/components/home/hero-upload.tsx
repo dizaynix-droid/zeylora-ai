@@ -823,9 +823,98 @@ export function HeroUpload({
     }
   }
 
+  function renderMobileWorkspaceActionBar() {
+    if (!workspaceMode) return null;
+
+    const disabled = status === "uploading" || status === "processing";
+    const filename = getDownloadFilename(
+      selectedToolConfig,
+      appliedMarketplaceCropFormat ?? marketplaceCropFormat,
+      appliedProductShadowPreset ?? productShadowPreset,
+      appliedAiRelightPreset ?? aiRelightPreset,
+      appliedHdUpscalePreset ?? hdUpscalePreset
+    );
+
+    if (status === "succeeded" && resultPreviewUrl) {
+      if (hasPendingQualityMode) {
+        return <MobileStickyAction label={`Apply ${getQualityModeLabel(qualityMode)}`} onClick={() => void applyQualityMode()} />;
+      }
+      if (hasPendingMarketplaceFormat) {
+        return <MobileStickyAction label={`Apply ${getMarketplaceCropFormatShortLabel(marketplaceCropFormat)}`} onClick={() => void applyMarketplaceFormat()} />;
+      }
+      if (hasPendingProductShadowPreset) {
+        return <MobileStickyAction label={`Apply ${getProductShadowPresetShortLabel(productShadowPreset)}`} onClick={() => void applyProductShadowPreset()} />;
+      }
+      if (hasPendingAiRelightPreset) {
+        return <MobileStickyAction label={`Apply ${getAiRelightPresetShortLabel(aiRelightPreset)}`} onClick={() => void applyAiRelightPreset()} />;
+      }
+      if (hasPendingHdUpscalePreset) {
+        return <MobileStickyAction label={`Apply ${getHdUpscalePresetShortLabel(hdUpscalePreset)}`} onClick={() => void applyHdUpscalePreset()} />;
+      }
+      if (hasPendingObjectRemoval) {
+        return <MobileStickyAction label="Apply cleanup" onClick={() => void applyObjectRemoval()} disabled={!objectRemovalPrompt.trim()} />;
+      }
+
+      return (
+        <div className="fixed inset-x-3 bottom-3 z-50 rounded-2xl border border-white/10 bg-[#070b16]/94 p-2 shadow-[0_18px_70px_rgba(0,0,0,.62)] backdrop-blur-xl md:hidden">
+          <div className="grid grid-cols-[3rem_1fr_auto] gap-2">
+            <Link
+              href="/"
+              aria-label="Back to homepage"
+              className="inline-flex h-12 items-center justify-center rounded-full border border-white/15 text-white transition hover:bg-white/10"
+            >
+              <Home size={18} />
+            </Link>
+            {jobId ? (
+              <CleanExportButton
+                jobId={jobId}
+                creditsRequired={selectedEconomy.creditCost}
+                initialUnlocked
+                filename={filename}
+                className="inline-flex h-12 items-center justify-center rounded-full bg-zeylora-brand px-4 text-sm font-black text-white shadow-glow"
+              />
+            ) : (
+              <DownloadResultButton
+                href={resultPreviewUrl}
+                filename={filename}
+                label="Download"
+                className="inline-flex h-12 items-center justify-center rounded-full bg-zeylora-brand px-4 text-sm font-black text-white shadow-glow"
+              />
+            )}
+            <DownloadResultButton
+              href={jobId ? `/api/v1/jobs/${jobId}/download` : resultPreviewUrl}
+              filename={filename}
+              label="Preview"
+              className="inline-flex h-12 items-center justify-center rounded-full border border-white/15 px-4 text-xs font-black text-white"
+            />
+          </div>
+        </div>
+      );
+    }
+
+    if (uploadedMediaId) {
+      const needsObjectPrompt = selectedTool === "object-remover" && !objectRemovalPrompt.trim();
+      return (
+        <MobileStickyAction
+          label={needsObjectPrompt ? "Describe cleanup first" : disabled ? selectedToolConfig.processingLabel : `Run ${selectedToolConfig.name}`}
+          onClick={() => void runCurrentToolAgain()}
+          disabled={disabled || needsObjectPrompt}
+        />
+      );
+    }
+
+    return (
+      <MobileStickyAction
+        label="Choose product photo"
+        onClick={() => fileInputRef.current?.click()}
+        disabled={disabled}
+      />
+    );
+  }
+
   return (
     <section id="top" className={`relative overflow-hidden bg-cinematic-depth ${
-      workspaceMode ? "pb-8 pt-3 md:pb-12 md:pt-6" : "pb-8 pt-6 md:pb-20 md:pt-20"
+      workspaceMode ? "pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-3 md:pb-12 md:pt-6" : "pb-8 pt-6 md:pb-20 md:pt-20"
     }`}>
       <div className="subtle-grid pointer-events-none absolute inset-x-0 top-0 h-[520px] opacity-50" />
       <div className="pointer-events-none absolute left-1/2 top-20 h-72 w-72 -translate-x-1/2 rounded-full bg-cyan/10 blur-3xl" />
@@ -1498,6 +1587,26 @@ export function HeroUpload({
                 <p className="mt-2 text-xs font-semibold leading-5 text-slate-400">
                   Ecommerce cleanup for visible text, labels, logos, cables, props, stains, dust, and distracting background items. Be specific about what should disappear. Avoid people, identity documents, adult content, or unsafe edits.
                 </p>
+                {workspaceMode && uploadedMediaId ? (
+                  <button
+                    type="button"
+                    disabled={status === "uploading" || status === "processing" || !objectRemovalPrompt.trim()}
+                    onClick={() => void runCurrentToolAgain()}
+                    className="mt-3 inline-flex h-12 w-full items-center justify-center rounded-full bg-zeylora-brand px-4 text-sm font-black text-white shadow-glow transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-55"
+                  >
+                    {status === "uploading" || status === "processing" ? (
+                      <>
+                        <Loader2 className="mr-2 animate-spin" size={18} />
+                        {selectedToolConfig.processingLabel}
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="mr-2" size={18} />
+                        {objectRemovalPrompt.trim() ? "Run cleanup" : "Describe cleanup first"}
+                      </>
+                    )}
+                  </button>
+                ) : null}
                 {hasPendingObjectRemoval && appliedObjectRemovalPrompt ? (
                   <p className="mt-2 rounded-xl border border-warning/25 bg-warning/10 p-3 text-xs font-semibold leading-5 text-slate-200">
                     Current download uses “{appliedObjectRemovalPrompt}”. Apply the new cleanup request to generate a fresh export.
@@ -1956,8 +2065,42 @@ export function HeroUpload({
             </div>
           </div>
         ) : null}
+        {renderMobileWorkspaceActionBar()}
       </div>
     </section>
+  );
+}
+
+function MobileStickyAction({
+  label,
+  onClick,
+  disabled = false
+}: {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="fixed inset-x-3 bottom-3 z-50 rounded-2xl border border-white/10 bg-[#070b16]/94 p-2 shadow-[0_18px_70px_rgba(0,0,0,.62)] backdrop-blur-xl md:hidden">
+      <div className="grid grid-cols-[3rem_1fr] gap-2">
+        <Link
+          href="/"
+          aria-label="Back to homepage"
+          className="inline-flex h-12 items-center justify-center rounded-full border border-white/15 text-white transition hover:bg-white/10"
+        >
+          <Home size={18} />
+        </Link>
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={onClick}
+          className="inline-flex h-12 w-full items-center justify-center rounded-full bg-zeylora-brand px-4 text-sm font-black text-white shadow-glow transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-55"
+        >
+          {disabled ? null : <Zap className="mr-2" size={18} />}
+          {label}
+        </button>
+      </div>
+    </div>
   );
 }
 
