@@ -179,6 +179,22 @@ export async function POST(request: Request, context: RouteContext) {
         credits: requiredCredits
       });
     }
+    if (job.tool.slug === "ai-background-replacer") {
+      trackServerEvent(trackingEvents.firstBackgroundReplacerExport, {
+        userId: user.id,
+        tool: job.tool.slug,
+        jobId: job.id,
+        credits: requiredCredits
+      });
+    }
+    if (job.tool.slug === "ai-ad-creative-generator") {
+      trackServerEvent(trackingEvents.firstAdCreativeExport, {
+        userId: user.id,
+        tool: job.tool.slug,
+        jobId: job.id,
+        credits: requiredCredits
+      });
+    }
   }
 
   const downloadUrl = await createResultDownloadUrl(cleanStorageKey, filename);

@@ -72,5 +72,7 @@ function getHomeToolMode(slug: string): HomeToolMode {
   if (slug === "product-shadow") return "product-shadow";
   if (slug === "ai-relight") return "ai-relight";
   if (slug === "object-remover") return "object-remover";
+  if (slug === "ai-background-replacer") return "ai-background-replacer";
+  if (slug === "ai-ad-creative-generator") return "ai-ad-creative-generator";
   return "hd-upscale";
 }

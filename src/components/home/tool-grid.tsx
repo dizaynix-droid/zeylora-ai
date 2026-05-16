@@ -9,6 +9,8 @@ const launchToolOrder = [
   "ai-relight",
   "ai-photo-enhancer",
   "object-remover",
+  "ai-background-replacer",
+  "ai-ad-creative-generator",
   "marketplace-crop",
   "background-remover",
   "product-shadow"
@@ -17,6 +19,8 @@ const launchToolOrder = [
 const toolBadges: Partial<Record<(typeof launchToolOrder)[number], { label: string; tone: "primary" | "popular" | "creative" }>> = {
   "hd-upscale": { label: "Recommended", tone: "primary" },
   "ai-relight": { label: "Popular", tone: "popular" },
+  "ai-background-replacer": { label: "New", tone: "primary" },
+  "ai-ad-creative-generator": { label: "Marketing", tone: "popular" },
   "product-shadow": { label: "Beta look", tone: "creative" }
 };
 
@@ -25,6 +29,8 @@ const toolPositioning: Partial<Record<(typeof launchToolOrder)[number], string>>
   "ai-relight": "Seller-friendly lighting polish with Luxury Glow as the standout preset.",
   "ai-photo-enhancer": "Premium catalog polish for cosmetics, perfume, and product detail shots.",
   "object-remover": "Cleanup tool for cables, props, stains, dust, and distracting background items.",
+  "ai-background-replacer": "Replace boring backgrounds with premium studio, marble, skincare, and ecommerce scenes.",
+  "ai-ad-creative-generator": "Turn a product photo into campaign-ready visuals for ads, stories, banners, and launches.",
   "marketplace-crop": "Stable ecommerce utility with a strong white-frame marketplace preset.",
   "background-remover": "Useful cutout workflow for objects and clean foregrounds.",
   "product-shadow": "Creative shadow styling for launch; best with clean cutouts."
@@ -35,6 +41,8 @@ const toolVisuals: Partial<Record<(typeof launchToolOrder)[number], string>> = {
   "ai-relight": "/showcase/ai-relight-after.png",
   "ai-photo-enhancer": "/showcase/photo-enhancer-after.png",
   "object-remover": "/showcase/background-remover-after.png",
+  "ai-background-replacer": "/showcase/ai-relight-after.png",
+  "ai-ad-creative-generator": "/showcase/photo-enhancer-after.png",
   "marketplace-crop": "/showcase/marketplace-crop-after.png",
   "background-remover": "/showcase/background-remover-after.png",
   "product-shadow": "/showcase/product-shadow-after.png"
@@ -56,7 +64,7 @@ export function ToolGrid() {
             </h2>
           </div>
           <p className="max-w-md text-sm leading-6 text-slate-300">
-            HD Upscale, AI Relight, and Photo Enhancer are the premium launch workflows. Crop, cutout, and creative shadow tools support the full seller production flow.
+            HD Upscale, AI Relight, and Photo Enhancer are the premium launch workflows. Background replacement, ad creatives, cleanup, crop, and cutout tools support the full seller production flow.
           </p>
         </div>
 

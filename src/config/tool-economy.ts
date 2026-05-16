@@ -224,6 +224,73 @@ export const TOOL_ECONOMY_TIERS: ToolEconomyTier[] = [
     badge: "Pro cleanup",
     description: "Higher-credit object removal tier for more demanding product cleanup jobs.",
     fallbackProviderKeys: []
+  },
+  {
+    toolSlug: "ai-background-replacer",
+    toolKey: "ai-background-replacer",
+    publicName: "AI Background Replacer",
+    internalKey: "ai-background-replacer-standard",
+    qualityTier: "standard",
+    providerKey: "replicate",
+    creditCost: 4,
+    estimatedProviderCost: 0.12,
+    providerCurrency: "usd",
+    featured: true,
+    displayOrder: 80,
+    badge: "New",
+    description: "Replace boring product backgrounds with premium ecommerce studio and lifestyle scenes.",
+    fallbackProviderKeys: []
+  },
+  {
+    toolSlug: "ai-background-replacer",
+    toolKey: "ai-background-replacer",
+    publicName: "AI Background Replacer Pro",
+    internalKey: "ai-background-replacer-pro",
+    qualityTier: "pro",
+    providerKey: "replicate",
+    creditCost: 7,
+    estimatedProviderCost: 0.2,
+    providerCurrency: "usd",
+    featured: true,
+    highQuality: true,
+    displayOrder: 81,
+    badge: "Pro scene",
+    description: "Higher-credit background replacement tier for premium studio/lifestyle ecommerce scenes.",
+    fallbackProviderKeys: []
+  },
+  {
+    toolSlug: "ai-ad-creative-generator",
+    toolKey: "ai-ad-creative-generator",
+    publicName: "AI Ad Creative Generator",
+    internalKey: "ai-ad-creative-generator-standard",
+    qualityTier: "standard",
+    providerKey: "replicate",
+    creditCost: 6,
+    estimatedProviderCost: 0.16,
+    providerCurrency: "usd",
+    featured: true,
+    recommended: true,
+    displayOrder: 90,
+    badge: "Marketing",
+    description: "Turn product photos into ready-to-use ecommerce ad creatives for social and storefront campaigns.",
+    fallbackProviderKeys: []
+  },
+  {
+    toolSlug: "ai-ad-creative-generator",
+    toolKey: "ai-ad-creative-generator",
+    publicName: "AI Ad Creative Generator Pro",
+    internalKey: "ai-ad-creative-generator-pro",
+    qualityTier: "pro",
+    providerKey: "replicate",
+    creditCost: 10,
+    estimatedProviderCost: 0.28,
+    providerCurrency: "usd",
+    featured: true,
+    highQuality: true,
+    displayOrder: 91,
+    badge: "Pro ad",
+    description: "Higher-credit ad creative tier for premium campaign visuals and stronger marketing compositions.",
+    fallbackProviderKeys: []
   }
 ];
 
@@ -285,6 +352,16 @@ function resolveInternalKey(input: {
   if (input.toolSlug === "object-remover") {
     if (input.qualityMode === "pro" || input.preset === "pro") return "object-remover-pro";
     return "object-remover-standard";
+  }
+
+  if (input.toolSlug === "ai-background-replacer") {
+    if (input.qualityMode === "pro" || input.preset === "pro") return "ai-background-replacer-pro";
+    return "ai-background-replacer-standard";
+  }
+
+  if (input.toolSlug === "ai-ad-creative-generator") {
+    if (input.qualityMode === "pro" || input.preset === "pro") return "ai-ad-creative-generator-pro";
+    return "ai-ad-creative-generator-standard";
   }
 
   if (input.toolSlug === "ai-photo-enhancer") return "photo-enhancer-pro";

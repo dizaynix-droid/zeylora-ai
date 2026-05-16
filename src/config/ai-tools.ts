@@ -83,6 +83,23 @@ export type MarketplaceCropFormat = "square" | "portrait" | "story" | "horizonta
 export type ProductShadowPreset = "soft-studio" | "floating-shadow" | "luxury-catalog" | "soft-floor";
 export type AiRelightPreset = "soft-studio-light" | "luxury-glow" | "bright-catalog" | "dramatic-product-light";
 export type ObjectRemovalQualityMode = "standard" | "pro";
+export type AiBackgroundReplacerStyle =
+  | "white-studio"
+  | "luxury-marble"
+  | "dark-premium"
+  | "soft-skincare"
+  | "minimal-ecommerce"
+  | "tiktok-shop"
+  | "custom";
+export type AiAdCreativeFormat = "square" | "vertical" | "story" | "landscape" | "shopify-banner";
+export type AiAdCreativeStyle =
+  | "clean-ecommerce"
+  | "luxury-product-ad"
+  | "bold-sale-promo"
+  | "minimal-premium"
+  | "tiktok-shop"
+  | "dark-saas-tech";
+export type GenerativeQualityMode = "standard" | "pro";
 
 export const marketplaceCropConfig = {
   toolKey: "marketplace-crop",
@@ -192,6 +209,99 @@ export const objectRemoverConfig = {
   pollIntervalSeconds: Number(process.env.AI_JOB_POLL_INTERVAL_SECONDS || 2),
   maxRetries: Number(process.env.AI_OBJECT_REMOVER_MAX_RETRIES || process.env.AI_JOB_MAX_RETRIES || 1),
   promptMaxLength: 240
+} as const;
+
+export const aiBackgroundReplacerConfig = {
+  toolKey: "ai-background-replacer",
+  slug: "ai-background-replacer",
+  category: "ecommerce",
+  creditCost: 4,
+  proCreditCost: 7,
+  providerKey: "replicate",
+  model: process.env.AI_BACKGROUND_REPLACER_MODEL || "black-forest-labs/flux-kontext-pro",
+  proModel: process.env.AI_BACKGROUND_REPLACER_PRO_MODEL || process.env.AI_BACKGROUND_REPLACER_MODEL || "black-forest-labs/flux-kontext-pro",
+  timeoutSeconds: Number(process.env.AI_BACKGROUND_REPLACER_TIMEOUT_SECONDS || process.env.AI_JOB_TIMEOUT_SECONDS || 150),
+  pollIntervalSeconds: Number(process.env.AI_JOB_POLL_INTERVAL_SECONDS || 2),
+  maxRetries: Number(process.env.AI_BACKGROUND_REPLACER_MAX_RETRIES || process.env.AI_JOB_MAX_RETRIES || 1),
+  promptMaxLength: 320,
+  styles: {
+    "white-studio": {
+      label: "White Studio",
+      prompt: "Replace the background with a clean bright white ecommerce studio scene. Keep the product unchanged, sharp, centered, and marketplace-ready."
+    },
+    "luxury-marble": {
+      label: "Luxury Marble",
+      prompt: "Replace the background with a premium luxury marble studio scene with soft reflections and elegant cosmetic/perfume catalog lighting. Keep the product unchanged."
+    },
+    "dark-premium": {
+      label: "Dark Premium",
+      prompt: "Replace the background with a dark premium studio scene, subtle gradients, high-end product lighting, and clean ecommerce composition. Keep the product unchanged."
+    },
+    "soft-skincare": {
+      label: "Soft Skincare",
+      prompt: "Replace the background with a soft skincare/cosmetics studio scene, pastel tones, gentle shadows, and clean premium ecommerce styling. Keep the product unchanged."
+    },
+    "minimal-ecommerce": {
+      label: "Minimal Ecommerce",
+      prompt: "Replace the background with a minimal ecommerce studio scene, uncluttered product focus, soft neutral surface, and clean catalog lighting. Keep the product unchanged."
+    },
+    "tiktok-shop": {
+      label: "TikTok Shop Style",
+      prompt: "Replace the background with a bright mobile-first TikTok Shop style ecommerce scene, clean energetic lighting, and ad-ready product focus. Keep the product unchanged."
+    },
+    custom: {
+      label: "Custom Prompt",
+      prompt: ""
+    }
+  } satisfies Record<string, { label: string; prompt: string }>
+} as const;
+
+export const aiAdCreativeConfig = {
+  toolKey: "ai-ad-creative-generator",
+  slug: "ai-ad-creative-generator",
+  category: "ecommerce",
+  creditCost: 6,
+  proCreditCost: 10,
+  providerKey: "replicate",
+  model: process.env.AI_AD_CREATIVE_MODEL || "black-forest-labs/flux-kontext-pro",
+  proModel: process.env.AI_AD_CREATIVE_PRO_MODEL || process.env.AI_AD_CREATIVE_MODEL || "black-forest-labs/flux-kontext-pro",
+  timeoutSeconds: Number(process.env.AI_AD_CREATIVE_TIMEOUT_SECONDS || process.env.AI_JOB_TIMEOUT_SECONDS || 150),
+  pollIntervalSeconds: Number(process.env.AI_JOB_POLL_INTERVAL_SECONDS || 2),
+  maxRetries: Number(process.env.AI_AD_CREATIVE_MAX_RETRIES || process.env.AI_JOB_MAX_RETRIES || 1),
+  promptMaxLength: 360,
+  formats: {
+    square: { label: "Square 1:1", aspectRatio: "1:1", width: 1600, height: 1600 },
+    vertical: { label: "Vertical 9:16", aspectRatio: "9:16", width: 1440, height: 2560 },
+    story: { label: "Story/Reels", aspectRatio: "9:16", width: 1440, height: 2560 },
+    landscape: { label: "Landscape 1.91:1", aspectRatio: "1.91:1", width: 1910, height: 1000 },
+    "shopify-banner": { label: "Shopify Banner", aspectRatio: "16:9", width: 1920, height: 1080 }
+  } satisfies Record<string, { label: string; aspectRatio: string; width: number; height: number }>,
+  styles: {
+    "clean-ecommerce": {
+      label: "Clean Ecommerce",
+      prompt: "Create a clean ecommerce ad creative with bright product focus, premium negative space, and marketplace-ready styling."
+    },
+    "luxury-product-ad": {
+      label: "Luxury Product Ad",
+      prompt: "Create a luxury product ad creative with premium lighting, elegant background, high-end composition, and refined ecommerce styling."
+    },
+    "bold-sale-promo": {
+      label: "Bold Sale Promo",
+      prompt: "Create a bold sale promo ad creative with energetic composition, clean readable space for offer text, and strong product focus."
+    },
+    "minimal-premium": {
+      label: "Minimal Premium",
+      prompt: "Create a minimal premium ad creative with clean composition, subtle studio background, and upscale product presentation."
+    },
+    "tiktok-shop": {
+      label: "TikTok Shop",
+      prompt: "Create a mobile-first TikTok Shop ad creative with bright product focus, social commerce styling, and clean promotional layout."
+    },
+    "dark-saas-tech": {
+      label: "Dark SaaS/Tech",
+      prompt: "Create a dark premium tech/SaaS style product ad with clean contrast, refined glow, and modern conversion-focused composition."
+    }
+  } satisfies Record<string, { label: string; prompt: string }>
 } as const;
 
 export function getBackgroundRemovalAttempts(mode: BackgroundRemovalQualityMode): BackgroundRemovalAttempt[] {

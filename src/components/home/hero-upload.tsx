@@ -34,8 +34,12 @@ type ProductShadowPreset = "soft-studio" | "floating-shadow" | "luxury-catalog" 
 type AiRelightPreset = "soft-studio-light" | "luxury-glow" | "bright-catalog" | "dramatic-product-light";
 type HdUpscalePreset = "2x-hd" | "4x-ultra" | "sharp-catalog" | "social-cleanup";
 type ObjectRemovalQualityMode = "standard" | "pro";
+type GenerativeQualityMode = "standard" | "pro";
+type AiBackgroundReplacerStyle = "white-studio" | "luxury-marble" | "dark-premium" | "soft-skincare" | "minimal-ecommerce" | "tiktok-shop" | "custom";
+type AiAdCreativeFormat = "square" | "vertical" | "story" | "landscape" | "shopify-banner";
+type AiAdCreativeStyle = "clean-ecommerce" | "luxury-product-ad" | "bold-sale-promo" | "minimal-premium" | "tiktok-shop" | "dark-saas-tech";
 type ResultRating = "looks_good" | "needs_improvement";
-export type HomeToolMode = "background-remover" | "photo-enhancer" | "marketplace-crop" | "product-shadow" | "ai-relight" | "hd-upscale" | "object-remover";
+export type HomeToolMode = "background-remover" | "photo-enhancer" | "marketplace-crop" | "product-shadow" | "ai-relight" | "hd-upscale" | "object-remover" | "ai-background-replacer" | "ai-ad-creative-generator";
 
 type UploadResponse = {
   ok: boolean;
@@ -124,6 +128,30 @@ const homeToolOptions: Array<{
     resultNote: "Remove distracting objects, cables, props, stains, and dust from product photos. Best results come from clear product shots and specific cleanup descriptions."
   },
   {
+    key: "ai-background-replacer",
+    name: "AI Background Replacer",
+    badge: "New",
+    endpoint: "/api/v1/jobs/ai-background-replacer",
+    processingLabel: "Replacing background...",
+    creditCost: 4,
+    downloadLabel: "Download PNG",
+    downloadFilename: "zeylora-background-replacer.png",
+    successMessage: "Premium background created successfully",
+    resultNote: "Replace boring product backgrounds with premium studio, marble, skincare, and ecommerce lifestyle scenes. Keep product prompts specific for best results."
+  },
+  {
+    key: "ai-ad-creative-generator",
+    name: "AI Ad Creative Generator",
+    badge: "Marketing",
+    endpoint: "/api/v1/jobs/ai-ad-creative-generator",
+    processingLabel: "Generating ad creative...",
+    creditCost: 6,
+    downloadLabel: "Download PNG",
+    downloadFilename: "zeylora-ad-creative.png",
+    successMessage: "Ad creative generated successfully",
+    resultNote: "Generate ready-to-use ecommerce ad creatives for Instagram, Facebook, TikTok Shop, Shopify banners, and product launch campaigns. Keep text short for cleaner results."
+  },
+  {
     key: "marketplace-crop",
     name: "Marketplace Crop",
     endpoint: "/api/v1/jobs/marketplace-crop",
@@ -204,6 +232,33 @@ const hdUpscalePresets: Array<{
   { value: "social-cleanup", label: "Social Cleanup", shortLabel: "Social" }
 ];
 
+const backgroundReplacerStyles: Array<{ value: AiBackgroundReplacerStyle; label: string; shortLabel: string }> = [
+  { value: "white-studio", label: "White Studio", shortLabel: "White" },
+  { value: "luxury-marble", label: "Luxury Marble", shortLabel: "Marble" },
+  { value: "dark-premium", label: "Dark Premium", shortLabel: "Dark" },
+  { value: "soft-skincare", label: "Soft Skincare", shortLabel: "Skincare" },
+  { value: "minimal-ecommerce", label: "Minimal Ecommerce", shortLabel: "Minimal" },
+  { value: "tiktok-shop", label: "TikTok Shop Style", shortLabel: "TikTok" },
+  { value: "custom", label: "Custom Prompt", shortLabel: "Custom" }
+];
+
+const adCreativeFormats: Array<{ value: AiAdCreativeFormat; label: string; shortLabel: string }> = [
+  { value: "square", label: "Square 1:1", shortLabel: "1:1" },
+  { value: "vertical", label: "Vertical 9:16", shortLabel: "9:16" },
+  { value: "story", label: "Story/Reels", shortLabel: "Story" },
+  { value: "landscape", label: "Landscape 1.91:1", shortLabel: "Wide" },
+  { value: "shopify-banner", label: "Shopify Banner", shortLabel: "Banner" }
+];
+
+const adCreativeStyles: Array<{ value: AiAdCreativeStyle; label: string; shortLabel: string }> = [
+  { value: "clean-ecommerce", label: "Clean Ecommerce", shortLabel: "Clean" },
+  { value: "luxury-product-ad", label: "Luxury Product Ad", shortLabel: "Luxury" },
+  { value: "bold-sale-promo", label: "Bold Sale Promo", shortLabel: "Sale" },
+  { value: "minimal-premium", label: "Minimal Premium", shortLabel: "Minimal" },
+  { value: "tiktok-shop", label: "TikTok Shop", shortLabel: "TikTok" },
+  { value: "dark-saas-tech", label: "Dark SaaS/Tech", shortLabel: "Dark" }
+];
+
 const trialPackUrl = "/pricing?trial=1";
 
 export function HeroUpload({
@@ -242,6 +297,21 @@ export function HeroUpload({
   const [appliedObjectRemovalQualityMode, setAppliedObjectRemovalQualityMode] = useState<ObjectRemovalQualityMode | null>(null);
   const [objectRemovalPrompt, setObjectRemovalPrompt] = useState("");
   const [appliedObjectRemovalPrompt, setAppliedObjectRemovalPrompt] = useState<string | null>(null);
+  const [backgroundReplacerStyle, setBackgroundReplacerStyle] = useState<AiBackgroundReplacerStyle>("luxury-marble");
+  const [backgroundReplacerQualityMode, setBackgroundReplacerQualityMode] = useState<GenerativeQualityMode>("standard");
+  const [backgroundReplacerCustomPrompt, setBackgroundReplacerCustomPrompt] = useState("");
+  const [appliedBackgroundReplacerStyle, setAppliedBackgroundReplacerStyle] = useState<AiBackgroundReplacerStyle | null>(null);
+  const [appliedBackgroundReplacerQualityMode, setAppliedBackgroundReplacerQualityMode] = useState<GenerativeQualityMode | null>(null);
+  const [appliedBackgroundReplacerCustomPrompt, setAppliedBackgroundReplacerCustomPrompt] = useState<string | null>(null);
+  const [adCreativeFormat, setAdCreativeFormat] = useState<AiAdCreativeFormat>("square");
+  const [adCreativeStyle, setAdCreativeStyle] = useState<AiAdCreativeStyle>("luxury-product-ad");
+  const [adCreativeQualityMode, setAdCreativeQualityMode] = useState<GenerativeQualityMode>("standard");
+  const [adCreativeHeadline, setAdCreativeHeadline] = useState("");
+  const [adCreativeOffer, setAdCreativeOffer] = useState("");
+  const [adCreativeCta, setAdCreativeCta] = useState("");
+  const [appliedAdCreativeFormat, setAppliedAdCreativeFormat] = useState<AiAdCreativeFormat | null>(null);
+  const [appliedAdCreativeStyle, setAppliedAdCreativeStyle] = useState<AiAdCreativeStyle | null>(null);
+  const [appliedAdCreativeQualityMode, setAppliedAdCreativeQualityMode] = useState<GenerativeQualityMode | null>(null);
   const [selectedTool, setSelectedTool] = useState<HomeToolMode>(initialTool);
   const [rating, setRating] = useState<ResultRating | null>(null);
   const hasActivePreview = Boolean(inputPreviewUrl || resultPreviewUrl || status === "failed");
@@ -251,11 +321,17 @@ export function HeroUpload({
   const selectedEconomy = useMemo(
     () => resolveToolEconomy({
       toolSlug: getEconomyToolSlug(selectedTool),
-      qualityMode: selectedTool === "object-remover" ? objectRemovalQualityMode : qualityMode,
+      qualityMode: selectedTool === "object-remover"
+        ? objectRemovalQualityMode
+        : selectedTool === "ai-background-replacer"
+          ? backgroundReplacerQualityMode
+          : selectedTool === "ai-ad-creative-generator"
+            ? adCreativeQualityMode
+            : qualityMode,
       preset: getEconomyPreset(selectedTool, marketplaceCropFormat, productShadowPreset, aiRelightPreset, hdUpscalePreset),
       providerKey: selectedTool === "background-remover" && qualityMode === "high" ? "photoroom" : undefined
     }),
-    [aiRelightPreset, hdUpscalePreset, marketplaceCropFormat, objectRemovalQualityMode, productShadowPreset, qualityMode, selectedTool]
+    [adCreativeQualityMode, aiRelightPreset, backgroundReplacerQualityMode, hdUpscalePreset, marketplaceCropFormat, objectRemovalQualityMode, productShadowPreset, qualityMode, selectedTool]
   );
   const canRunExistingSource = Boolean(
     uploadedMediaId &&
@@ -295,10 +371,24 @@ export function HeroUpload({
     Boolean(appliedObjectRemovalPrompt) &&
     (appliedObjectRemovalPrompt !== objectRemovalPrompt.trim() ||
       appliedObjectRemovalQualityMode !== objectRemovalQualityMode);
+  const hasPendingBackgroundReplacer =
+    selectedTool === "ai-background-replacer" &&
+    status === "succeeded" &&
+    Boolean(appliedBackgroundReplacerStyle) &&
+    (appliedBackgroundReplacerStyle !== backgroundReplacerStyle ||
+      appliedBackgroundReplacerQualityMode !== backgroundReplacerQualityMode ||
+      appliedBackgroundReplacerCustomPrompt !== backgroundReplacerCustomPrompt.trim());
+  const hasPendingAdCreative =
+    selectedTool === "ai-ad-creative-generator" &&
+    status === "succeeded" &&
+    Boolean(appliedAdCreativeFormat) &&
+    (appliedAdCreativeFormat !== adCreativeFormat ||
+      appliedAdCreativeStyle !== adCreativeStyle ||
+      appliedAdCreativeQualityMode !== adCreativeQualityMode);
 
   const trustItems: Array<[string, LucideIcon]> = [
     ["Private signed downloads", ShieldCheck],
-    ["Seven studio workflows", Zap],
+    ["Nine studio workflows", Zap],
     ["Saved dashboard history", ImagePlus]
   ];
 
@@ -336,6 +426,12 @@ export function HeroUpload({
     setAppliedHdUpscalePreset(null);
     setAppliedObjectRemovalQualityMode(null);
     setAppliedObjectRemovalPrompt(null);
+    setAppliedBackgroundReplacerStyle(null);
+    setAppliedBackgroundReplacerQualityMode(null);
+    setAppliedBackgroundReplacerCustomPrompt(null);
+    setAppliedAdCreativeFormat(null);
+    setAppliedAdCreativeStyle(null);
+    setAppliedAdCreativeQualityMode(null);
     setRating(null);
     trackEvent({
       event: trackingEvents.uploadStarted,
@@ -394,6 +490,18 @@ export function HeroUpload({
           }
         });
       }
+      if (selectedTool === "ai-background-replacer") {
+        trackEvent({
+          event: trackingEvents.backgroundReplacerUpload,
+          properties: { mediaId: uploadJson.media.id, fileType: file.type, fileSize: file.size }
+        });
+      }
+      if (selectedTool === "ai-ad-creative-generator") {
+        trackEvent({
+          event: trackingEvents.adCreativeUpload,
+          properties: { mediaId: uploadJson.media.id, fileType: file.type, fileSize: file.size }
+        });
+      }
       await runToolJob({
         inputMediaId: uploadJson.media.id,
         tool: selectedTool,
@@ -401,7 +509,12 @@ export function HeroUpload({
         shadowPreset: productShadowPreset,
         relightPreset: aiRelightPreset,
         upscalePreset: hdUpscalePreset,
-        quality: qualityMode
+        quality: qualityMode,
+        backgroundStyle: backgroundReplacerStyle,
+        backgroundQuality: backgroundReplacerQualityMode,
+        adFormat: adCreativeFormat,
+        adStyle: adCreativeStyle,
+        adQuality: adCreativeQualityMode
       });
     } catch (error) {
       setStatus("failed");
@@ -417,6 +530,11 @@ export function HeroUpload({
     relightPreset: AiRelightPreset;
     upscalePreset: HdUpscalePreset;
     quality: QualityMode;
+    backgroundStyle?: AiBackgroundReplacerStyle;
+    backgroundQuality?: GenerativeQualityMode;
+    adFormat?: AiAdCreativeFormat;
+    adStyle?: AiAdCreativeStyle;
+    adQuality?: GenerativeQualityMode;
   }) {
     if (!workspaceMode) {
       window.location.href = `/tools/${getToolPageSlug(input.tool)}`;
@@ -438,6 +556,11 @@ export function HeroUpload({
     const requestId = jobRequestRef.current + 1;
     jobRequestRef.current = requestId;
     const toolConfig = homeToolOptions.find((tool) => tool.key === input.tool) ?? homeToolOptions[0];
+    const nextBackgroundStyle = input.backgroundStyle ?? backgroundReplacerStyle;
+    const nextBackgroundQuality = input.backgroundQuality ?? backgroundReplacerQualityMode;
+    const nextAdFormat = input.adFormat ?? adCreativeFormat;
+    const nextAdStyle = input.adStyle ?? adCreativeStyle;
+    const nextAdQuality = input.adQuality ?? adCreativeQualityMode;
 
     setStatus("processing");
     setResultPreviewUrl(null);
@@ -451,6 +574,12 @@ export function HeroUpload({
     setAppliedHdUpscalePreset(null);
     setAppliedObjectRemovalQualityMode(null);
     setAppliedObjectRemovalPrompt(null);
+    setAppliedBackgroundReplacerStyle(null);
+    setAppliedBackgroundReplacerQualityMode(null);
+    setAppliedBackgroundReplacerCustomPrompt(null);
+    setAppliedAdCreativeFormat(null);
+    setAppliedAdCreativeStyle(null);
+    setAppliedAdCreativeQualityMode(null);
     trackEvent({
       event: trackingEvents.jobStarted,
       properties: {
@@ -461,7 +590,12 @@ export function HeroUpload({
         relightPreset: input.relightPreset,
         upscalePreset: input.upscalePreset,
         removalPrompt: input.tool === "object-remover" ? objectRemovalPrompt.trim() : undefined,
-        objectRemovalQualityMode
+        objectRemovalQualityMode,
+        backgroundStyle: nextBackgroundStyle,
+        backgroundQuality: nextBackgroundQuality,
+        adFormat: nextAdFormat,
+        adStyle: nextAdStyle,
+        adQuality: nextAdQuality
       }
     });
 
@@ -479,6 +613,23 @@ export function HeroUpload({
         ...(input.tool === "hd-upscale" ? { upscalePreset: input.upscalePreset } : {}),
         ...(input.tool === "object-remover"
           ? { removalPrompt: objectRemovalPrompt.trim(), qualityMode: objectRemovalQualityMode }
+          : {}),
+        ...(input.tool === "ai-background-replacer"
+          ? {
+              backgroundStyle: nextBackgroundStyle,
+              customPrompt: backgroundReplacerCustomPrompt.trim(),
+              qualityMode: nextBackgroundQuality
+            }
+          : {}),
+        ...(input.tool === "ai-ad-creative-generator"
+          ? {
+              creativeFormat: nextAdFormat,
+              creativeStyle: nextAdStyle,
+              headline: adCreativeHeadline.trim(),
+              offer: adCreativeOffer.trim(),
+              cta: adCreativeCta.trim(),
+              qualityMode: nextAdQuality
+            }
           : {})
       })
     });
@@ -518,6 +669,12 @@ export function HeroUpload({
     setAppliedHdUpscalePreset(input.tool === "hd-upscale" ? input.upscalePreset : null);
     setAppliedObjectRemovalQualityMode(input.tool === "object-remover" ? objectRemovalQualityMode : null);
     setAppliedObjectRemovalPrompt(input.tool === "object-remover" ? objectRemovalPrompt.trim() : null);
+    setAppliedBackgroundReplacerStyle(input.tool === "ai-background-replacer" ? nextBackgroundStyle : null);
+    setAppliedBackgroundReplacerQualityMode(input.tool === "ai-background-replacer" ? nextBackgroundQuality : null);
+    setAppliedBackgroundReplacerCustomPrompt(input.tool === "ai-background-replacer" ? backgroundReplacerCustomPrompt.trim() : null);
+    setAppliedAdCreativeFormat(input.tool === "ai-ad-creative-generator" ? nextAdFormat : null);
+    setAppliedAdCreativeStyle(input.tool === "ai-ad-creative-generator" ? nextAdStyle : null);
+    setAppliedAdCreativeQualityMode(input.tool === "ai-ad-creative-generator" ? nextAdQuality : null);
     setStatus("succeeded");
     trackEvent({
       event: trackingEvents.jobCompleted,
@@ -535,7 +692,10 @@ export function HeroUpload({
         cropFormat: input.cropFormat,
         shadowPreset: input.shadowPreset,
         relightPreset: input.relightPreset,
-        upscalePreset: input.upscalePreset
+        upscalePreset: input.upscalePreset,
+        backgroundStyle: nextBackgroundStyle,
+        adFormat: nextAdFormat,
+        adStyle: nextAdStyle
       }
     });
   }
@@ -823,6 +983,49 @@ export function HeroUpload({
     }
   }
 
+  async function applyBackgroundReplacer() {
+    if (selectedTool !== "ai-background-replacer" || !uploadedMediaId) return;
+
+    try {
+      await runToolJob({
+        inputMediaId: uploadedMediaId,
+        tool: "ai-background-replacer",
+        cropFormat: marketplaceCropFormat,
+        shadowPreset: productShadowPreset,
+        relightPreset: aiRelightPreset,
+        upscalePreset: hdUpscalePreset,
+        quality: qualityMode,
+        backgroundStyle: backgroundReplacerStyle,
+        backgroundQuality: backgroundReplacerQualityMode
+      });
+    } catch (error) {
+      setStatus("failed");
+      setErrorMessage(error instanceof Error ? error.message : "Something went wrong. Please try again.");
+    }
+  }
+
+  async function applyAdCreative() {
+    if (selectedTool !== "ai-ad-creative-generator" || !uploadedMediaId) return;
+
+    try {
+      await runToolJob({
+        inputMediaId: uploadedMediaId,
+        tool: "ai-ad-creative-generator",
+        cropFormat: marketplaceCropFormat,
+        shadowPreset: productShadowPreset,
+        relightPreset: aiRelightPreset,
+        upscalePreset: hdUpscalePreset,
+        quality: qualityMode,
+        adFormat: adCreativeFormat,
+        adStyle: adCreativeStyle,
+        adQuality: adCreativeQualityMode
+      });
+    } catch (error) {
+      setStatus("failed");
+      setErrorMessage(error instanceof Error ? error.message : "Something went wrong. Please try again.");
+    }
+  }
+
   function renderMobileWorkspaceActionBar() {
     if (!workspaceMode) return null;
 
@@ -853,6 +1056,12 @@ export function HeroUpload({
       }
       if (hasPendingObjectRemoval) {
         return <MobileStickyAction label="Apply cleanup" onClick={() => void applyObjectRemoval()} disabled={!objectRemovalPrompt.trim()} />;
+      }
+      if (hasPendingBackgroundReplacer) {
+        return <MobileStickyAction label={`Apply ${getBackgroundReplacerStyleShortLabel(backgroundReplacerStyle)}`} onClick={() => void applyBackgroundReplacer()} />;
+      }
+      if (hasPendingAdCreative) {
+        return <MobileStickyAction label={`Apply ${getAdCreativeFormatShortLabel(adCreativeFormat)}`} onClick={() => void applyAdCreative()} />;
       }
 
       return (
@@ -894,11 +1103,12 @@ export function HeroUpload({
 
     if (uploadedMediaId) {
       const needsObjectPrompt = selectedTool === "object-remover" && !objectRemovalPrompt.trim();
+      const needsBackgroundPrompt = selectedTool === "ai-background-replacer" && backgroundReplacerStyle === "custom" && !backgroundReplacerCustomPrompt.trim();
       return (
         <MobileStickyAction
-          label={needsObjectPrompt ? "Describe cleanup first" : disabled ? selectedToolConfig.processingLabel : `Run ${selectedToolConfig.name}`}
+          label={needsObjectPrompt ? "Describe cleanup first" : needsBackgroundPrompt ? "Describe background first" : disabled ? selectedToolConfig.processingLabel : `Run ${selectedToolConfig.name}`}
           onClick={() => void runCurrentToolAgain()}
-          disabled={disabled || needsObjectPrompt}
+          disabled={disabled || needsObjectPrompt || needsBackgroundPrompt}
         />
       );
     }
@@ -1032,7 +1242,7 @@ export function HeroUpload({
 
               <div className="mt-5 grid max-w-2xl grid-cols-2 gap-3 border-t border-white/10 pt-4 sm:grid-cols-4 md:mt-8 md:pt-6">
                 {[
-                  ["7", "live tools"],
+                  ["9", "live tools"],
                   [`$${trialPrice}`, "starter trial"],
                   [String(trialCredits), "trial credits"],
                   ["No", "subscription"]
@@ -1118,6 +1328,16 @@ export function HeroUpload({
                     Current download uses “{appliedObjectRemovalPrompt}”. Apply the new cleanup request to generate a fresh export.
                   </p>
                 ) : null}
+                {hasPendingBackgroundReplacer && appliedBackgroundReplacerStyle ? (
+                  <p className="mb-3 rounded-xl border border-warning/25 bg-warning/10 p-3 text-xs font-semibold leading-5 text-warning">
+                    Current result uses {getBackgroundReplacerStyleLabel(appliedBackgroundReplacerStyle)}. Apply {getBackgroundReplacerStyleLabel(backgroundReplacerStyle)} to generate a new export.
+                  </p>
+                ) : null}
+                {hasPendingAdCreative && appliedAdCreativeFormat ? (
+                  <p className="mb-3 rounded-xl border border-warning/25 bg-warning/10 p-3 text-xs font-semibold leading-5 text-warning">
+                    Current result uses {getAdCreativeFormatLabel(appliedAdCreativeFormat)}. Apply {getAdCreativeFormatLabel(adCreativeFormat)} to generate a new export.
+                  </p>
+                ) : null}
                 {selectedTool === "ai-relight" && errorMessage ? (
                   <p className="mb-3 rounded-xl border border-warning/25 bg-warning/10 p-3 text-xs font-semibold leading-5 text-warning">
                     {errorMessage}
@@ -1177,6 +1397,24 @@ export function HeroUpload({
                     >
                       <Gauge className="mr-2" size={18} />
                       Apply cleanup
+                    </button>
+                  ) : hasPendingBackgroundReplacer ? (
+                    <button
+                      type="button"
+                      onClick={() => void applyBackgroundReplacer()}
+                      className="inline-flex h-12 items-center justify-center rounded-full bg-zeylora-brand px-4 text-sm font-black text-white shadow-glow transition hover:brightness-110"
+                    >
+                      <Gauge className="mr-2" size={18} />
+                      Apply {getBackgroundReplacerStyleShortLabel(backgroundReplacerStyle)}
+                    </button>
+                  ) : hasPendingAdCreative ? (
+                    <button
+                      type="button"
+                      onClick={() => void applyAdCreative()}
+                      className="inline-flex h-12 items-center justify-center rounded-full bg-zeylora-brand px-4 text-sm font-black text-white shadow-glow transition hover:brightness-110"
+                    >
+                      <Gauge className="mr-2" size={18} />
+                      Apply {getAdCreativeFormatShortLabel(adCreativeFormat)}
                     </button>
                   ) : (
                     <div className="grid gap-2">
@@ -1610,6 +1848,172 @@ export function HeroUpload({
                 {hasPendingObjectRemoval && appliedObjectRemovalPrompt ? (
                   <p className="mt-2 rounded-xl border border-warning/25 bg-warning/10 p-3 text-xs font-semibold leading-5 text-slate-200">
                     Current download uses “{appliedObjectRemovalPrompt}”. Apply the new cleanup request to generate a fresh export.
+                  </p>
+                ) : null}
+              </div>
+            ) : selectedTool === "ai-background-replacer" ? (
+              <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.06] p-3">
+                <p className="mb-2 flex items-center gap-2 text-xs font-black uppercase text-slate-400">
+                  <Gauge size={14} />
+                  Background scene
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {backgroundReplacerStyles.map((style) => (
+                    <button
+                      key={style.value}
+                      type="button"
+                      disabled={status === "uploading" || status === "processing"}
+                      onClick={() => setBackgroundReplacerStyle(style.value)}
+                      title={style.label}
+                      className={`min-h-9 rounded-full px-2 py-2 text-[10px] font-black leading-tight transition sm:text-xs ${
+                        backgroundReplacerStyle === style.value
+                          ? "bg-cyan text-ink"
+                          : "border border-white/10 bg-black/20 text-slate-300 hover:bg-white/10"
+                      } disabled:cursor-not-allowed disabled:opacity-60`}
+                    >
+                      {style.shortLabel}
+                    </button>
+                  ))}
+                </div>
+                {backgroundReplacerStyle === "custom" ? (
+                  <textarea
+                    value={backgroundReplacerCustomPrompt}
+                    onChange={(event) => setBackgroundReplacerCustomPrompt(event.target.value.slice(0, 260))}
+                    disabled={status === "uploading" || status === "processing"}
+                    rows={3}
+                    placeholder="Describe the ecommerce scene, e.g. luxury marble studio with soft reflections"
+                    className="mt-2 min-h-24 w-full resize-none rounded-2xl border border-white/10 bg-black/25 px-3 py-3 text-sm font-semibold text-white outline-none transition placeholder:text-slate-500 focus:border-cyan disabled:cursor-not-allowed disabled:opacity-60"
+                  />
+                ) : null}
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {[
+                    ["standard", "Standard · 4 credits"],
+                    ["pro", "Pro · 7 credits"]
+                  ].map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      disabled={status === "uploading" || status === "processing"}
+                      onClick={() => setBackgroundReplacerQualityMode(value as GenerativeQualityMode)}
+                      className={`min-h-9 rounded-full px-2 py-2 text-[10px] font-black leading-tight transition sm:text-xs ${
+                        backgroundReplacerQualityMode === value
+                          ? "bg-cyan text-ink"
+                          : "border border-white/10 bg-black/20 text-slate-300 hover:bg-white/10"
+                      } disabled:cursor-not-allowed disabled:opacity-60`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-2 text-xs font-semibold leading-5 text-slate-400">
+                  Replace plain or messy product backgrounds with premium ecommerce scenes for Shopify, Amazon, Etsy, and TikTok Shop.
+                </p>
+                {workspaceMode && uploadedMediaId ? (
+                  <button
+                    type="button"
+                    disabled={status === "uploading" || status === "processing" || (backgroundReplacerStyle === "custom" && !backgroundReplacerCustomPrompt.trim())}
+                    onClick={() => void runCurrentToolAgain()}
+                    className="mt-3 inline-flex h-12 w-full items-center justify-center rounded-full bg-zeylora-brand px-4 text-sm font-black text-white shadow-glow transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-55"
+                  >
+                    {status === "uploading" || status === "processing" ? (
+                      <>
+                        <Loader2 className="mr-2 animate-spin" size={18} />
+                        {selectedToolConfig.processingLabel}
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="mr-2" size={18} />
+                        {backgroundReplacerStyle === "custom" && !backgroundReplacerCustomPrompt.trim() ? "Describe background first" : "Run background replacer"}
+                      </>
+                    )}
+                  </button>
+                ) : null}
+                {hasPendingBackgroundReplacer && appliedBackgroundReplacerStyle ? (
+                  <p className="mt-2 rounded-xl border border-warning/25 bg-warning/10 p-3 text-xs font-semibold leading-5 text-slate-200">
+                    Current result uses {getBackgroundReplacerStyleLabel(appliedBackgroundReplacerStyle)}. Apply {getBackgroundReplacerStyleLabel(backgroundReplacerStyle)} to generate a fresh export.
+                  </p>
+                ) : null}
+              </div>
+            ) : selectedTool === "ai-ad-creative-generator" ? (
+              <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.06] p-3">
+                <p className="mb-2 flex items-center gap-2 text-xs font-black uppercase text-slate-400">
+                  <Gauge size={14} />
+                  Ad creative setup
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {adCreativeFormats.map((format) => (
+                    <button
+                      key={format.value}
+                      type="button"
+                      disabled={status === "uploading" || status === "processing"}
+                      onClick={() => setAdCreativeFormat(format.value)}
+                      title={format.label}
+                      className={`min-h-9 rounded-full px-2 py-2 text-[10px] font-black leading-tight transition sm:text-xs ${
+                        adCreativeFormat === format.value
+                          ? "bg-cyan text-ink"
+                          : "border border-white/10 bg-black/20 text-slate-300 hover:bg-white/10"
+                      } disabled:cursor-not-allowed disabled:opacity-60`}
+                    >
+                      {format.shortLabel}
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {adCreativeStyles.map((style) => (
+                    <button
+                      key={style.value}
+                      type="button"
+                      disabled={status === "uploading" || status === "processing"}
+                      onClick={() => setAdCreativeStyle(style.value)}
+                      title={style.label}
+                      className={`min-h-9 rounded-full px-2 py-2 text-[10px] font-black leading-tight transition sm:text-xs ${
+                        adCreativeStyle === style.value
+                          ? "bg-cyan text-ink"
+                          : "border border-white/10 bg-black/20 text-slate-300 hover:bg-white/10"
+                      } disabled:cursor-not-allowed disabled:opacity-60`}
+                    >
+                      {style.shortLabel}
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-2 grid gap-2">
+                  <input value={adCreativeHeadline} onChange={(event) => setAdCreativeHeadline(event.target.value.slice(0, 64))} disabled={status === "uploading" || status === "processing"} placeholder="Optional headline, e.g. New Season Drop" className="h-11 rounded-2xl border border-white/10 bg-black/25 px-3 text-sm font-semibold text-white outline-none transition placeholder:text-slate-500 focus:border-cyan disabled:cursor-not-allowed disabled:opacity-60" />
+                  <div className="grid grid-cols-2 gap-2">
+                    <input value={adCreativeOffer} onChange={(event) => setAdCreativeOffer(event.target.value.slice(0, 40))} disabled={status === "uploading" || status === "processing"} placeholder="Offer" className="h-11 rounded-2xl border border-white/10 bg-black/25 px-3 text-sm font-semibold text-white outline-none transition placeholder:text-slate-500 focus:border-cyan disabled:cursor-not-allowed disabled:opacity-60" />
+                    <input value={adCreativeCta} onChange={(event) => setAdCreativeCta(event.target.value.slice(0, 28))} disabled={status === "uploading" || status === "processing"} placeholder="CTA" className="h-11 rounded-2xl border border-white/10 bg-black/25 px-3 text-sm font-semibold text-white outline-none transition placeholder:text-slate-500 focus:border-cyan disabled:cursor-not-allowed disabled:opacity-60" />
+                  </div>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {[
+                    ["standard", "Standard · 6 credits"],
+                    ["pro", "Pro · 10 credits"]
+                  ].map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      disabled={status === "uploading" || status === "processing"}
+                      onClick={() => setAdCreativeQualityMode(value as GenerativeQualityMode)}
+                      className={`min-h-9 rounded-full px-2 py-2 text-[10px] font-black leading-tight transition sm:text-xs ${
+                        adCreativeQualityMode === value
+                          ? "bg-cyan text-ink"
+                          : "border border-white/10 bg-black/20 text-slate-300 hover:bg-white/10"
+                      } disabled:cursor-not-allowed disabled:opacity-60`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-2 text-xs font-semibold leading-5 text-slate-400">
+                  Create ecommerce ad visuals for Instagram, Facebook, TikTok Shop, Shopify banners, sales campaigns, and product launches. Short text works best.
+                </p>
+                {workspaceMode && uploadedMediaId ? (
+                  <button type="button" disabled={status === "uploading" || status === "processing"} onClick={() => void runCurrentToolAgain()} className="mt-3 inline-flex h-12 w-full items-center justify-center rounded-full bg-zeylora-brand px-4 text-sm font-black text-white shadow-glow transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-55">
+                    {status === "uploading" || status === "processing" ? <><Loader2 className="mr-2 animate-spin" size={18} />{selectedToolConfig.processingLabel}</> : <><Zap className="mr-2" size={18} />Run ad creative</>}
+                  </button>
+                ) : null}
+                {hasPendingAdCreative && appliedAdCreativeFormat ? (
+                  <p className="mt-2 rounded-xl border border-warning/25 bg-warning/10 p-3 text-xs font-semibold leading-5 text-slate-200">
+                    Current result uses {getAdCreativeFormatLabel(appliedAdCreativeFormat)}. Apply {getAdCreativeFormatLabel(adCreativeFormat)} to generate a fresh export.
                   </p>
                 ) : null}
               </div>
@@ -2295,6 +2699,22 @@ function getHdUpscaleFilenamePart(preset: HdUpscalePreset) {
   return "2x-hd";
 }
 
+function getBackgroundReplacerStyleLabel(style: AiBackgroundReplacerStyle) {
+  return backgroundReplacerStyles.find((item) => item.value === style)?.label ?? "Luxury Marble";
+}
+
+function getBackgroundReplacerStyleShortLabel(style: AiBackgroundReplacerStyle) {
+  return backgroundReplacerStyles.find((item) => item.value === style)?.shortLabel ?? "Marble";
+}
+
+function getAdCreativeFormatLabel(format: AiAdCreativeFormat) {
+  return adCreativeFormats.find((item) => item.value === format)?.label ?? "Square 1:1";
+}
+
+function getAdCreativeFormatShortLabel(format: AiAdCreativeFormat) {
+  return adCreativeFormats.find((item) => item.value === format)?.shortLabel ?? "1:1";
+}
+
 function getEconomyToolSlug(tool: HomeToolMode) {
   if (tool === "photo-enhancer") return "ai-photo-enhancer";
   return tool;
@@ -2323,6 +2743,8 @@ function getResultBeforeLabel(tool: HomeToolMode) {
   if (tool === "product-shadow") return "Flat product";
   if (tool === "ai-relight") return "Flat lighting";
   if (tool === "hd-upscale") return "Low resolution";
+  if (tool === "ai-background-replacer") return "Original background";
+  if (tool === "ai-ad-creative-generator") return "Product photo";
   return "Before";
 }
 
@@ -2330,5 +2752,7 @@ function getResultAfterLabel(tool: HomeToolMode) {
   if (tool === "product-shadow") return "Studio grounded";
   if (tool === "ai-relight") return "Studio relit";
   if (tool === "hd-upscale") return "HD upscale";
+  if (tool === "ai-background-replacer") return "Premium scene";
+  if (tool === "ai-ad-creative-generator") return "Ad creative";
   return "Zeylora export";
 }

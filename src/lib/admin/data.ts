@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { creditPackages } from "@/config/pricing";
-import { objectRemoverConfig } from "@/config/ai-tools";
+import { aiAdCreativeConfig, aiBackgroundReplacerConfig, objectRemoverConfig } from "@/config/ai-tools";
 import { resolveToolEconomy } from "@/config/tool-economy";
 import { ensureLaunchCreditPackageDefaults } from "@/lib/pricing/packages";
 import { adminPerfNow, logAdminPerf, measureAdminQuery } from "@/lib/admin/perf";
@@ -22,6 +22,8 @@ export const LAUNCH_TOOL_SLUGS = [
   "ai-photo-enhancer",
   "photo-enhancer",
   "object-remover",
+  "ai-background-replacer",
+  "ai-ad-creative-generator",
   "marketplace-crop",
   "background-remover",
   "product-shadow"
@@ -309,7 +311,27 @@ export async function getAdminUsersData(input: {
 
 export async function getAdminToolsData() {
   const startedAt = adminPerfNow();
-  await ensureAdminObjectRemoverTool();
+  await Promise.all([
+    ensureAdminObjectRemoverTool(),
+    ensureAdminGenerativeTool({
+      slug: aiBackgroundReplacerConfig.slug,
+      name: "AI Background Replacer",
+      description: "Replace plain product backgrounds with premium studio, marble, skincare, and ecommerce lifestyle scenes.",
+      model: aiBackgroundReplacerConfig.model,
+      proModel: aiBackgroundReplacerConfig.proModel,
+      maxRetries: aiBackgroundReplacerConfig.maxRetries,
+      timeoutSeconds: aiBackgroundReplacerConfig.timeoutSeconds
+    }),
+    ensureAdminGenerativeTool({
+      slug: aiAdCreativeConfig.slug,
+      name: "AI Ad Creative Generator",
+      description: "Generate ecommerce ad creatives for Instagram, Facebook, TikTok Shop, Shopify banners, sales campaigns, and product launches.",
+      model: aiAdCreativeConfig.model,
+      proModel: aiAdCreativeConfig.proModel,
+      maxRetries: aiAdCreativeConfig.maxRetries,
+      timeoutSeconds: aiAdCreativeConfig.timeoutSeconds
+    })
+  ]);
   const dbTools = await measureAdminQuery(
     "tools.list",
     prisma.aiTool.findMany({
@@ -411,6 +433,84 @@ async function ensureAdminObjectRemoverTool() {
       seoDescription: "Remove distracting objects, cables, props, stains, and background items from ecommerce product photos.",
       landingContentJson: {
         hero: "Remove unwanted objects from product photos.",
+        faqs: []
+      },
+      exampleImagesJson: [],
+      displayOrder: economy.displayOrder
+    }
+  });
+}
+
+async function ensureAdminGenerativeTool(input: {
+  slug: string;
+  name: string;
+  description: string;
+  model: string;
+  proModel: string;
+  maxRetries: number;
+  timeoutSeconds: number;
+}) {
+  const economy = resolveToolEconomy({
+    toolSlug: input.slug,
+    qualityMode: "standard",
+    providerKey: "replicate"
+  });
+
+  await prisma.aiTool.upsert({
+    where: {
+      slug_version: {
+        slug: input.slug,
+        version: 1
+      }
+    },
+    update: {
+      publicName: economy.publicName,
+      internalKey: economy.internalKey,
+      qualityTier: economy.qualityTier,
+      estimatedCostPerRun: economy.estimatedProviderCost,
+      estimatedCostCurrency: economy.providerCurrency,
+      estimatedCostProvider: economy.providerKey,
+      deletedAt: null
+    },
+    create: {
+      slug: input.slug,
+      version: 1,
+      name: input.name,
+      publicName: economy.publicName,
+      internalKey: economy.internalKey,
+      qualityTier: economy.qualityTier,
+      category: "Ecommerce",
+      description: input.description,
+      creditCost: economy.creditCost,
+      status: "ACTIVE",
+      inputRulesJson: {
+        allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"],
+        maxFileSizeMb: 12,
+        maxWidth: 6000,
+        maxHeight: 6000
+      },
+      outputType: "image",
+      providerKey: economy.providerKey,
+      estimatedCostPerRun: economy.estimatedProviderCost,
+      estimatedCostCurrency: economy.providerCurrency,
+      estimatedCostProvider: economy.providerKey,
+      providerConfigJson: {
+        model: input.model,
+        proModel: input.proModel,
+        inputMode: "image-prompt",
+        outputFormat: "png"
+      },
+      fallbackProviderKeysJson: [],
+      retryPolicyJson: {
+        maxRetries: input.maxRetries,
+        timeoutSeconds: input.timeoutSeconds,
+        retryDelaySeconds: 8,
+        allowFallback: false
+      },
+      seoTitle: `${input.name} - Ecommerce AI Tool`,
+      seoDescription: input.description,
+      landingContentJson: {
+        hero: input.description,
         faqs: []
       },
       exampleImagesJson: [],

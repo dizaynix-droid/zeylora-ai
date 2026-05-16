@@ -187,6 +187,52 @@ export const initialTools: AiToolConfig[] = [
     }
   },
   {
+    slug: "ai-background-replacer",
+    version: 1,
+    name: "AI Background Replacer",
+    category: "Ecommerce",
+    description: "Replace boring product backgrounds with premium studio, marble, skincare, and lifestyle ecommerce scenes.",
+    creditCost: 4,
+    status: "active",
+    providerKey: "replicate",
+    fallbackProviderKeys: [],
+    inputRules: {
+      allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"],
+      maxFileSizeMb: 12,
+      maxWidth: 6000,
+      maxHeight: 6000
+    },
+    retryPolicy: {
+      maxRetries: 1,
+      timeoutSeconds: 150,
+      retryDelaySeconds: 8,
+      allowFallback: false
+    }
+  },
+  {
+    slug: "ai-ad-creative-generator",
+    version: 1,
+    name: "AI Ad Creative Generator",
+    category: "Ecommerce",
+    description: "Generate ready-to-use ecommerce ad creatives for Instagram, Facebook, TikTok Shop, Shopify banners, and product launches.",
+    creditCost: 6,
+    status: "active",
+    providerKey: "replicate",
+    fallbackProviderKeys: [],
+    inputRules: {
+      allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"],
+      maxFileSizeMb: 12,
+      maxWidth: 6000,
+      maxHeight: 6000
+    },
+    retryPolicy: {
+      maxRetries: 1,
+      timeoutSeconds: 150,
+      retryDelaySeconds: 8,
+      allowFallback: false
+    }
+  },
+  {
     slug: "ai-headshot-generator",
     version: 1,
     name: "AI Headshot Generator",

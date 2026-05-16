@@ -76,6 +76,22 @@ const initialTools = [
     outputType: "image"
   },
   {
+    slug: "ai-background-replacer",
+    name: "AI Background Replacer",
+    category: "Ecommerce",
+    description: "Replace boring or ugly product backgrounds with premium studio and lifestyle ecommerce scenes.",
+    creditCost: 4,
+    outputType: "image"
+  },
+  {
+    slug: "ai-ad-creative-generator",
+    name: "AI Ad Creative Generator",
+    category: "Marketing",
+    description: "Turn product photos into ready-to-use ecommerce ad creatives for social, marketplace, and store campaigns.",
+    creditCost: 6,
+    outputType: "image"
+  },
+  {
     slug: "cartoon-anime-generator",
     name: "Cartoon / Anime Generator",
     category: "Style",
@@ -186,9 +202,13 @@ async function main() {
               ? "nightmareai/real-esrgan"
               : tool.slug === "object-remover"
                 ? "adirik/inst-inpaint"
-                : "",
+                : tool.slug === "ai-background-replacer"
+                  ? process.env.AI_BACKGROUND_REPLACER_MODEL || "black-forest-labs/flux-kontext-pro"
+                  : tool.slug === "ai-ad-creative-generator"
+                    ? process.env.AI_AD_CREATIVE_MODEL || "black-forest-labs/flux-kontext-pro"
+                    : "",
           promptTemplate: "",
-          outputFormat: ["marketplace-crop", "product-shadow", "ai-relight", "object-remover"].includes(tool.slug) ? "png" : "webp"
+          outputFormat: ["marketplace-crop", "product-shadow", "ai-relight", "object-remover", "ai-background-replacer", "ai-ad-creative-generator"].includes(tool.slug) ? "png" : "webp"
         },
         fallbackProviderKeysJson: ["marketplace-crop", "product-shadow", "ai-relight"].includes(tool.slug) ? [] : ["openai", "stability"],
         retryPolicyJson: {
