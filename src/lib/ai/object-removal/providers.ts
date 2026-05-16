@@ -54,7 +54,12 @@ export async function runObjectRemoval(input: {
     const prediction = await createReplicatePrediction({
       model,
       imageUrl: input.imageUrl,
-      input: createObjectRemovalInput(input.imageUrl, input.prompt, input.qualityMode)
+      input: createObjectRemovalInput({
+        imageUrl: input.imageUrl,
+        prompt: input.prompt,
+        qualityMode: input.qualityMode,
+        model
+      })
     });
     providerRequestId = prediction.id;
     rawResponse = prediction;
@@ -101,11 +106,23 @@ export async function runObjectRemoval(input: {
   });
 }
 
-function createObjectRemovalInput(imageUrl: string, prompt: string, qualityMode: ObjectRemovalQualityMode) {
-  void qualityMode;
+function createObjectRemovalInput(input: {
+  imageUrl: string;
+  prompt: string;
+  qualityMode: ObjectRemovalQualityMode;
+  model: string;
+}) {
+  void input.qualityMode;
+  if (input.model.includes("adirik/inst-inpaint")) {
+    return {
+      image: input.imageUrl,
+      instruction: input.prompt
+    };
+  }
+
   return {
-    image: imageUrl,
-    prompt
+    image: input.imageUrl,
+    prompt: input.prompt
   };
 }
 
