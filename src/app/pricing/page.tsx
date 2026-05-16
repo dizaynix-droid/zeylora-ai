@@ -23,19 +23,20 @@ export default async function PricingPage({
 }) {
   const params = await searchParams;
   const creditPackages = await getCreditPackagesForDisplay();
+  const trialPack = creditPackages.find((pack) => pack.key === "starter-trial") ?? creditPackages[0];
   const trialMode = params?.trial === "1";
   const checkoutPackage = sanitizePackageId(params?.checkoutPackage);
 
   return (
     <>
       <SiteHeader />
-      <TrialPackTracker enabled={trialMode} />
+      <TrialPackTracker enabled={trialMode} price={trialPack?.price ?? 7.99} credits={trialPack?.totalCredits ?? 15} />
       <main className="min-h-screen bg-premium-radial py-14">
         <section className="section-shell">
           <CheckoutResume packageId={checkoutPackage} />
           <p className="eyebrow">Pricing</p>
           <h1 className="mt-5 text-4xl font-black tracking-tight text-white md:text-6xl">
-            Start with 10 credits. Upgrade your product photos today.
+            Start with {trialPack?.totalCredits ?? 15} credits. Upgrade your product photos today.
           </h1>
           <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-300">
             Bad product photos kill conversions. Zeylora turns low-quality uploads into sharper, brighter,
@@ -45,7 +46,7 @@ export default async function PricingPage({
           <div className="mt-6 grid gap-3 md:grid-cols-3">
             {[
               ["No subscription", "Buy credits once and use them for professional product-photo workflows."],
-              ["Starter trial", "$7.99 gets 10 credits for your first serious product test."],
+              ["Starter trial", `$${trialPack?.price ?? 7.99} gets ${trialPack?.totalCredits ?? 15} credits for your first serious product test.`],
               ["Clean ownership", "Unlocked clean exports can be downloaded again without another charge."]
             ].map(([label, copy]) => (
               <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.045] p-4">
@@ -74,7 +75,7 @@ export default async function PricingPage({
                 <p className="mt-2 text-xs font-bold uppercase text-slate-500">one time credits</p>
                 <CheckoutButton
                   packageId={pack.id}
-                  label={pack.key === "starter-trial" ? "Start with 10 Credits" : "Buy credits"}
+                  label={pack.key === "starter-trial" ? `Start with ${pack.totalCredits} Credits` : "Buy credits"}
                   className="mt-6 inline-flex h-11 w-full items-center justify-center rounded-full bg-cyan text-sm font-black text-ink transition hover:bg-cyan/90"
                 />
               </Card>

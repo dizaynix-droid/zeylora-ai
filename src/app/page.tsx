@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { SiteHeader } from "@/components/layout/site-header";
 import { HeroUpload } from "@/components/home/hero-upload";
 import { SiteFooter } from "@/components/layout/site-footer";
+import { getCreditPackagesForDisplay } from "@/lib/pricing/packages";
 import { createMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createMetadata({
@@ -28,12 +29,18 @@ const PlatformSections = dynamic(
   { loading: () => <SectionSkeleton heightClass="min-h-[760px]" /> }
 );
 
-export default function HomePage() {
+export default async function HomePage() {
+  const creditPackages = await getCreditPackagesForDisplay();
+  const trialPack = creditPackages.find((pack) => pack.key === "starter-trial") ?? creditPackages[0];
+
   return (
     <>
       <SiteHeader />
       <main>
-        <HeroUpload />
+        <HeroUpload
+          trialCredits={trialPack?.totalCredits ?? 15}
+          trialPrice={trialPack?.price ?? 7.99}
+        />
         <ResultShowcase />
         <ToolGrid />
         <EarlyAccess />

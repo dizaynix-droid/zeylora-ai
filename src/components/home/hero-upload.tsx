@@ -225,7 +225,13 @@ const heroProductStories = [
 
 const trialPackUrl = "/pricing?trial=1";
 
-export function HeroUpload() {
+export function HeroUpload({
+  trialCredits = 15,
+  trialPrice = 7.99
+}: {
+  trialCredits?: number;
+  trialPrice?: number;
+}) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const toolControlsRef = useRef<HTMLDivElement>(null);
   const jobRequestRef = useRef(0);
@@ -899,8 +905,8 @@ export function HeroUpload() {
               <div className="mt-5 grid max-w-2xl grid-cols-3 gap-3 border-t border-white/10 pt-4 md:mt-8 md:pt-6">
                 {[
                   ["6", "live tools"],
-                  ["$7.99", "starter trial"],
-                  ["10", "trial credits"],
+                  [`$${trialPrice}`, "starter trial"],
+                  [String(trialCredits), "trial credits"],
                   ["No", "subscription"]
                 ].map(([value, label]) => (
                   <div key={label}>
@@ -1133,7 +1139,7 @@ export function HeroUpload() {
                 </div>
                 <h2 className="mt-4 text-xl font-black text-white md:mt-5 md:text-2xl">Upgrade your product photo</h2>
                 <p className="mx-auto mt-2 max-w-sm text-xs leading-5 text-slate-300 md:text-sm md:leading-6">
-                  Real processing requires credits. Start with 10 credits for $7.99 and test your first seller-ready product image.
+                  Real processing requires credits. Start with {trialCredits} credits for ${trialPrice} and test your first seller-ready product image.
                 </p>
                 <button
                   type="button"

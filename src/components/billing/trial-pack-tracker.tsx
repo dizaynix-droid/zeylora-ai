@@ -4,7 +4,15 @@ import { useEffect } from "react";
 import { trackingEvents } from "@/config/tracking";
 import { trackEvent } from "@/lib/analytics/events";
 
-export function TrialPackTracker({ enabled }: { enabled: boolean }) {
+export function TrialPackTracker({
+  enabled,
+  price,
+  credits
+}: {
+  enabled: boolean;
+  price: number;
+  credits: number;
+}) {
   useEffect(() => {
     if (!enabled) return;
 
@@ -12,11 +20,11 @@ export function TrialPackTracker({ enabled }: { enabled: boolean }) {
       event: trackingEvents.trialPackView,
       properties: {
         packageKey: "starter-trial",
-        price: 7.99,
-        credits: 10
+        price,
+        credits
       }
     });
-  }, [enabled]);
+  }, [credits, enabled, price]);
 
   return null;
 }

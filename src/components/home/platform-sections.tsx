@@ -4,17 +4,19 @@ import { CheckoutButton } from "@/components/billing/checkout-button";
 import { Card } from "@/components/ui/card";
 import { getCreditPackagesForDisplay } from "@/lib/pricing/packages";
 
-const trustItems: Array<[string, string, LucideIcon]> = [
+function getTrustItems(trialCredits: number): Array<[string, string, LucideIcon]> {
+  return [
   ["Private uploads", "Product photos are stored privately and served through temporary signed links.", Lock],
   ["Six seller workflows", "Upscale, relight, enhance, crop, cutout, and creative shadow tools in one ecommerce studio.", Sparkles],
   ["Dashboard history", "Every completed edit stays available in your workspace.", History],
-  ["Trial pack access", "Start with 10 credits, pay once, and test your first product workflow.", CreditCard],
+  ["Trial pack access", `Start with ${trialCredits} credits, pay once, and test your first product workflow.`, CreditCard],
   ["Signed downloads", "Preview and export URLs are temporary instead of exposed as raw storage links.", ShieldCheck],
   ["Fast seller workflow", "Upload, preview, adjust, export, and repeat without leaving the page.", Zap],
   ["Buyer-intent workflow", "Processing is credit-based from the first real edit, reducing low-quality free abuse.", CheckCircle2],
   ["Seller-ready formats", "Prepare visuals for Shopify, Amazon, Etsy, TikTok Shop, social ads, and catalog pages.", Clock3],
   ["Creator Program", "Invite sellers and earn Zeylora platform credits when referrals complete successful purchases.", Share2]
-];
+  ];
+}
 
 const credibility = [
   "Private uploads",
@@ -26,6 +28,10 @@ const credibility = [
 
 export async function PlatformSections() {
   const creditPackages = await getCreditPackagesForDisplay();
+  const trialPack = creditPackages.find((pack) => pack.key === "starter-trial") ?? creditPackages[0];
+  const trialCredits = trialPack?.totalCredits ?? 15;
+  const trialPrice = trialPack?.price ?? 7.99;
+  const trustItems = getTrustItems(trialCredits);
 
   return (
     <>
@@ -87,13 +93,13 @@ export async function PlatformSections() {
             </h2>
           </div>
           <p className="max-w-md text-sm leading-6 text-slate-300">
-            The Starter Trial Pack gives you 10 credits for $7.99. No subscription, no long commitment, just a focused test for real ecommerce images.
+            The Starter Trial Pack gives you {trialCredits} credits for ${trialPrice}. No subscription, no long commitment, just a focused test for real ecommerce images.
           </p>
         </div>
 
         <div className="mb-5 grid gap-3 md:grid-cols-3">
           {[
-            ["$7.99 trial", "10 credits for your first product test and marketplace-ready workflow."],
+            [`$${trialPrice} trial`, `${trialCredits} credits for your first product test and marketplace-ready workflow.`],
             ["No subscription", "Pay once, use credits, and re-download unlocked clean exports."],
             ["Seller-focused", "Built for Shopify, Amazon, Etsy, TikTok Shop, catalogs, and ads."]
           ].map(([label, description]) => (

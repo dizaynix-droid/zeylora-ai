@@ -22,7 +22,7 @@ export const creditPackages: CreditPackageConfig[] = [
     key: "starter-trial",
     name: "Starter Trial Pack",
     billingModel: "one_time_credits",
-    credits: 10,
+    credits: 15,
     bonusCredits: 0,
     price: 7.99,
     currency: "USD",
