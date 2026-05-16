@@ -75,7 +75,7 @@ async function applyPremiumPreviewWatermark(input: Buffer): Promise<WatermarkRes
   const placement = "center";
   const safeInsetX = Math.max(14, Math.round(width * 0.026));
   const safeInsetY = Math.max(14, Math.round(height * 0.028));
-  const centerOverlayWidth = clamp(Math.round(width * 0.62), Math.min(width - 24, 260), Math.min(width - 24, 1040));
+  const centerOverlayWidth = clamp(Math.round(width * 0.38), Math.min(width - 24, 180), Math.min(width - 24, 620));
   const centerOverlay = await resizeOverlayPng(getCenterWatermarkAsset(), centerOverlayWidth);
   const centerMetadata = await sharp(centerOverlay, { failOn: "none" }).metadata();
   const centerWidth = centerMetadata.width ?? centerOverlayWidth;
@@ -83,7 +83,7 @@ async function applyPremiumPreviewWatermark(input: Buffer): Promise<WatermarkRes
   const centerX = Math.max(0, Math.round((width - centerWidth) / 2));
   const centerY = Math.max(0, Math.round((height - centerHeight) / 2));
 
-  const badgeOverlayWidth = clamp(Math.round(width * 0.31), Math.min(width - 24, 220), Math.min(width - 24, 520));
+  const badgeOverlayWidth = clamp(Math.round(width * 0.22), Math.min(width - 24, 170), Math.min(width - 24, 360));
   const badgeOverlay = await resizeOverlayPng(getBadgeWatermarkAsset(), badgeOverlayWidth);
   const badgeMetadata = await sharp(badgeOverlay, { failOn: "none" }).metadata();
   const badgeWidth = badgeMetadata.width ?? badgeOverlayWidth;
@@ -204,7 +204,7 @@ async function createSafePreviewFallback(input: Buffer, originalError: unknown):
     const metadata = await sharp(previewBuffer, { failOn: "none" }).metadata();
     const width = metadata.width ?? 1200;
     const height = metadata.height ?? 900;
-    const centerOverlayWidth = clamp(Math.round(width * 0.62), Math.min(width - 24, 260), Math.min(width - 24, 1040));
+    const centerOverlayWidth = clamp(Math.round(width * 0.38), Math.min(width - 24, 180), Math.min(width - 24, 620));
     const centerOverlay = await resizeOverlayPng(getCenterWatermarkAsset(), centerOverlayWidth);
     const centerMetadata = await sharp(centerOverlay, { failOn: "none" }).metadata();
     const centerWidth = centerMetadata.width ?? centerOverlayWidth;

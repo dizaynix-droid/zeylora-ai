@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowUpRight, ImageIcon, Wand2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { initialTools } from "@/config/tools";
@@ -29,6 +30,16 @@ const toolPositioning: Partial<Record<(typeof launchToolOrder)[number], string>>
   "product-shadow": "Creative shadow styling for launch; best with clean cutouts."
 };
 
+const toolVisuals: Partial<Record<(typeof launchToolOrder)[number], string>> = {
+  "hd-upscale": "/showcase/hd-upscale-after.png",
+  "ai-relight": "/showcase/ai-relight-after.png",
+  "ai-photo-enhancer": "/showcase/photo-enhancer-after.png",
+  "object-remover": "/showcase/background-remover-after.png",
+  "marketplace-crop": "/showcase/marketplace-crop-after.png",
+  "background-remover": "/showcase/background-remover-after.png",
+  "product-shadow": "/showcase/product-shadow-after.png"
+};
+
 export function ToolGrid() {
   const launchTools = launchToolOrder
     .map((slug) => initialTools.find((tool) => tool.slug === slug))
@@ -49,18 +60,32 @@ export function ToolGrid() {
           </p>
         </div>
 
-        <div className="mt-6 grid gap-3 md:mt-9 md:grid-cols-2 md:gap-4 xl:grid-cols-3">
+        <div className="mt-6 grid gap-4 md:mt-9 md:grid-cols-2 md:gap-5 xl:grid-cols-3">
           {launchTools.map((tool, index) => {
             const badge = toolBadges[tool.slug as (typeof launchToolOrder)[number]];
+            const visual = toolVisuals[tool.slug as (typeof launchToolOrder)[number]] ?? "/showcase/product-after.png";
             return (
             <Link key={tool.slug} href={`/tools/${tool.slug}`} className="group block">
-              <Card className="cinematic-card-hover relative h-full overflow-hidden p-4 md:p-5">
+              <Card className="cinematic-card-hover relative h-full overflow-hidden p-3 md:p-4">
                 <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan/60 to-transparent opacity-0 transition group-hover:opacity-100" />
+                <div className="relative aspect-[16/10] overflow-hidden rounded-2xl border border-white/10 bg-black/25">
+                  <Image
+                    src={visual}
+                    alt={`${tool.name} ecommerce workflow preview`}
+                    fill
+                    className="object-cover transition duration-700 group-hover:scale-[1.035]"
+                    sizes="(min-width: 1280px) 360px, (min-width: 768px) 45vw, 100vw"
+                  />
+                  <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent_40%,rgba(3,5,13,.72))]" />
+                  <span className="absolute bottom-3 left-3 rounded-full border border-white/10 bg-black/35 px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-white/75 backdrop-blur">
+                    Seller workflow
+                  </span>
+                </div>
                 <div className="flex items-start justify-between gap-4">
-                  <span className="grid size-12 place-items-center rounded-2xl bg-[linear-gradient(135deg,rgba(32,211,255,.18),rgba(139,92,246,.18))] text-cyan ring-1 ring-white/10">
+                  <span className="mt-4 grid size-11 place-items-center rounded-2xl bg-[linear-gradient(135deg,rgba(32,211,255,.18),rgba(139,92,246,.18))] text-cyan ring-1 ring-white/10">
                     {index % 2 === 0 ? <Wand2 size={18} /> : <ImageIcon size={18} />}
                   </span>
-                  <span className={`rounded-full border px-3 py-1 text-xs font-black ${
+                  <span className={`mt-4 rounded-full border px-3 py-1 text-xs font-black ${
                     badge?.tone === "primary"
                       ? "border-cyan/30 bg-cyan text-ink"
                       : badge?.tone === "popular"
@@ -72,7 +97,7 @@ export function ToolGrid() {
                     {badge?.label ?? "Seller tool"}
                   </span>
                 </div>
-                <h3 className="mt-4 text-lg font-black text-white md:mt-6 md:text-xl">{tool.name}</h3>
+                <h3 className="mt-4 text-lg font-black text-white md:text-xl">{tool.name}</h3>
                 <p className="mt-2 text-sm leading-6 text-slate-300 md:min-h-16">{tool.description}</p>
                 <p className="mt-3 text-xs font-semibold leading-5 text-slate-400 md:min-h-12">
                   {toolPositioning[tool.slug as (typeof launchToolOrder)[number]]}

@@ -7,7 +7,7 @@ import { getCreditPackagesForDisplay } from "@/lib/pricing/packages";
 function getTrustItems(trialCredits: number): Array<[string, string, LucideIcon]> {
   return [
   ["Private uploads", "Product photos are stored privately and served through temporary signed links.", Lock],
-  ["Six seller workflows", "Upscale, relight, enhance, crop, cutout, and creative shadow tools in one ecommerce studio.", Sparkles],
+  ["Seven seller workflows", "Upscale, relight, enhance, cleanup, crop, cutout, and creative shadow tools in one ecommerce studio.", Sparkles],
   ["Dashboard history", "Every completed edit stays available in your workspace.", History],
   ["Trial pack access", `Start with ${trialCredits} credits, pay once, and test your first product workflow.`, CreditCard],
   ["Signed downloads", "Preview and export URLs are temporary instead of exposed as raw storage links.", ShieldCheck],
@@ -138,7 +138,7 @@ export async function PlatformSections() {
                 </p>
                 <p className="flex items-center gap-2">
                   <CheckCircle2 size={15} className="text-emerald" />
-                  Works across all six product photo tools
+                  Works across all seven product photo tools
                 </p>
               </div>
               <CheckoutButton

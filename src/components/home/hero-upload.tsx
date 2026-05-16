@@ -202,27 +202,6 @@ const hdUpscalePresets: Array<{
   { value: "social-cleanup", label: "Social Cleanup", shortLabel: "Social" }
 ];
 
-const heroProductStories = [
-  {
-    name: "Sneaker",
-    before: "/showcase/hd-upscale-before.png",
-    after: "/showcase/hd-upscale-after.png",
-    result: "4x Ultra detail"
-  },
-  {
-    name: "Skincare",
-    before: "/showcase/ai-relight-before.png",
-    after: "/showcase/ai-relight-after.png",
-    result: "Luxury light"
-  },
-  {
-    name: "Perfume",
-    before: "/showcase/photo-enhancer-before.jpg",
-    after: "/showcase/photo-enhancer-after.png",
-    result: "Catalog polish"
-  }
-] as const;
-
 const trialPackUrl = "/pricing?trial=1";
 
 export function HeroUpload({
@@ -312,7 +291,7 @@ export function HeroUpload({
 
   const trustItems: Array<[string, LucideIcon]> = [
     ["Private signed downloads", ShieldCheck],
-    ["Six studio workflows", Zap],
+    ["Seven studio workflows", Zap],
     ["Saved dashboard history", ImagePlus]
   ];
 
@@ -902,9 +881,9 @@ export function HeroUpload({
                 ))}
               </div>
 
-              <div className="mt-5 grid max-w-2xl grid-cols-3 gap-3 border-t border-white/10 pt-4 md:mt-8 md:pt-6">
+              <div className="mt-5 grid max-w-2xl grid-cols-2 gap-3 border-t border-white/10 pt-4 sm:grid-cols-4 md:mt-8 md:pt-6">
                 {[
-                  ["6", "live tools"],
+                  ["7", "live tools"],
                   [`$${trialPrice}`, "starter trial"],
                   [String(trialCredits), "trial credits"],
                   ["No", "subscription"]
@@ -916,27 +895,24 @@ export function HeroUpload({
                 ))}
               </div>
 
-              <div className="mt-5 grid gap-3 sm:grid-cols-3 md:mt-8">
-                {heroProductStories.map((story, index) => (
-                  <div
-                    key={story.name}
-                    className={`group overflow-hidden rounded-2xl border border-white/10 bg-white/[0.045] p-2 shadow-cinematic md:rounded-3xl ${index === 2 ? "hidden sm:block" : ""}`}
-                  >
-                    <BeforeAfterSlider
-                      before={story.before}
-                      after={story.after}
-                      title={`${story.name} hero preview`}
-                      beforeLabel="Before"
-                      afterLabel="After"
-                      priority={index < 2}
-                      compact
-                    />
-                    <div className="flex items-center justify-between gap-2 px-1 py-2">
-                    <p className="text-xs font-black uppercase text-white">{story.name}</p>
-                    <p className="text-[10px] font-black uppercase text-cyan">{story.result}</p>
-                    </div>
+              <div className="mt-6 rounded-3xl border border-white/10 bg-[linear-gradient(135deg,rgba(255,255,255,.08),rgba(32,211,255,.035),rgba(236,72,153,.045))] p-2 shadow-cinematic md:mt-9 md:rounded-[2rem] md:p-3">
+                <BeforeAfterSlider
+                  before="/showcase/photo-enhancer-before.jpg"
+                  after="/showcase/photo-enhancer-after.png"
+                  title="Luxury perfume catalog transformation"
+                  beforeLabel="Amateur upload"
+                  afterLabel="Premium catalog"
+                  priority
+                />
+                <div className="grid gap-3 px-2 py-4 md:grid-cols-[1fr_auto] md:items-center md:px-3">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan">Hero transformation</p>
+                    <p className="mt-1 text-lg font-black text-white md:text-xl">Luxury perfume photo, polished for ecommerce conversion.</p>
                   </div>
-                ))}
+                  <p className="rounded-full border border-white/10 bg-black/25 px-4 py-2 text-xs font-black uppercase text-slate-200">
+                    Drag to compare
+                  </p>
+                </div>
               </div>
             </>
           )}

@@ -47,17 +47,7 @@ export function BeforeAfterSlider({
         />
       </div>
 
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_18%,rgba(32,211,255,.16),transparent_34%),linear-gradient(180deg,rgba(3,5,13,.08),transparent_46%,rgba(3,5,13,.6))]" />
-      <div className="pointer-events-none absolute inset-0 grid place-items-center px-4 sm:px-6">
-        <div className={`${compact ? "max-w-[74%] rounded-xl px-2.5 py-1.5 sm:px-3 sm:py-2" : "max-w-[78%] rounded-2xl px-3 py-2 sm:rounded-3xl sm:px-5 sm:py-3"} border border-white/15 bg-black/25 text-center shadow-cinematic backdrop-blur-md`}>
-          <p className={`${compact ? "text-[11px] sm:text-sm md:text-base" : "text-base sm:text-3xl md:text-4xl"} font-black uppercase tracking-normal text-white/28`}>
-            ZEYLORA PREVIEW
-          </p>
-          <p className={`${compact ? "hidden sm:block" : "mt-0.5 sm:mt-1"} text-[8px] font-black uppercase tracking-[0.14em] text-cyan/70 sm:text-[10px] sm:tracking-[0.2em]`}>
-            Branded preview export
-          </p>
-        </div>
-      </div>
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_18%,rgba(32,211,255,.13),transparent_34%),linear-gradient(180deg,rgba(3,5,13,.04),transparent_48%,rgba(3,5,13,.52))]" />
       <div
         className="absolute inset-y-0 w-px bg-white/90 shadow-[0_0_32px_rgba(32,211,255,.68)]"
         style={{ left: `${position}%` }}
@@ -89,8 +79,8 @@ export function BeforeAfterSlider({
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full border border-white/10 bg-black/45 px-3 py-1 text-xs font-bold text-slate-200 backdrop-blur max-sm:hidden">
         Slide to compare
       </div>
-      <div className={`${compact ? "hidden" : "hidden sm:block"} absolute bottom-4 right-4 rounded-full border border-white/10 bg-black/35 px-3 py-1 text-[10px] font-black uppercase text-slate-200 backdrop-blur`}>
-        Powered by Zeylora
+      <div className={`${compact ? "hidden" : "block"} absolute bottom-3 right-3 rounded-full border border-white/10 bg-black/30 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-white/60 backdrop-blur sm:bottom-4 sm:right-4 sm:px-3 sm:text-[10px]`}>
+        Zeylora preview
       </div>
     </div>
   );
