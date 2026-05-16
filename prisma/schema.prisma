@@ -121,6 +121,7 @@ enum EmailEventType {
   MFA_ENABLED
   TICKET_REPLY
   FAILED_PAYMENT
+  REFERRAL_REWARD
 }
 
 enum DeliveryStatus {
@@ -135,6 +136,26 @@ enum ReferralStatus {
   QUALIFIED
   REWARDED
   CANCELLED
+}
+
+enum AffiliateStatus {
+  ACTIVE
+  DISABLED
+  FROZEN
+  SUSPICIOUS
+}
+
+enum AffiliateRewardStatus {
+  PENDING
+  APPROVED
+  DELIVERED
+  REVOKED
+  CANCELLED
+}
+
+enum AffiliateRewardScope {
+  FIRST_PAYMENT_ONLY
+  ALL_PAYMENTS
 }
 
 enum ActorType {
@@ -201,9 +222,146 @@ model User {
   businessExpenses   BusinessExpense[] @relation("BusinessExpenseCreator")
   backupEvents       BackupEvent[]     @relation("BackupEventCreator")
   analyticsEvents    AnalyticsEvent[]
+  affiliateProfile   AffiliateProfile?
+  affiliateClicks    ReferralClick[]     @relation("ReferralClickMatchedUser")
+  referralSignups    ReferralSignup[]    @relation("ReferralSignupReferred")
+  affiliateRewards   ReferralReward[]    @relation("ReferralRewardAffiliate")
+  referredRewards    ReferralReward[]    @relation("ReferralRewardReferred")
+  payoutSnapshots    AffiliatePayoutSnapshot[]
 
   @@index([email])
   @@index([role, status])
+  @@index([affiliateCode])
+  @@index([referredByUserId])
+}
+
+model AffiliateProfile {
+  id                      String          @id @default(cuid())
+  userId                  String          @unique
+  referralCode            String          @unique
+  publicSlug              String?         @unique
+  status                  AffiliateStatus @default(ACTIVE)
+  tierKey                 String          @default("starter")
+  customRewardPercent     Decimal?        @db.Decimal(5, 2)
+  customMonthlyCapCredits Int?
+  freezeRewards           Boolean         @default(false)
+  trusted                 Boolean         @default(false)
+  suspicious              Boolean         @default(false)
+  fraudNotes              String?
+  totalClicks             Int             @default(0)
+  totalSignups            Int             @default(0)
+  totalPaidReferrals      Int             @default(0)
+  totalReferredRevenue    Decimal         @default(0) @db.Decimal(12, 2)
+  totalRewardCredits      Int             @default(0)
+  metadataJson            Json?
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
+
+  user    User             @relation(fields: [userId], references: [id])
+  clicks  ReferralClick[]
+  signups ReferralSignup[]
+  rewards ReferralReward[]
+
+  @@index([status, tierKey])
+  @@index([suspicious, trusted])
+}
+
+model ReferralClick {
+  id                 String   @id @default(cuid())
+  affiliateProfileId String?
+  referralCode       String
+  anonymousId        String?
+  sessionId          String?
+  ipHash             String?
+  userAgentHash      String?
+  landingPage        String?
+  referrer           String?
+  utmJson            Json?
+  matchedUserId      String?
+  createdAt          DateTime @default(now())
+
+  affiliateProfile AffiliateProfile? @relation(fields: [affiliateProfileId], references: [id])
+  matchedUser      User?             @relation("ReferralClickMatchedUser", fields: [matchedUserId], references: [id])
+
+  @@index([referralCode, createdAt])
+  @@index([affiliateProfileId, createdAt])
+  @@index([anonymousId, createdAt])
+  @@index([sessionId, createdAt])
+  @@index([ipHash, createdAt])
+}
+
+model ReferralSignup {
+  id                 String   @id @default(cuid())
+  affiliateProfileId String
+  referredUserId     String   @unique
+  referralCode       String
+  referralClickId    String?
+  ipHash             String?
+  userAgentHash      String?
+  suspicious         Boolean  @default(false)
+  fraudReason        String?
+  createdAt          DateTime @default(now())
+
+  affiliateProfile AffiliateProfile @relation(fields: [affiliateProfileId], references: [id])
+  referredUser     User             @relation("ReferralSignupReferred", fields: [referredUserId], references: [id])
+
+  @@index([affiliateProfileId, createdAt])
+  @@index([referralCode, createdAt])
+  @@index([suspicious, createdAt])
+}
+
+model ReferralReward {
+  id                     String                @id @default(cuid())
+  affiliateProfileId     String
+  affiliateUserId        String
+  referredUserId         String
+  paymentId              String
+  status                 AffiliateRewardStatus @default(PENDING)
+  paymentAmount          Decimal               @db.Decimal(10, 2)
+  paymentCurrency        String                @default("usd")
+  rewardPercentSnapshot  Decimal               @db.Decimal(5, 2)
+  rewardUsdValueSnapshot Decimal               @db.Decimal(10, 2)
+  creditUsdValueSnapshot Decimal               @db.Decimal(10, 4)
+  rewardCredits          Int
+  tierKeySnapshot        String
+  tierNameSnapshot       String
+  ruleSnapshotJson       Json?
+  fraudFlagsJson         Json?
+  deliveredTransactionId String?
+  deliveredAt            DateTime?
+  revokedAt              DateTime?
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+
+  affiliateProfile AffiliateProfile @relation(fields: [affiliateProfileId], references: [id])
+  affiliateUser    User             @relation("ReferralRewardAffiliate", fields: [affiliateUserId], references: [id])
+  referredUser     User             @relation("ReferralRewardReferred", fields: [referredUserId], references: [id])
+  payment          Payment          @relation(fields: [paymentId], references: [id])
+
+  @@unique([paymentId, affiliateUserId])
+  @@index([affiliateProfileId, status, createdAt])
+  @@index([affiliateUserId, createdAt])
+  @@index([referredUserId, createdAt])
+  @@index([status, createdAt])
+}
+
+model AffiliatePayoutSnapshot {
+  id               String   @id @default(cuid())
+  affiliateUserId  String
+  periodStart      DateTime
+  periodEnd        DateTime
+  status           String   @default("PREPARED")
+  earnedCredits    Int      @default(0)
+  deliveredCredits Int      @default(0)
+  paymentRevenue   Decimal  @default(0) @db.Decimal(12, 2)
+  metadataJson     Json?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  affiliateUser User @relation(fields: [affiliateUserId], references: [id])
+
+  @@index([affiliateUserId, periodStart, periodEnd])
+  @@index([status, createdAt])
 }
 
 model AiTool {
@@ -449,6 +607,7 @@ model Payment {
 
   user               User                @relation(fields: [userId], references: [id])
   creditTransactions CreditTransaction[]
+  referralRewards    ReferralReward[]
 
   @@index([userId, createdAt])
   @@index([status])

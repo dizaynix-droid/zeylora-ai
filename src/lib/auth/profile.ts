@@ -1,5 +1,6 @@
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { prisma } from "@/lib/db";
+import { applyPendingReferralForUser, ensureAffiliateProfile } from "@/lib/affiliate/referrals";
 
 export async function syncSupabaseUserProfile(user: SupabaseUser) {
   if (!user.email) return null;
@@ -14,15 +15,20 @@ export async function syncSupabaseUserProfile(user: SupabaseUser) {
       role: true,
       creditBalance: true,
       freeTrialClaimed: true,
+      affiliateCode: true,
+      referredByUserId: true,
       status: true,
       deletedAt: true
     }
   });
 
   if (existingById) {
-    if (!needsUserSync(existingById, user.email, name)) return existingById;
+    if (!needsUserSync(existingById, user.email, name)) {
+      await afterProfileSync(existingById);
+      return existingById;
+    }
 
-    return prisma.user.update({
+    const updated = await prisma.user.update({
       where: { id: user.id },
       data: {
         email: user.email,
@@ -37,13 +43,17 @@ export async function syncSupabaseUserProfile(user: SupabaseUser) {
         role: true,
         creditBalance: true,
         freeTrialClaimed: true,
+        affiliateCode: true,
+        referredByUserId: true,
         status: true,
         deletedAt: true
       }
     });
+    await afterProfileSync(updated);
+    return updated;
   }
 
-  return prisma.user.upsert({
+  const upserted = await prisma.user.upsert({
     where: { email: user.email },
     update: {
       name,
@@ -64,8 +74,25 @@ export async function syncSupabaseUserProfile(user: SupabaseUser) {
       role: true,
       creditBalance: true,
       freeTrialClaimed: true,
+      affiliateCode: true,
+      referredByUserId: true,
       status: true,
       deletedAt: true
+    }
+  });
+  await afterProfileSync(upserted);
+  return upserted;
+}
+
+async function afterProfileSync(user: { id: string; email: string; name: string | null; affiliateCode: string | null }) {
+  await ensureAffiliateProfile(user).catch((error) => {
+    if (process.env.NODE_ENV === "development") {
+      console.warn("[affiliate-profile-sync-failed]", error instanceof Error ? error.message : error);
+    }
+  });
+  await applyPendingReferralForUser(user.id).catch((error) => {
+    if (process.env.NODE_ENV === "development") {
+      console.warn("[affiliate-attribution-failed]", error instanceof Error ? error.message : error);
     }
   });
 }

@@ -2,6 +2,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { AdminMetricCard, AdminSection, AdminTable, formatAdminDate } from "@/components/admin/admin-ui";
 import { requireAdmin } from "@/lib/admin/auth";
 import { getAdminAnalyticsData } from "@/lib/admin/data";
+import { getAffiliateAnalyticsData } from "@/lib/affiliate/data";
 import { adminPerfNow, logAdminPerf } from "@/lib/admin/perf";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +13,10 @@ export default async function AdminAnalyticsPage() {
   await requireAdmin();
   const authMs = adminPerfNow() - authStartedAt;
   const dataStartedAt = adminPerfNow();
-  const data = await getAdminAnalyticsData();
+  const [data, affiliate] = await Promise.all([
+    getAdminAnalyticsData(),
+    getAffiliateAnalyticsData()
+  ]);
   logAdminPerf("page./admin/analytics", {
     authMs: `${authMs}ms`,
     dataMs: `${adminPerfNow() - dataStartedAt}ms`,
@@ -100,6 +104,23 @@ export default async function AdminAnalyticsPage() {
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
+        <AdminSection title="Creator Program funnel" description="Referral tıklama, signup ve ödül dağıtım performansı.">
+          <div className="grid gap-3 md:grid-cols-3">
+            <AdminMetricCard label="Referral click" value={affiliate.clickCount} />
+            <AdminMetricCard label="Referral signup" value={affiliate.signupCount} />
+            <AdminMetricCard label="Reward grubu" value={affiliate.rewardGroups.length} />
+          </div>
+          <div className="mt-4 grid gap-2">
+            {affiliate.rewardGroups.map((group) => (
+              <div key={group.status} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-3">
+                <p className="font-black text-white">{group.status}</p>
+                <p className="text-sm font-bold text-slate-300">{group._count._all} reward · {group._sum.rewardCredits ?? 0} kredi</p>
+              </div>
+            ))}
+            {affiliate.rewardGroups.length === 0 ? <p className="text-sm font-bold text-slate-400">Henüz affiliate reward yok.</p> : null}
+          </div>
+        </AdminSection>
+
         <AdminSection title="Kullanıcı yolculuğu" description="Son sessionlar: sayfa, tool, preview ve checkout adımları.">
           <div className="grid gap-3">
             {data.behavior.recentSessions.map((session) => (

@@ -8,6 +8,7 @@ export type AuthenticatedUser = {
   role: "USER" | "ADMIN";
   creditBalance: number;
   freeTrialClaimed: boolean;
+  referredByUserId: string | null;
 };
 
 export type SessionUser = {
@@ -143,7 +144,8 @@ export async function getCurrentUserFromSessionWithTiming(): Promise<{
       email: appUser.email,
       role: appUser.role,
       creditBalance: appUser.creditBalance,
-      freeTrialClaimed: appUser.freeTrialClaimed
+      freeTrialClaimed: appUser.freeTrialClaimed,
+      referredByUserId: appUser.referredByUserId
     },
     timing: {
       sessionMs,

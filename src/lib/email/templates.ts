@@ -6,6 +6,7 @@ export type EmailTemplateKey =
   | "mfa_enabled"
   | "payment_success"
   | "credits_added"
+  | "referral_reward"
   | "ticket_reply"
   | "failed_payment";
 
@@ -23,6 +24,7 @@ type TemplateInput = {
   packageName?: string;
   ticketSubject?: string;
   ticketMessage?: string;
+  referralName?: string;
   actionUrl?: string;
   supportEmail?: string;
 };
@@ -33,6 +35,7 @@ export const templateEventType: Record<EmailTemplateKey, EmailEventType> = {
   mfa_enabled: "MFA_ENABLED",
   payment_success: "PAYMENT_SUCCESSFUL",
   credits_added: "CREDITS_ADDED",
+  referral_reward: "REFERRAL_REWARD",
   ticket_reply: "TICKET_REPLY",
   failed_payment: "FAILED_PAYMENT"
 };
@@ -99,6 +102,18 @@ export function renderEmailTemplate(templateKey: EmailTemplateKey, input: Templa
       cta: "View credits",
       actionUrl: `${siteUrl}/dashboard#credits`,
       footer: `Questions about credits? Contact ${supportEmail}.`
+    });
+  }
+
+  if (templateKey === "referral_reward") {
+    return createEmail({
+      subject: "You earned Zeylora referral credits",
+      eyebrow: "Creator Program",
+      title: `${input.credits ?? "New"} referral credits earned.`,
+      body: `A referred seller completed a successful credit purchase${input.amount ? ` (${input.amount})` : ""}. Your Creator Program reward was delivered as platform credits you can use for clean exports.`,
+      cta: "Open Creator Program",
+      actionUrl: `${siteUrl}/dashboard/affiliate`,
+      footer: "Referral rewards are platform credits only and are not cash-withdrawable."
     });
   }
 

@@ -176,7 +176,12 @@ async function collectCriticalBackupPayload() {
     ticketMessages,
     jobs,
     mediaAssets,
-    providerSettings
+    providerSettings,
+    affiliateProfiles,
+    referralClicks,
+    referralSignups,
+    referralRewards,
+    affiliatePayoutSnapshots
   ] = await Promise.all([
     prisma.user.findMany({
       orderBy: { createdAt: "desc" },
@@ -323,6 +328,96 @@ async function collectCriticalBackupPayload() {
         createdAt: true,
         updatedAt: true
       }
+    }),
+    prisma.affiliateProfile.findMany({
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        userId: true,
+        referralCode: true,
+        status: true,
+        tierKey: true,
+        customRewardPercent: true,
+        customMonthlyCapCredits: true,
+        freezeRewards: true,
+        trusted: true,
+        suspicious: true,
+        fraudNotes: true,
+        totalClicks: true,
+        totalSignups: true,
+        totalPaidReferrals: true,
+        totalReferredRevenue: true,
+        totalRewardCredits: true,
+        createdAt: true,
+        updatedAt: true
+      }
+    }),
+    prisma.referralClick.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 5000,
+      select: {
+        id: true,
+        affiliateProfileId: true,
+        referralCode: true,
+        anonymousId: true,
+        sessionId: true,
+        landingPage: true,
+        referrer: true,
+        matchedUserId: true,
+        createdAt: true
+      }
+    }),
+    prisma.referralSignup.findMany({
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        affiliateProfileId: true,
+        referredUserId: true,
+        referralCode: true,
+        referralClickId: true,
+        suspicious: true,
+        fraudReason: true,
+        createdAt: true
+      }
+    }),
+    prisma.referralReward.findMany({
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        affiliateProfileId: true,
+        affiliateUserId: true,
+        referredUserId: true,
+        paymentId: true,
+        status: true,
+        paymentAmount: true,
+        paymentCurrency: true,
+        rewardPercentSnapshot: true,
+        rewardUsdValueSnapshot: true,
+        creditUsdValueSnapshot: true,
+        rewardCredits: true,
+        tierKeySnapshot: true,
+        tierNameSnapshot: true,
+        deliveredTransactionId: true,
+        deliveredAt: true,
+        revokedAt: true,
+        createdAt: true,
+        updatedAt: true
+      }
+    }),
+    prisma.affiliatePayoutSnapshot.findMany({
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        affiliateUserId: true,
+        periodStart: true,
+        periodEnd: true,
+        status: true,
+        earnedCredits: true,
+        deliveredCredits: true,
+        paymentRevenue: true,
+        createdAt: true,
+        updatedAt: true
+      }
     })
   ]);
 
@@ -341,7 +436,12 @@ async function collectCriticalBackupPayload() {
     ticketMessages,
     jobs,
     mediaAssets,
-    providerSettings
+    providerSettings,
+    affiliateProfiles,
+    referralClicks,
+    referralSignups,
+    referralRewards,
+    affiliatePayoutSnapshots
   };
 }
 
@@ -610,7 +710,12 @@ function getBackupPayloadCounts(payload: Awaited<ReturnType<typeof collectCritic
     ticketMessages: payload.ticketMessages.length,
     jobs: payload.jobs.length,
     mediaAssets: payload.mediaAssets.length,
-    providerSettings: payload.providerSettings.length
+    providerSettings: payload.providerSettings.length,
+    affiliateProfiles: payload.affiliateProfiles.length,
+    referralClicks: payload.referralClicks.length,
+    referralSignups: payload.referralSignups.length,
+    referralRewards: payload.referralRewards.length,
+    affiliatePayoutSnapshots: payload.affiliatePayoutSnapshots.length
   };
 }
 

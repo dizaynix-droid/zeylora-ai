@@ -12,6 +12,7 @@ export const dashboardNav = [
   { label: "Jobs", href: "/dashboard#jobs" },
   { label: "Support", href: "/dashboard/support" },
   { label: "Tickets", href: "/dashboard/tickets" },
+  { label: "Creator Program", href: "/dashboard/affiliate" },
   { label: "Credits", href: "/dashboard#credits" },
   { label: "Payments", href: "/dashboard#payments" },
   { label: "Settings", href: "/dashboard#settings" }
@@ -23,6 +24,7 @@ export const adminNav = [
   { label: adminTr.nav.tools, href: "/admin/tools" },
   { label: adminTr.nav.jobs, href: "/admin/jobs" },
   { label: adminTr.nav.tickets, href: "/admin/tickets" },
+  { label: "Partnerlar", href: "/admin/affiliates" },
   { label: adminTr.nav.credits, href: "/admin/credits" },
   { label: adminTr.nav.pricing, href: "/admin/pricing" },
   { label: adminTr.nav.payments, href: "/admin/payments" },

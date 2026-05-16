@@ -19,6 +19,11 @@ import {
   type OperationalSettings
 } from "@/lib/settings/operations";
 import { createEmergencyBackupSnapshot } from "@/lib/admin/backup";
+import {
+  AFFILIATE_SETTINGS_KEY,
+  toAffiliateSettingsJson,
+  type AffiliateSettings
+} from "@/lib/affiliate/settings";
 
 export async function adjustUserCreditsAction(formData: FormData) {
   const admin = await requireAdmin();
@@ -797,6 +802,137 @@ export async function createEmergencyBackupSnapshotAction(formData: FormData) {
   revalidatePath("/admin/system");
   revalidatePath("/admin/recovery");
   redirect(`/admin/recovery?saved=${encodeURIComponent(backup.status.toLowerCase())}`);
+}
+
+export async function updateAffiliateSettingsAction(formData: FormData) {
+  const admin = await requireAdmin();
+  const settings: AffiliateSettings = {
+    enabled: formData.get("enabled") === "on",
+    defaultRewardPercent: Number(formData.get("defaultRewardPercent") || 20),
+    minimumPaymentAmount: Number(formData.get("minimumPaymentAmount") || 7.99),
+    rewardCurrencyMode: "credits_only",
+    rewardDelayDays: Number(formData.get("rewardDelayDays") || 0),
+    maxRewardCreditsPerPayment: Number(formData.get("maxRewardCreditsPerPayment") || 500),
+    maxMonthlyRewardCreditsPerAffiliate: Number(formData.get("maxMonthlyRewardCreditsPerAffiliate") || 5000),
+    rewardScope: getFormString(formData, "rewardScope", 40) === "FIRST_PAYMENT_ONLY" ? "FIRST_PAYMENT_ONLY" : "ALL_PAYMENTS",
+    estimatedCreditUsdValue: Number(formData.get("estimatedCreditUsdValue") || 0.7),
+    tiers: (["starter", "growth", "elite"] as const).map((key, index) => ({
+      key,
+      name: getFormString(formData, `${key}Name`, 80) || ["Starter Partner", "Growth Partner", "Elite Partner"][index],
+      rewardPercent: Number(formData.get(`${key}RewardPercent`) || [20, 25, 30][index]),
+      requiredPaidReferrals: Number(formData.get(`${key}RequiredPaidReferrals`) || [0, 10, 30][index]),
+      requiredReferredRevenue: Number(formData.get(`${key}RequiredReferredRevenue`) || [0, 500, 2000][index]),
+      monthlyCapCredits: Number(formData.get(`${key}MonthlyCapCredits`) || [2000, 5000, 10000][index]),
+      active: formData.get(`${key}Active`) === "on"
+    }))
+  };
+
+  await prisma.siteSetting.upsert({
+    where: { key: AFFILIATE_SETTINGS_KEY },
+    update: { valueJson: toAffiliateSettingsJson(settings) },
+    create: { key: AFFILIATE_SETTINGS_KEY, valueJson: toAffiliateSettingsJson(settings) }
+  });
+
+  await logAdminAction({
+    admin,
+    action: "affiliate.settings.update",
+    entityType: "SiteSetting",
+    entityId: AFFILIATE_SETTINGS_KEY,
+    metadata: {
+      enabled: settings.enabled,
+      defaultRewardPercent: settings.defaultRewardPercent,
+      rewardScope: settings.rewardScope,
+      tierCount: settings.tiers.length
+    }
+  });
+
+  revalidatePath("/admin/affiliates");
+  revalidatePath("/admin/analytics");
+  redirect("/admin/affiliates?saved=settings");
+}
+
+export async function updateAffiliateProfileAction(formData: FormData) {
+  const admin = await requireAdmin();
+  const profileId = getFormString(formData, "profileId", 120);
+  const status = getFormString(formData, "status", 40);
+  const customRewardPercent = Number(formData.get("customRewardPercent") || 0);
+  const customMonthlyCapCredits = Number(formData.get("customMonthlyCapCredits") || 0);
+  const fraudNotes = getFormString(formData, "fraudNotes", 1000);
+
+  if (!profileId || !["ACTIVE", "DISABLED", "FROZEN", "SUSPICIOUS"].includes(status)) {
+    redirect("/admin/affiliates?error=invalid-profile");
+  }
+
+  const profile = await prisma.affiliateProfile.update({
+    where: { id: profileId },
+    data: {
+      status: status as "ACTIVE" | "DISABLED" | "FROZEN" | "SUSPICIOUS",
+      customRewardPercent: customRewardPercent > 0 ? customRewardPercent : null,
+      customMonthlyCapCredits: customMonthlyCapCredits > 0 ? customMonthlyCapCredits : null,
+      freezeRewards: formData.get("freezeRewards") === "on",
+      trusted: formData.get("trusted") === "on",
+      suspicious: formData.get("suspicious") === "on",
+      fraudNotes: fraudNotes || null
+    },
+    select: { id: true, userId: true, referralCode: true }
+  });
+
+  await logAdminAction({
+    admin,
+    action: "affiliate.profile.update",
+    entityType: "AffiliateProfile",
+    entityId: profile.id,
+    metadata: { userId: profile.userId, referralCode: profile.referralCode, status, customRewardPercent, customMonthlyCapCredits }
+  });
+
+  revalidatePath("/admin/affiliates");
+  redirect(`/admin/affiliates?saved=${encodeURIComponent(profile.referralCode)}`);
+}
+
+export async function manualAffiliateRewardAction(formData: FormData) {
+  const admin = await requireAdmin();
+  const profileId = getFormString(formData, "profileId", 120);
+  const amount = Number(formData.get("amount") || 0);
+  const note = getFormString(formData, "note", 500) || "Manual Creator Program credit reward";
+
+  if (!profileId || !Number.isInteger(amount) || amount <= 0) redirect("/admin/affiliates?error=reward");
+
+  const profile = await prisma.affiliateProfile.findUnique({
+    where: { id: profileId },
+    select: { id: true, userId: true, referralCode: true, user: { select: { creditBalance: true } } }
+  });
+  if (!profile) redirect("/admin/affiliates?error=not-found");
+
+  await prisma.$transaction(async (tx) => {
+    const balanceAfter = profile.user.creditBalance + amount;
+    await tx.user.update({ where: { id: profile.userId }, data: { creditBalance: balanceAfter } });
+    await tx.creditTransaction.create({
+      data: {
+        userId: profile.userId,
+        type: "REFERRAL_REWARD",
+        amount,
+        balanceAfter,
+        note
+      }
+    });
+    await tx.affiliateProfile.update({
+      where: { id: profile.id },
+      data: { totalRewardCredits: { increment: amount } }
+    });
+  });
+
+  deleteDashboardCache(`dashboard:credits:${profile.userId}`);
+  deleteDashboardCache(`dashboard:transactions:${profile.userId}`);
+  await logAdminAction({
+    admin,
+    action: "affiliate.manual_reward",
+    entityType: "AffiliateProfile",
+    entityId: profile.id,
+    metadata: { userId: profile.userId, amount, note }
+  });
+
+  revalidatePath("/admin/affiliates");
+  redirect(`/admin/affiliates?saved=manual-${encodeURIComponent(profile.referralCode)}`);
 }
 
 function getFormString(formData: FormData, key: string, maxLength = 240) {

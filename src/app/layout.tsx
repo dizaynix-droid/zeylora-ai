@@ -4,6 +4,7 @@ import "./globals.css";
 import { appConfig } from "@/config/app";
 import { MarketingBodyScripts, MarketingHeadTags } from "@/components/analytics/marketing-scripts";
 import { PageTracker } from "@/components/analytics/page-tracker";
+import { ReferralTracker } from "@/components/affiliate/referral-tracker";
 import { createMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createMetadata();
@@ -29,6 +30,7 @@ export default function RootLayout({
         {children}
         <Suspense fallback={null}>
           <PageTracker />
+          <ReferralTracker />
         </Suspense>
         <MarketingBodyScripts />
       </body>

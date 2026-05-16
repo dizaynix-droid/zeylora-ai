@@ -223,6 +223,16 @@ export async function POST(request: Request) {
       paymentId: payment.id,
       credits
     });
+    if (user.referredByUserId) {
+      trackServerEvent(trackingEvents.referralCheckout, {
+        userId: user.id,
+        affiliateUserId: user.referredByUserId,
+        provider: "stripe",
+        packageId: selectedPackage.id,
+        paymentId: payment.id,
+        credits
+      });
+    }
 
     checkoutLog("session_created", {
       requestId,

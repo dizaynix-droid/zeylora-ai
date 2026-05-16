@@ -1,4 +1,4 @@
-import { CheckCircle2, Clock3, CreditCard, History, Lock, ShieldCheck, Sparkles, Zap } from "lucide-react";
+import { CheckCircle2, Clock3, CreditCard, History, Lock, Share2, ShieldCheck, Sparkles, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { CheckoutButton } from "@/components/billing/checkout-button";
 import { Card } from "@/components/ui/card";
@@ -12,7 +12,8 @@ const trustItems: Array<[string, string, LucideIcon]> = [
   ["Signed downloads", "Preview and export URLs are temporary instead of exposed as raw storage links.", ShieldCheck],
   ["Fast seller workflow", "Upload, preview, adjust, export, and repeat without leaving the page.", Zap],
   ["Buyer-intent workflow", "Processing is credit-based from the first real edit, reducing low-quality free abuse.", CheckCircle2],
-  ["Seller-ready formats", "Prepare visuals for Shopify, Amazon, Etsy, TikTok Shop, social ads, and catalog pages.", Clock3]
+  ["Seller-ready formats", "Prepare visuals for Shopify, Amazon, Etsy, TikTok Shop, social ads, and catalog pages.", Clock3],
+  ["Creator Program", "Invite sellers and earn Zeylora platform credits when referrals complete successful purchases.", Share2]
 ];
 
 const credibility = [

@@ -5,6 +5,7 @@ import { trackServerEvent } from "@/lib/analytics/server";
 import { deleteDashboardCache } from "@/lib/dashboard/cache";
 import { prisma } from "@/lib/db";
 import { sendTransactionalEmail } from "@/lib/email/resend";
+import { processAffiliateRewardForPayment } from "@/lib/affiliate/rewards";
 import { getStripeClient, getStripeWebhookSecret } from "@/lib/payments/stripe";
 
 export const runtime = "nodejs";
@@ -29,39 +30,27 @@ export async function POST(request: Request) {
   try {
     event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
   } catch (error) {
-    await prisma.webhookLog.create({
-      data: {
-        source: "stripe",
-        externalEventId: null,
-        eventType: "signature_verification_failed",
-        payloadJson: { received: true },
-        status: "failed",
-        errorMessage: error instanceof Error ? error.message : "Invalid Stripe signature."
-      }
+    await safeCreateWebhookLog({
+      source: "stripe",
+      externalEventId: null,
+      eventType: "signature_verification_failed",
+      payloadJson: { received: true },
+      status: "failed",
+      errorMessage: error instanceof Error ? error.message : "Invalid Stripe signature."
     });
 
     return NextResponse.json({ ok: false, error: "Invalid Stripe signature." }, { status: 400 });
   }
 
-  const webhookLog = await prisma.webhookLog
-    .create({
-      data: {
-        source: "stripe",
-        externalEventId: event.id,
-        eventType: event.type,
-        payloadJson: event as unknown as Prisma.InputJsonObject,
-        status: "received"
-      },
-      select: { id: true }
-    })
-    .catch((error) => {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-        return null;
-      }
-      throw error;
-    });
+  const webhookLog = await safeCreateWebhookLog({
+    source: "stripe",
+    externalEventId: event.id,
+    eventType: event.type,
+    payloadJson: toJson(event),
+    status: "received"
+  });
 
-  if (!webhookLog) {
+  if (webhookLog?.duplicate) {
     return NextResponse.json({ ok: true, received: true, duplicate: true });
   }
 
@@ -81,12 +70,14 @@ export async function POST(request: Request) {
         const processed = await prisma.$transaction(async (tx) => {
           const payment = await tx.payment.findUnique({
             where: { id: paymentId },
-            select: {
-              id: true,
-              status: true,
-              userId: true,
-              stripeCheckoutSessionId: true
-            }
+              select: {
+                id: true,
+                status: true,
+                userId: true,
+                amount: true,
+                currency: true,
+                stripeCheckoutSessionId: true
+              }
           });
 
           if (!payment || payment.status === PaymentStatus.PAID) {
@@ -111,7 +102,7 @@ export async function POST(request: Request) {
                 stripeCheckoutSessionId: session.id,
                 stripePaymentIntentId: typeof session.payment_intent === "string" ? session.payment_intent : null,
                 creditsDelivered: credits,
-                rawEventJson: event as unknown as Prisma.InputJsonObject
+                rawEventJson: toJson(event)
               },
               select: { id: true }
             }),
@@ -146,7 +137,14 @@ export async function POST(request: Request) {
             }
           });
 
-          return { credited: true as const, paymentId: paidPayment.id, balanceAfter, email: updatedUser.email };
+          return {
+            credited: true as const,
+            paymentId: paidPayment.id,
+            balanceAfter,
+            email: updatedUser.email,
+            amount: Number(payment.amount),
+            currency: payment.currency
+          };
         });
 
         if (processed.credited) {
@@ -154,7 +152,7 @@ export async function POST(request: Request) {
           deleteDashboardCache(`dashboard:transactions:${userId}`);
           trackServerEvent(trackingEvents.checkoutCompleted, { userId, provider: "stripe", paymentId, credits });
           trackServerEvent(trackingEvents.purchase, { userId, provider: "stripe", paymentId, credits });
-          await sendTransactionalEmail({
+          await safeSendWebhookEmail({
             templateKey: "payment_success",
             to: processed.email,
             userId,
@@ -165,7 +163,7 @@ export async function POST(request: Request) {
               packageName: session.metadata?.packageName || "Credit pack"
             }
           });
-          await sendTransactionalEmail({
+          await safeSendWebhookEmail({
             templateKey: "credits_added",
             to: processed.email,
             userId,
@@ -174,6 +172,18 @@ export async function POST(request: Request) {
               credits,
               packageName: session.metadata?.packageName || "Credit pack"
             }
+          });
+          await processAffiliateRewardForPayment({
+            paymentId: processed.paymentId,
+            userId,
+            amount: processed.amount,
+            currency: processed.currency
+          }).catch((error) => {
+            console.warn("[affiliate-reward-failed]", {
+              paymentId: processed.paymentId,
+              userId,
+              error: error instanceof Error ? error.message : "Unknown affiliate reward error"
+            });
           });
         }
       }
@@ -186,32 +196,35 @@ export async function POST(request: Request) {
           where: { id: paymentId, status: PaymentStatus.PENDING },
           data: {
             status: PaymentStatus.CANCELLED,
-            rawEventJson: event as unknown as Prisma.InputJsonObject
+            rawEventJson: toJson(event)
           }
         });
       }
     }
 
-    await prisma.webhookLog.update({
-      where: { id: webhookLog.id },
-      data: {
+    if (webhookLog?.id) {
+      await safeUpdateWebhookLog(webhookLog.id, {
         status: "processed",
         paymentId: linkedPaymentId || null,
         userId: linkedUserId || null,
         processedAt: new Date()
-      }
-    });
+      });
+    }
 
     return NextResponse.json({ ok: true, received: true });
   } catch (error) {
-    await prisma.webhookLog.update({
-      where: { id: webhookLog.id },
-      data: {
+    console.error("[stripe-webhook-failed]", {
+      eventId: event.id,
+      eventType: event.type,
+      error: error instanceof Error ? error.message : "Stripe webhook processing failed."
+    });
+    if (webhookLog?.id) {
+      await safeUpdateWebhookLog(webhookLog.id, {
         status: "failed",
         errorMessage: error instanceof Error ? error.message : "Stripe webhook processing failed.",
         processedAt: new Date()
-      }
-    });
+      });
+    }
 
     return NextResponse.json({ ok: false, error: "Webhook processing failed." }, { status: 500 });
   }
@@ -220,4 +233,50 @@ export async function POST(request: Request) {
 function formatStripeAmount(amount: number | null | undefined, currency: string | null | undefined) {
   if (!amount || !currency) return undefined;
   return `${(amount / 100).toFixed(2)} ${currency.toUpperCase()}`;
+}
+
+async function safeCreateWebhookLog(data: Prisma.WebhookLogCreateInput) {
+  try {
+    const created = await prisma.webhookLog.create({
+      data,
+      select: { id: true }
+    });
+    return { id: created.id, duplicate: false as const };
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return { id: null, duplicate: true as const };
+    }
+    console.warn("[stripe-webhook-log-skipped]", {
+      eventType: data.eventType,
+      externalEventId: data.externalEventId,
+      error: error instanceof Error ? error.message : "WebhookLog write failed"
+    });
+    return null;
+  }
+}
+
+async function safeUpdateWebhookLog(id: string, data: Prisma.WebhookLogUpdateInput) {
+  await prisma.webhookLog.update({
+    where: { id },
+    data
+  }).catch((error) => {
+    console.warn("[stripe-webhook-log-update-skipped]", {
+      id,
+      error: error instanceof Error ? error.message : "WebhookLog update failed"
+    });
+  });
+}
+
+function toJson(value: unknown): Prisma.InputJsonObject {
+  return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonObject;
+}
+
+async function safeSendWebhookEmail(input: Parameters<typeof sendTransactionalEmail>[0]) {
+  await sendTransactionalEmail(input).catch((error) => {
+    console.warn("[stripe-webhook-email-skipped]", {
+      templateKey: input.templateKey,
+      userId: input.userId,
+      error: error instanceof Error ? error.message : "Transactional email failed"
+    });
+  });
 }
