@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/db";
 import { creditPackages } from "@/config/pricing";
+import { objectRemoverConfig } from "@/config/ai-tools";
+import { resolveToolEconomy } from "@/config/tool-economy";
 import { ensureLaunchCreditPackageDefaults } from "@/lib/pricing/packages";
 import { adminPerfNow, logAdminPerf, measureAdminQuery } from "@/lib/admin/perf";
 import { getOperationalSettings } from "@/lib/settings/operations";
@@ -19,6 +21,7 @@ export const LAUNCH_TOOL_SLUGS = [
   "ai-relight",
   "ai-photo-enhancer",
   "photo-enhancer",
+  "object-remover",
   "marketplace-crop",
   "background-remover",
   "product-shadow"
@@ -306,6 +309,7 @@ export async function getAdminUsersData(input: {
 
 export async function getAdminToolsData() {
   const startedAt = adminPerfNow();
+  await ensureAdminObjectRemoverTool();
   const dbTools = await measureAdminQuery(
     "tools.list",
     prisma.aiTool.findMany({
@@ -343,6 +347,76 @@ export async function getAdminToolsData() {
   });
 
   return tools;
+}
+
+async function ensureAdminObjectRemoverTool() {
+  const economy = resolveToolEconomy({
+    toolSlug: objectRemoverConfig.slug,
+    qualityMode: "standard",
+    providerKey: objectRemoverConfig.providerKey
+  });
+
+  await prisma.aiTool.upsert({
+    where: {
+      slug_version: {
+        slug: objectRemoverConfig.slug,
+        version: 1
+      }
+    },
+    update: {
+      publicName: economy.publicName,
+      internalKey: economy.internalKey,
+      qualityTier: economy.qualityTier,
+      estimatedCostPerRun: economy.estimatedProviderCost,
+      estimatedCostCurrency: economy.providerCurrency,
+      estimatedCostProvider: economy.providerKey,
+      deletedAt: null
+    },
+    create: {
+      slug: objectRemoverConfig.slug,
+      version: 1,
+      name: "Object Remover",
+      publicName: economy.publicName,
+      internalKey: economy.internalKey,
+      qualityTier: economy.qualityTier,
+      category: "Ecommerce",
+      description: "Remove unwanted objects, cables, props, stains, dust, and distracting background items from product photos.",
+      creditCost: economy.creditCost,
+      status: "ACTIVE",
+      inputRulesJson: {
+        allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"],
+        maxFileSizeMb: 12,
+        maxWidth: 6000,
+        maxHeight: 6000
+      },
+      outputType: "image",
+      providerKey: economy.providerKey,
+      estimatedCostPerRun: economy.estimatedProviderCost,
+      estimatedCostCurrency: economy.providerCurrency,
+      estimatedCostProvider: economy.providerKey,
+      providerConfigJson: {
+        model: objectRemoverConfig.model,
+        proModel: objectRemoverConfig.proModel,
+        inputMode: "prompt",
+        outputFormat: "png"
+      },
+      fallbackProviderKeysJson: [],
+      retryPolicyJson: {
+        maxRetries: objectRemoverConfig.maxRetries,
+        timeoutSeconds: objectRemoverConfig.timeoutSeconds,
+        retryDelaySeconds: 8,
+        allowFallback: false
+      },
+      seoTitle: "Object Remover - Product Photo Cleanup",
+      seoDescription: "Remove distracting objects, cables, props, stains, and background items from ecommerce product photos.",
+      landingContentJson: {
+        hero: "Remove unwanted objects from product photos.",
+        faqs: []
+      },
+      exampleImagesJson: [],
+      displayOrder: economy.displayOrder
+    }
+  });
 }
 
 export async function getAdminPricingData() {

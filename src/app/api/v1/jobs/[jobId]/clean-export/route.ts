@@ -171,6 +171,14 @@ export async function POST(request: Request, context: RouteContext) {
       jobId: job.id,
       credits: requiredCredits
     });
+    if (job.tool.slug === "object-remover") {
+      trackServerEvent(trackingEvents.firstObjectRemoverExport, {
+        userId: user.id,
+        tool: job.tool.slug,
+        jobId: job.id,
+        credits: requiredCredits
+      });
+    }
   }
 
   const downloadUrl = await createResultDownloadUrl(cleanStorageKey, filename);

@@ -82,6 +82,7 @@ export const hdUpscaleConfig = {
 export type MarketplaceCropFormat = "square" | "portrait" | "story" | "horizontal" | "marketplace-white";
 export type ProductShadowPreset = "soft-studio" | "floating-shadow" | "luxury-catalog" | "soft-floor";
 export type AiRelightPreset = "soft-studio-light" | "luxury-glow" | "bright-catalog" | "dramatic-product-light";
+export type ObjectRemovalQualityMode = "standard" | "pro";
 
 export const marketplaceCropConfig = {
   toolKey: "marketplace-crop",
@@ -176,6 +177,21 @@ export const aiRelightConfig = {
       description: "Focused contrast and directional highlight for ad creatives."
     }
   } satisfies Record<string, { label: string; description: string }>
+} as const;
+
+export const objectRemoverConfig = {
+  toolKey: "object-remover",
+  slug: "object-remover",
+  category: "ecommerce",
+  creditCost: 4,
+  proCreditCost: 6,
+  providerKey: "replicate",
+  model: process.env.AI_OBJECT_REMOVER_MODEL || "adirik/inst-inpaint",
+  proModel: process.env.AI_OBJECT_REMOVER_PRO_MODEL || process.env.AI_OBJECT_REMOVER_MODEL || "adirik/inst-inpaint",
+  timeoutSeconds: Number(process.env.AI_OBJECT_REMOVER_TIMEOUT_SECONDS || process.env.AI_JOB_TIMEOUT_SECONDS || 120),
+  pollIntervalSeconds: Number(process.env.AI_JOB_POLL_INTERVAL_SECONDS || 2),
+  maxRetries: Number(process.env.AI_OBJECT_REMOVER_MAX_RETRIES || process.env.AI_JOB_MAX_RETRIES || 1),
+  promptMaxLength: 240
 } as const;
 
 export function getBackgroundRemovalAttempts(mode: BackgroundRemovalQualityMode): BackgroundRemovalAttempt[] {

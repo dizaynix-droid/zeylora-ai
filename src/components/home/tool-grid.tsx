@@ -7,6 +7,7 @@ const launchToolOrder = [
   "hd-upscale",
   "ai-relight",
   "ai-photo-enhancer",
+  "object-remover",
   "marketplace-crop",
   "background-remover",
   "product-shadow"
@@ -22,6 +23,7 @@ const toolPositioning: Partial<Record<(typeof launchToolOrder)[number], string>>
   "hd-upscale": "Best first test: 4x Ultra and Social Cleanup are strong for low-res product assets.",
   "ai-relight": "Seller-friendly lighting polish with Luxury Glow as the standout preset.",
   "ai-photo-enhancer": "Premium catalog polish for cosmetics, perfume, and product detail shots.",
+  "object-remover": "Cleanup tool for cables, props, stains, dust, and distracting background items.",
   "marketplace-crop": "Stable ecommerce utility with a strong white-frame marketplace preset.",
   "background-remover": "Useful cutout workflow for objects and clean foregrounds.",
   "product-shadow": "Creative shadow styling for launch; best with clean cutouts."

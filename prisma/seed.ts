@@ -70,8 +70,8 @@ const initialTools = [
   {
     slug: "object-remover",
     name: "Object Remover",
-    category: "Editing",
-    description: "Remove unwanted objects from images with AI inpainting.",
+    category: "Ecommerce",
+    description: "Remove unwanted objects, cables, props, stains, dust, and distracting background items from product photos.",
     creditCost: 4,
     outputType: "image"
   },
@@ -184,9 +184,11 @@ async function main() {
             ? "sharp-local-transform"
             : tool.slug === "hd-upscale"
               ? "nightmareai/real-esrgan"
-              : "",
+              : tool.slug === "object-remover"
+                ? "adirik/inst-inpaint"
+                : "",
           promptTemplate: "",
-          outputFormat: ["marketplace-crop", "product-shadow", "ai-relight"].includes(tool.slug) ? "png" : "webp"
+          outputFormat: ["marketplace-crop", "product-shadow", "ai-relight", "object-remover"].includes(tool.slug) ? "png" : "webp"
         },
         fallbackProviderKeysJson: ["marketplace-crop", "product-shadow", "ai-relight"].includes(tool.slug) ? [] : ["openai", "stability"],
         retryPolicyJson: {

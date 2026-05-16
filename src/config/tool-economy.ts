@@ -193,6 +193,37 @@ export const TOOL_ECONOMY_TIERS: ToolEconomyTier[] = [
     badge: "Creative",
     description: "Creative/luxury shadow preset tier.",
     fallbackProviderKeys: []
+  },
+  {
+    toolSlug: "object-remover",
+    toolKey: "object-remover",
+    publicName: "Object Remover",
+    internalKey: "object-remover-standard",
+    qualityTier: "standard",
+    providerKey: "replicate",
+    creditCost: 4,
+    estimatedProviderCost: 0.08,
+    providerCurrency: "usd",
+    displayOrder: 70,
+    badge: "Cleanup",
+    description: "Prompt-based ecommerce cleanup for cables, props, stains, dust, and distracting background items.",
+    fallbackProviderKeys: []
+  },
+  {
+    toolSlug: "object-remover",
+    toolKey: "object-remover",
+    publicName: "Object Remover Pro",
+    internalKey: "object-remover-pro",
+    qualityTier: "pro",
+    providerKey: "replicate",
+    creditCost: 6,
+    estimatedProviderCost: 0.12,
+    providerCurrency: "usd",
+    highQuality: true,
+    displayOrder: 71,
+    badge: "Pro cleanup",
+    description: "Higher-credit object removal tier for more demanding product cleanup jobs.",
+    fallbackProviderKeys: []
   }
 ];
 
@@ -249,6 +280,11 @@ function resolveInternalKey(input: {
   if (input.toolSlug === "product-shadow") {
     if (input.preset === "luxury-catalog" || input.preset === "floating-shadow") return "product-shadow-creative";
     return "product-shadow-standard";
+  }
+
+  if (input.toolSlug === "object-remover") {
+    if (input.qualityMode === "pro" || input.preset === "pro") return "object-remover-pro";
+    return "object-remover-standard";
   }
 
   if (input.toolSlug === "ai-photo-enhancer") return "photo-enhancer-pro";

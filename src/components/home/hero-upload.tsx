@@ -31,8 +31,9 @@ type MarketplaceCropFormat = "square" | "portrait" | "story" | "horizontal" | "m
 type ProductShadowPreset = "soft-studio" | "floating-shadow" | "luxury-catalog" | "soft-floor";
 type AiRelightPreset = "soft-studio-light" | "luxury-glow" | "bright-catalog" | "dramatic-product-light";
 type HdUpscalePreset = "2x-hd" | "4x-ultra" | "sharp-catalog" | "social-cleanup";
+type ObjectRemovalQualityMode = "standard" | "pro";
 type ResultRating = "looks_good" | "needs_improvement";
-type HomeToolMode = "background-remover" | "photo-enhancer" | "marketplace-crop" | "product-shadow" | "ai-relight" | "hd-upscale";
+type HomeToolMode = "background-remover" | "photo-enhancer" | "marketplace-crop" | "product-shadow" | "ai-relight" | "hd-upscale" | "object-remover";
 
 type UploadResponse = {
   ok: boolean;
@@ -107,6 +108,18 @@ const homeToolOptions: Array<{
     downloadFilename: "zeylora-photo-enhancer.png",
     successMessage: "Photo enhanced successfully",
     resultNote: "Enhancement is strong for cosmetics, perfume, and catalog products. Very fine textures may smooth slightly depending on the source image."
+  },
+  {
+    key: "object-remover",
+    name: "Object Remover",
+    badge: "Cleanup",
+    endpoint: "/api/v1/jobs/object-remover",
+    processingLabel: "Cleaning product photo...",
+    creditCost: 4,
+    downloadLabel: "Download PNG",
+    downloadFilename: "zeylora-object-remover.png",
+    successMessage: "Object cleanup created successfully",
+    resultNote: "Remove distracting objects, cables, props, stains, and dust from product photos. Best results come from clear product shots and specific cleanup descriptions."
   },
   {
     key: "marketplace-crop",
@@ -234,6 +247,10 @@ export function HeroUpload() {
   const [appliedAiRelightPreset, setAppliedAiRelightPreset] = useState<AiRelightPreset | null>(null);
   const [hdUpscalePreset, setHdUpscalePreset] = useState<HdUpscalePreset>("2x-hd");
   const [appliedHdUpscalePreset, setAppliedHdUpscalePreset] = useState<HdUpscalePreset | null>(null);
+  const [objectRemovalQualityMode, setObjectRemovalQualityMode] = useState<ObjectRemovalQualityMode>("standard");
+  const [appliedObjectRemovalQualityMode, setAppliedObjectRemovalQualityMode] = useState<ObjectRemovalQualityMode | null>(null);
+  const [objectRemovalPrompt, setObjectRemovalPrompt] = useState("");
+  const [appliedObjectRemovalPrompt, setAppliedObjectRemovalPrompt] = useState<string | null>(null);
   const [selectedTool, setSelectedTool] = useState<HomeToolMode>("hd-upscale");
   const [rating, setRating] = useState<ResultRating | null>(null);
   const hasActivePreview = Boolean(inputPreviewUrl || resultPreviewUrl || status === "failed");
@@ -242,11 +259,11 @@ export function HeroUpload() {
   const selectedEconomy = useMemo(
     () => resolveToolEconomy({
       toolSlug: getEconomyToolSlug(selectedTool),
-      qualityMode,
+      qualityMode: selectedTool === "object-remover" ? objectRemovalQualityMode : qualityMode,
       preset: getEconomyPreset(selectedTool, marketplaceCropFormat, productShadowPreset, aiRelightPreset, hdUpscalePreset),
       providerKey: selectedTool === "background-remover" && qualityMode === "high" ? "photoroom" : undefined
     }),
-    [aiRelightPreset, hdUpscalePreset, marketplaceCropFormat, productShadowPreset, qualityMode, selectedTool]
+    [aiRelightPreset, hdUpscalePreset, marketplaceCropFormat, objectRemovalQualityMode, productShadowPreset, qualityMode, selectedTool]
   );
   const canRunExistingSource = Boolean(
     uploadedMediaId &&
@@ -280,6 +297,12 @@ export function HeroUpload() {
     status === "succeeded" &&
     Boolean(appliedHdUpscalePreset) &&
     appliedHdUpscalePreset !== hdUpscalePreset;
+  const hasPendingObjectRemoval =
+    selectedTool === "object-remover" &&
+    status === "succeeded" &&
+    Boolean(appliedObjectRemovalPrompt) &&
+    (appliedObjectRemovalPrompt !== objectRemovalPrompt.trim() ||
+      appliedObjectRemovalQualityMode !== objectRemovalQualityMode);
 
   const trustItems: Array<[string, LucideIcon]> = [
     ["Private signed downloads", ShieldCheck],
@@ -315,6 +338,8 @@ export function HeroUpload() {
     setAppliedProductShadowPreset(null);
     setAppliedAiRelightPreset(null);
     setAppliedHdUpscalePreset(null);
+    setAppliedObjectRemovalQualityMode(null);
+    setAppliedObjectRemovalPrompt(null);
     setRating(null);
     trackEvent({
       event: trackingEvents.uploadStarted,
@@ -363,6 +388,16 @@ export function HeroUpload() {
           fileSize: file.size
         }
       });
+      if (selectedTool === "object-remover") {
+        trackEvent({
+          event: trackingEvents.objectRemoverUpload,
+          properties: {
+            mediaId: uploadJson.media.id,
+            fileType: file.type,
+            fileSize: file.size
+          }
+        });
+      }
       await runToolJob({
         inputMediaId: uploadJson.media.id,
         tool: selectedTool,
@@ -387,6 +422,12 @@ export function HeroUpload() {
     upscalePreset: HdUpscalePreset;
     quality: QualityMode;
   }) {
+    if (input.tool === "object-remover" && !objectRemovalPrompt.trim()) {
+      setStatus(inputPreviewUrl ? "selected" : "idle");
+      setErrorMessage("Describe what to remove first. Example: remove the cable on the left.");
+      return;
+    }
+
     const hasAccess = await ensureProcessingAccess({
       intent: "run_tool",
       tool: input.tool
@@ -407,6 +448,8 @@ export function HeroUpload() {
     setAppliedProductShadowPreset(null);
     setAppliedAiRelightPreset(null);
     setAppliedHdUpscalePreset(null);
+    setAppliedObjectRemovalQualityMode(null);
+    setAppliedObjectRemovalPrompt(null);
     trackEvent({
       event: trackingEvents.jobStarted,
       properties: {
@@ -415,7 +458,9 @@ export function HeroUpload() {
         cropFormat: input.cropFormat,
         shadowPreset: input.shadowPreset,
         relightPreset: input.relightPreset,
-        upscalePreset: input.upscalePreset
+        upscalePreset: input.upscalePreset,
+        removalPrompt: input.tool === "object-remover" ? objectRemovalPrompt.trim() : undefined,
+        objectRemovalQualityMode
       }
     });
 
@@ -430,7 +475,10 @@ export function HeroUpload() {
         ...(input.tool === "marketplace-crop" ? { targetFormat: input.cropFormat } : {}),
         ...(input.tool === "product-shadow" ? { shadowPreset: input.shadowPreset } : {}),
         ...(input.tool === "ai-relight" ? { relightPreset: input.relightPreset } : {}),
-        ...(input.tool === "hd-upscale" ? { upscalePreset: input.upscalePreset } : {})
+        ...(input.tool === "hd-upscale" ? { upscalePreset: input.upscalePreset } : {}),
+        ...(input.tool === "object-remover"
+          ? { removalPrompt: objectRemovalPrompt.trim(), qualityMode: objectRemovalQualityMode }
+          : {})
       })
     });
     const jobJson = (await jobResponse.json().catch(() => null)) as JobResponse | null;
@@ -467,6 +515,8 @@ export function HeroUpload() {
     setAppliedProductShadowPreset(input.tool === "product-shadow" ? input.shadowPreset : null);
     setAppliedAiRelightPreset(input.tool === "ai-relight" ? input.relightPreset : null);
     setAppliedHdUpscalePreset(input.tool === "hd-upscale" ? input.upscalePreset : null);
+    setAppliedObjectRemovalQualityMode(input.tool === "object-remover" ? objectRemovalQualityMode : null);
+    setAppliedObjectRemovalPrompt(input.tool === "object-remover" ? objectRemovalPrompt.trim() : null);
     setStatus("succeeded");
     trackEvent({
       event: trackingEvents.jobCompleted,
@@ -526,13 +576,16 @@ export function HeroUpload() {
       }
 
       const creditBalance = Number(creditsJson?.creditBalance ?? 0);
-      if (!creditsResponse.ok || creditBalance <= 0) {
+      const requiredCredits = selectedEconomy.creditCost;
+      if (!creditsResponse.ok || creditBalance < requiredCredits) {
         trackEvent({
           event: trackingEvents.trialPackView,
           properties: {
             reason: creditsResponse.ok ? "no_credits" : "credits_check_failed",
             intent: input.intent,
-            tool: input.tool
+            tool: input.tool,
+            creditBalance,
+            requiredCredits
           }
         });
         window.location.assign(trialPackUrl);
@@ -750,6 +803,25 @@ export function HeroUpload() {
     }
   }
 
+  async function applyObjectRemoval() {
+    if (selectedTool !== "object-remover" || !uploadedMediaId) return;
+
+    try {
+      await runToolJob({
+        inputMediaId: uploadedMediaId,
+        tool: "object-remover",
+        cropFormat: marketplaceCropFormat,
+        shadowPreset: productShadowPreset,
+        relightPreset: aiRelightPreset,
+        upscalePreset: hdUpscalePreset,
+        quality: qualityMode
+      });
+    } catch (error) {
+      setStatus("failed");
+      setErrorMessage(error instanceof Error ? error.message : "Something went wrong. Please try again.");
+    }
+  }
+
   return (
     <section id="top" className="relative overflow-hidden bg-cinematic-depth pb-8 pt-6 md:pb-20 md:pt-20">
       <div className="subtle-grid pointer-events-none absolute inset-x-0 top-0 h-[520px] opacity-50" />
@@ -910,6 +982,11 @@ export function HeroUpload() {
                     Current download is still {getHdUpscalePresetLabel(appliedHdUpscalePreset)}. Apply {getHdUpscalePresetLabel(hdUpscalePreset)} to generate a new export.
                   </p>
                 ) : null}
+                {hasPendingObjectRemoval && appliedObjectRemovalPrompt ? (
+                  <p className="mb-3 rounded-xl border border-warning/25 bg-warning/10 p-3 text-xs font-semibold leading-5 text-warning">
+                    Current download uses “{appliedObjectRemovalPrompt}”. Apply the new cleanup request to generate a fresh export.
+                  </p>
+                ) : null}
                 {selectedTool === "ai-relight" && errorMessage ? (
                   <p className="mb-3 rounded-xl border border-warning/25 bg-warning/10 p-3 text-xs font-semibold leading-5 text-warning">
                     {errorMessage}
@@ -960,6 +1037,15 @@ export function HeroUpload() {
                     >
                       <Gauge className="mr-2" size={18} />
                       Apply {getHdUpscalePresetShortLabel(hdUpscalePreset)}
+                    </button>
+                  ) : hasPendingObjectRemoval ? (
+                    <button
+                      type="button"
+                      onClick={() => void applyObjectRemoval()}
+                      className="inline-flex h-12 items-center justify-center rounded-full bg-zeylora-brand px-4 text-sm font-black text-white shadow-glow transition hover:brightness-110"
+                    >
+                      <Gauge className="mr-2" size={18} />
+                      Apply cleanup
                     </button>
                   ) : (
                     <div className="grid gap-2">
@@ -1127,6 +1213,8 @@ export function HeroUpload() {
                       setAppliedProductShadowPreset(null);
                       setAppliedAiRelightPreset(null);
                       setAppliedHdUpscalePreset(null);
+                      setAppliedObjectRemovalQualityMode(null);
+                      setAppliedObjectRemovalPrompt(null);
                       setRating(null);
                       if (status === "succeeded" || status === "failed") setStatus(inputPreviewUrl ? "selected" : "idle");
                     }}
@@ -1294,6 +1382,49 @@ export function HeroUpload() {
                   Upscale blurry, compressed, or small product photos into cleaner HD ecommerce visuals.
                 </p>
               </div>
+            ) : selectedTool === "object-remover" ? (
+              <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.06] p-3">
+                <p className="mb-2 flex items-center gap-2 text-xs font-black uppercase text-slate-400">
+                  <Gauge size={14} />
+                  Cleanup request
+                </p>
+                <textarea
+                  value={objectRemovalPrompt}
+                  onChange={(event) => setObjectRemovalPrompt(event.target.value.slice(0, 240))}
+                  disabled={status === "uploading" || status === "processing"}
+                  rows={3}
+                  placeholder="Describe what to remove, e.g. remove the cable on the left"
+                  className="min-h-24 w-full resize-none rounded-2xl border border-white/10 bg-black/25 px-3 py-3 text-sm font-semibold text-white outline-none transition placeholder:text-slate-500 focus:border-cyan disabled:cursor-not-allowed disabled:opacity-60"
+                />
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {[
+                    ["standard", "Standard · 4 credits"],
+                    ["pro", "Pro · 6 credits"]
+                  ].map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      disabled={status === "uploading" || status === "processing"}
+                      onClick={() => setObjectRemovalQualityMode(value as ObjectRemovalQualityMode)}
+                      className={`min-h-9 rounded-full px-2 py-2 text-[10px] font-black leading-tight transition sm:text-xs ${
+                        objectRemovalQualityMode === value
+                          ? "bg-cyan text-ink"
+                          : "border border-white/10 bg-black/20 text-slate-300 hover:bg-white/10"
+                      } disabled:cursor-not-allowed disabled:opacity-60`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-2 text-xs font-semibold leading-5 text-slate-400">
+                  Ecommerce cleanup for cables, props, stains, dust, logos, and distracting background items. Avoid people, identity documents, adult content, or unsafe edits.
+                </p>
+                {hasPendingObjectRemoval && appliedObjectRemovalPrompt ? (
+                  <p className="mt-2 rounded-xl border border-warning/25 bg-warning/10 p-3 text-xs font-semibold leading-5 text-slate-200">
+                    Current download uses “{appliedObjectRemovalPrompt}”. Apply the new cleanup request to generate a fresh export.
+                  </p>
+                ) : null}
+              </div>
             ) : (
               <div className="mt-4 rounded-2xl border border-emerald/20 bg-emerald/10 p-3 text-left">
                 <p className="text-xs font-black uppercase text-emerald">Enhance MVP</p>
@@ -1385,6 +1516,18 @@ export function HeroUpload() {
                           ) : null}
                         </div>
                       ) : null}
+                      {selectedTool === "object-remover" && appliedObjectRemovalPrompt ? (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <p className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-xs font-black uppercase text-slate-200">
+                            Generated: {appliedObjectRemovalQualityMode === "pro" ? "Pro cleanup" : "Standard cleanup"}
+                          </p>
+                          {hasPendingObjectRemoval ? (
+                            <p className="rounded-full border border-warning/25 bg-warning/10 px-3 py-1 text-xs font-black uppercase text-warning">
+                              New request selected
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </div>
                     {hasPendingMarketplaceFormat && appliedMarketplaceCropFormat ? (
                       <p className="rounded-xl border border-warning/25 bg-warning/10 p-3 text-left text-xs font-semibold leading-5 text-slate-200">
@@ -1399,6 +1542,11 @@ export function HeroUpload() {
                     {hasPendingAiRelightPreset && appliedAiRelightPreset ? (
                       <p className="rounded-xl border border-warning/25 bg-warning/10 p-3 text-left text-xs font-semibold leading-5 text-slate-200">
                         Current download is still {getAiRelightPresetLabel(appliedAiRelightPreset)}. Apply {getAiRelightPresetLabel(aiRelightPreset)} to generate a new export.
+                      </p>
+                    ) : null}
+                    {hasPendingObjectRemoval && appliedObjectRemovalPrompt ? (
+                      <p className="rounded-xl border border-warning/25 bg-warning/10 p-3 text-left text-xs font-semibold leading-5 text-slate-200">
+                        Current download uses “{appliedObjectRemovalPrompt}”. Apply the new cleanup request to generate a fresh export.
                       </p>
                     ) : null}
                     <p className="rounded-xl border border-white/10 bg-white/[0.05] p-3 text-left text-xs font-semibold leading-5 text-slate-300">
@@ -1512,6 +1660,18 @@ export function HeroUpload() {
                       ) : null}
                     </div>
                   ) : null}
+                  {selectedTool === "object-remover" && appliedObjectRemovalPrompt ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <p className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-xs font-black uppercase text-slate-200">
+                        Generated: {appliedObjectRemovalQualityMode === "pro" ? "Pro cleanup" : "Standard cleanup"}
+                      </p>
+                      {hasPendingObjectRemoval ? (
+                        <p className="rounded-full border border-warning/25 bg-warning/10 px-3 py-1 text-xs font-black uppercase text-warning">
+                          New request selected
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
                 {hasPendingMarketplaceFormat && appliedMarketplaceCropFormat ? (
                   <p className="rounded-xl border border-warning/25 bg-warning/10 p-3 text-left text-xs font-semibold leading-5 text-slate-200">
@@ -1526,6 +1686,11 @@ export function HeroUpload() {
                 {hasPendingAiRelightPreset && appliedAiRelightPreset ? (
                   <p className="rounded-xl border border-warning/25 bg-warning/10 p-3 text-left text-xs font-semibold leading-5 text-slate-200">
                     Current download is still {getAiRelightPresetLabel(appliedAiRelightPreset)}. Apply {getAiRelightPresetLabel(aiRelightPreset)} to generate a new export.
+                  </p>
+                ) : null}
+                {hasPendingObjectRemoval && appliedObjectRemovalPrompt ? (
+                  <p className="rounded-xl border border-warning/25 bg-warning/10 p-3 text-left text-xs font-semibold leading-5 text-slate-200">
+                    Current download uses “{appliedObjectRemovalPrompt}”. Apply the new cleanup request to generate a fresh export.
                   </p>
                 ) : null}
                 <p className="rounded-xl border border-white/10 bg-white/[0.05] p-3 text-left text-xs font-semibold leading-5 text-slate-300">
@@ -1595,6 +1760,15 @@ export function HeroUpload() {
                     >
                       <Gauge className="mr-2" size={16} />
                       Apply {getHdUpscalePresetShortLabel(hdUpscalePreset)}
+                    </button>
+                  ) : hasPendingObjectRemoval ? (
+                    <button
+                      type="button"
+                      onClick={() => void applyObjectRemoval()}
+                      className="inline-flex h-10 items-center justify-center rounded-full bg-zeylora-brand px-3 text-xs font-black text-white shadow-glow transition hover:brightness-110"
+                    >
+                      <Gauge className="mr-2" size={16} />
+                      Apply cleanup
                     </button>
                   ) : (
                     <div className="grid gap-2">

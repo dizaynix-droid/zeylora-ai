@@ -11,6 +11,7 @@ export default async function AdminAffiliatesPage() {
   const data = await getAdminAffiliateData();
   const samplePayment = 50;
   const sampleCredits = Math.floor((samplePayment * (data.settings.defaultRewardPercent / 100)) / data.settings.estimatedCreditUsdValue);
+  const rewardScopeLabel = data.settings.rewardScope === "FIRST_PAYMENT_ONLY" ? "Sadece ilk ödeme" : "Tüm başarılı ödemeler";
 
   return (
     <AppShell area="admin" title="Partner programı" description="Zeylora Creator Program, referral ödülleri, komisyon ayarları ve fraud kontrolleri.">
@@ -23,20 +24,33 @@ export default async function AdminAffiliatesPage() {
         <AdminMetricCard label="Şüpheli" value={data.summary.suspiciousCount} />
       </div>
 
-      <div className="mt-4 grid gap-4 xl:grid-cols-[.9fr_1.1fr]">
+      <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,.86fr)_minmax(0,1.14fr)]">
         <AdminSection title="Komisyon kuralları" description="Ödüller v1 içinde yalnızca platform kredisi olarak verilir. Nakit ödeme yok.">
           <form action={updateAffiliateSettingsAction} className="grid gap-3">
             <label className="flex items-center gap-2 text-sm font-black text-white">
               <input name="enabled" type="checkbox" defaultChecked={data.settings.enabled} />
               Affiliate sistemi aktif
             </label>
-            <div className="grid gap-3 md:grid-cols-3">
-              <Field label="Varsayılan %" name="defaultRewardPercent" defaultValue={data.settings.defaultRewardPercent} />
-              <Field label="Minimum ödeme ($)" name="minimumPaymentAmount" defaultValue={data.settings.minimumPaymentAmount} />
-              <Field label="1 kredi USD değeri" name="estimatedCreditUsdValue" defaultValue={data.settings.estimatedCreditUsdValue} step="0.01" />
-              <Field label="Ödül gecikmesi gün" name="rewardDelayDays" defaultValue={data.settings.rewardDelayDays} />
-              <Field label="Ödeme başı max kredi" name="maxRewardCreditsPerPayment" defaultValue={data.settings.maxRewardCreditsPerPayment} />
-              <Field label="Aylık max kredi" name="maxMonthlyRewardCreditsPerAffiliate" defaultValue={data.settings.maxMonthlyRewardCreditsPerAffiliate} />
+            <div className="rounded-2xl border border-cyan/20 bg-cyan/10 p-4 text-sm leading-6 text-slate-200">
+              <p className="font-black text-cyan">Sistem nasıl çalışır?</p>
+              <p className="mt-2">
+                Ödül sadece referral ile gelen kullanıcı başarılı Stripe ödemesi yaptığında oluşur. Signup tek başına ödül vermez.
+                Başarısız, iptal, refund, duplicate veya self-referral ödeme ödül üretmez.
+              </p>
+              <p className="mt-2 font-bold text-white">
+                Formül: ödeme tutarı × komisyon yüzdesi ÷ 1 kredi USD değeri = verilecek kredi.
+              </p>
+              <p className="mt-1 text-cyan">
+                Örnek: ${samplePayment} ödeme × %{data.settings.defaultRewardPercent} ÷ ${data.settings.estimatedCreditUsdValue} = yaklaşık {sampleCredits} kredi.
+              </p>
+            </div>
+            <div className="grid gap-3 lg:grid-cols-2">
+              <Field label="Varsayılan %" hint="Tier/affiliate override yoksa kullanılan ana komisyon oranı." name="defaultRewardPercent" defaultValue={data.settings.defaultRewardPercent} />
+              <Field label="Minimum ödeme ($)" hint="Bu tutarın altındaki ödemeler affiliate ödülü üretmez." name="minimumPaymentAmount" defaultValue={data.settings.minimumPaymentAmount} step="0.01" />
+              <Field label="1 kredi USD değeri" hint="Dolar karşılığını krediye çevirmek için kullanılır. Örnek: 0.70 ise $7 ödül = 10 kredi." name="estimatedCreditUsdValue" defaultValue={data.settings.estimatedCreditUsdValue} step="0.01" />
+              <Field label="Ödül gecikmesi gün" hint="0 ise başarılı ödeme sonrası hemen krediye döner. İleride fraud/refund bekleme süresi için." name="rewardDelayDays" defaultValue={data.settings.rewardDelayDays} />
+              <Field label="Ödeme başı max kredi" hint="Tek bir ödemeden affiliate hesabına yazılabilecek maksimum kredi." name="maxRewardCreditsPerPayment" defaultValue={data.settings.maxRewardCreditsPerPayment} />
+              <Field label="Aylık max kredi" hint="Bir affiliate hesabının ay içinde kazanabileceği maksimum ödül kredisi." name="maxMonthlyRewardCreditsPerAffiliate" defaultValue={data.settings.maxMonthlyRewardCreditsPerAffiliate} />
             </div>
             <label className="grid gap-1 text-xs font-black uppercase tracking-[0.14em] text-slate-400">
               Ödül kapsamı
@@ -44,22 +58,30 @@ export default async function AdminAffiliatesPage() {
                 <option value="ALL_PAYMENTS">Tüm başarılı ödemeler</option>
                 <option value="FIRST_PAYMENT_ONLY">Sadece ilk ödeme</option>
               </select>
+              <span className="text-[11px] font-semibold normal-case leading-5 tracking-normal text-slate-500">
+                Şu an: {rewardScopeLabel}. İlk ödeme seçilirse aynı referred user sonraki ödemelerinde ödül üretmez.
+              </span>
             </label>
-            <div className="rounded-2xl border border-cyan/20 bg-cyan/10 p-4 text-sm font-bold text-cyan">
-              Örnek: $50 ödeme → yaklaşık {sampleCredits} kredi ödül. Snapshot eski ödülleri değiştirmez.
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm leading-6 text-slate-300">
+              <p className="font-black text-white">Snapshot mantığı</p>
+              <p className="mt-1">
+                Ödül oluştuğu anda yüzde, ödeme tutarı, kredi USD değeri, tier ve cap bilgisi kaydedilir. Sonradan oran değiştirmen eski ödülleri değiştirmez.
+              </p>
             </div>
-            <div className="grid gap-3 lg:grid-cols-3">
+            <div className="grid gap-3 2xl:grid-cols-3">
               {data.settings.tiers.map((tier) => (
-                <div key={tier.key} className="rounded-2xl border border-white/10 bg-white/[0.035] p-3">
+                <div key={tier.key} className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.035] p-3">
                   <label className="mb-2 flex items-center gap-2 text-sm font-black text-white">
                     <input name={`${tier.key}Active`} type="checkbox" defaultChecked={tier.active} />
                     {tier.name}
                   </label>
                   <input type="hidden" name={`${tier.key}Name`} defaultValue={tier.name} />
-                  <Field label="%" name={`${tier.key}RewardPercent`} defaultValue={tier.rewardPercent} />
-                  <Field label="Paid referral" name={`${tier.key}RequiredPaidReferrals`} defaultValue={tier.requiredPaidReferrals} />
-                  <Field label="Revenue şartı" name={`${tier.key}RequiredReferredRevenue`} defaultValue={tier.requiredReferredRevenue} />
-                  <Field label="Aylık cap" name={`${tier.key}MonthlyCapCredits`} defaultValue={tier.monthlyCapCredits} />
+                  <div className="grid gap-2">
+                    <Field compact label="%" hint="Bu tier için ödül oranı." name={`${tier.key}RewardPercent`} defaultValue={tier.rewardPercent} />
+                    <Field compact label="Paid referral" hint="Bu tier'a geçmek için gereken başarılı ödeme sayısı." name={`${tier.key}RequiredPaidReferrals`} defaultValue={tier.requiredPaidReferrals} />
+                    <Field compact label="Revenue şartı" hint="Bu tier'a geçmek için gereken referred revenue." name={`${tier.key}RequiredReferredRevenue`} defaultValue={tier.requiredReferredRevenue} />
+                    <Field compact label="Aylık cap" hint="Bu tier için aylık maksimum kredi." name={`${tier.key}MonthlyCapCredits`} defaultValue={tier.monthlyCapCredits} />
+                  </div>
                 </div>
               ))}
             </div>
@@ -67,7 +89,7 @@ export default async function AdminAffiliatesPage() {
           </form>
         </AdminSection>
 
-        <AdminSection title="Son referral ödülleri" description="Başarılı payment sonrası oluşan kredi ödülleri.">
+        <AdminSection title="Son referral ödülleri" description="Başarılı ödeme sonrası oluşan kredi ödülleri. Tablo yatay kaydırmalı; veri geldikçe son ödüller burada görünür.">
           <AdminTable>
             <table className="min-w-[760px] w-full divide-y divide-white/10 text-sm">
               <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
@@ -92,7 +114,7 @@ export default async function AdminAffiliatesPage() {
       </div>
 
       <div className="mt-4">
-        <AdminSection title="Affiliate hesapları" description="Affiliate durumunu, override komisyonu, aylık cap ve fraud notlarını yönet.">
+        <AdminSection title="Affiliate hesapları" description="Affiliate durumunu, özel komisyonu, aylık cap limitini ve fraud notlarını yönet. Override boşsa tier/default ayarları kullanılır.">
           <div className="grid gap-4">
             {data.profiles.map((profile) => (
               <div key={profile.id} className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
@@ -104,7 +126,7 @@ export default async function AdminAffiliatesPage() {
                       {profile.totalClicks} click · {profile.totalSignups} signup · {profile.totalPaidReferrals} paid · {profile.totalRewardCredits} kredi
                     </p>
                   </div>
-                  <form action={updateAffiliateProfileAction} className="grid gap-2 md:grid-cols-4">
+                  <form action={updateAffiliateProfileAction} className="grid min-w-0 gap-2 lg:grid-cols-2 2xl:grid-cols-4">
                     <input type="hidden" name="profileId" value={profile.id} />
                     <select name="status" defaultValue={profile.status} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-bold text-white">
                       <option value="ACTIVE">Aktif</option>
@@ -120,7 +142,7 @@ export default async function AdminAffiliatesPage() {
                     <label className="text-xs font-bold text-slate-300"><input name="suspicious" type="checkbox" defaultChecked={profile.suspicious} /> Şüpheli</label>
                     <button className="rounded-xl bg-cyan px-3 py-2 text-sm font-black text-slate-950">Kaydet</button>
                   </form>
-                  <form action={manualAffiliateRewardAction} className="grid gap-2">
+                  <form action={manualAffiliateRewardAction} className="grid min-w-0 gap-2">
                     <input type="hidden" name="profileId" value={profile.id} />
                     <input name="amount" type="number" min="1" placeholder="Manuel kredi" className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-bold text-white" />
                     <input name="note" placeholder="Not" className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-bold text-white" />
@@ -137,11 +159,32 @@ export default async function AdminAffiliatesPage() {
   );
 }
 
-function Field({ label, name, defaultValue, step = "1" }: { label: string; name: string; defaultValue: string | number; step?: string }) {
+function Field({
+  label,
+  name,
+  defaultValue,
+  step = "1",
+  hint,
+  compact = false
+}: {
+  label: string;
+  name: string;
+  defaultValue: string | number;
+  step?: string;
+  hint?: string;
+  compact?: boolean;
+}) {
   return (
-    <label className="grid gap-1 text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+    <label className="grid min-w-0 gap-1 text-xs font-black uppercase tracking-[0.14em] text-slate-400">
       {label}
-      <input name={name} type="number" step={step} defaultValue={defaultValue} className="rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm font-bold normal-case tracking-normal text-white" />
+      <input
+        name={name}
+        type="number"
+        step={step}
+        defaultValue={defaultValue}
+        className={`w-full min-w-0 rounded-xl border border-white/10 bg-[#11172a] px-3 text-sm font-bold normal-case tracking-normal text-white outline-none focus:border-cyan ${compact ? "py-2" : "py-3"}`}
+      />
+      {hint ? <span className="text-[11px] font-semibold normal-case leading-5 tracking-normal text-slate-500">{hint}</span> : null}
     </label>
   );
 }

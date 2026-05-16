@@ -164,6 +164,29 @@ export const initialTools: AiToolConfig[] = [
     }
   },
   {
+    slug: "object-remover",
+    version: 1,
+    name: "Object Remover",
+    category: "Ecommerce",
+    description: "Remove unwanted objects, cables, props, stains, dust, and distracting background items from product photos.",
+    creditCost: 4,
+    status: "active",
+    providerKey: "replicate",
+    fallbackProviderKeys: [],
+    inputRules: {
+      allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"],
+      maxFileSizeMb: 12,
+      maxWidth: 6000,
+      maxHeight: 6000
+    },
+    retryPolicy: {
+      maxRetries: 1,
+      timeoutSeconds: 120,
+      retryDelaySeconds: 8,
+      allowFallback: false
+    }
+  },
+  {
     slug: "ai-headshot-generator",
     version: 1,
     name: "AI Headshot Generator",
