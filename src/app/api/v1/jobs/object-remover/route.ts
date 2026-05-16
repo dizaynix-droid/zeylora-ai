@@ -90,6 +90,8 @@ export async function POST(request: Request) {
     );
   }
 
+  const providerPrompt = buildObjectRemovalProviderPrompt(removalPrompt);
+
   const economy = resolveToolEconomy({
     toolSlug: objectRemoverConfig.slug,
     qualityMode,
@@ -141,6 +143,7 @@ export async function POST(request: Request) {
     toolKey: objectRemoverConfig.toolKey,
     qualityMode,
     prompt: removalPrompt,
+    providerPrompt,
     creditCost: toolCreditCost,
     creditEnforcementActive: true,
     exportMode: creditPlan.exportMode,
@@ -174,12 +177,14 @@ export async function POST(request: Request) {
       providerKey: objectRemoverConfig.providerKey,
       model: resolveToolModel(tool.providerConfigJson, qualityMode),
       qualityMode,
+      prompt: removalPrompt,
+      providerPrompt,
       input: sanitizeInputUrl(inputUrl)
     });
 
     const removal = await runObjectRemoval({
       imageUrl: inputUrl,
-      prompt: removalPrompt,
+      prompt: providerPrompt,
       qualityMode,
       modelOverride: resolveToolModel(tool.providerConfigJson, qualityMode)
     });
@@ -196,6 +201,7 @@ export async function POST(request: Request) {
           modelKey: removal.modelKey,
           qualityMode,
           prompt: removalPrompt,
+          providerPrompt,
           input: sanitizeInputUrl(inputUrl)
         },
         responseJson: toPrismaJson(removal.rawResponse),
@@ -406,7 +412,8 @@ export async function POST(request: Request) {
             toolKey: objectRemoverConfig.toolKey,
             model: resolveToolModel(tool.providerConfigJson, qualityMode),
             qualityMode,
-            prompt: removalPrompt
+            prompt: removalPrompt,
+            providerPrompt
           },
           responseJson: toPrismaJson(providerError.rawResponse),
           errorMessage,
@@ -571,6 +578,45 @@ function normalizeRemovalPrompt(value?: string) {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, objectRemoverConfig.promptMaxLength);
+}
+
+function buildObjectRemovalProviderPrompt(prompt: string) {
+  const normalized = prompt.toLowerCase();
+  const asksForTextCleanup = [
+    "text",
+    "writing",
+    "letters",
+    "lettering",
+    "words",
+    "word",
+    "logo",
+    "label",
+    "brand name",
+    "typography",
+    "caption",
+    "sticker",
+    "yazi",
+    "yazı",
+    "metin",
+    "logo",
+    "etiket"
+  ].some((term) => normalized.includes(term));
+
+  if (asksForTextCleanup) {
+    return [
+      "Remove the specified visible text, letters, logo, label, typography, sticker, or writing from this product photo.",
+      "Reconstruct the cleaned area with matching product surface, lighting, texture, and perspective.",
+      "Do not remove the product itself. Do not change the product shape. Keep the result realistic for ecommerce.",
+      `User request: ${prompt}`
+    ].join(" ");
+  }
+
+  return [
+    "Remove only the unwanted object or visual distraction described by the user from this product photo.",
+    "Fill the removed area naturally with matching background, lighting, texture, and perspective.",
+    "Do not remove the main product. Keep the result realistic for ecommerce.",
+    `User request: ${prompt}`
+  ].join(" ");
 }
 
 function isUnsafeRemovalPrompt(prompt: string) {

@@ -1393,9 +1393,26 @@ export function HeroUpload() {
                   onChange={(event) => setObjectRemovalPrompt(event.target.value.slice(0, 240))}
                   disabled={status === "uploading" || status === "processing"}
                   rows={3}
-                  placeholder="Describe what to remove, e.g. remove the cable on the left"
+                  placeholder="Describe what to remove, e.g. remove the text/logo on the label"
                   className="min-h-24 w-full resize-none rounded-2xl border border-white/10 bg-black/25 px-3 py-3 text-sm font-semibold text-white outline-none transition placeholder:text-slate-500 focus:border-cyan disabled:cursor-not-allowed disabled:opacity-60"
                 />
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {[
+                    "remove the visible text and logo on the product label",
+                    "remove the cable on the left",
+                    "remove dust and stains around the product"
+                  ].map((example) => (
+                    <button
+                      key={example}
+                      type="button"
+                      disabled={status === "uploading" || status === "processing"}
+                      onClick={() => setObjectRemovalPrompt(example)}
+                      className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-slate-300 transition hover:border-cyan/40 hover:text-cyan disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {example.includes("text") ? "Text/logo" : example.includes("cable") ? "Cable" : "Dust/stains"}
+                    </button>
+                  ))}
+                </div>
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   {[
                     ["standard", "Standard · 4 credits"],
@@ -1417,7 +1434,7 @@ export function HeroUpload() {
                   ))}
                 </div>
                 <p className="mt-2 text-xs font-semibold leading-5 text-slate-400">
-                  Ecommerce cleanup for cables, props, stains, dust, logos, and distracting background items. Avoid people, identity documents, adult content, or unsafe edits.
+                  Ecommerce cleanup for visible text, labels, logos, cables, props, stains, dust, and distracting background items. Be specific about what should disappear. Avoid people, identity documents, adult content, or unsafe edits.
                 </p>
                 {hasPendingObjectRemoval && appliedObjectRemovalPrompt ? (
                   <p className="mt-2 rounded-xl border border-warning/25 bg-warning/10 p-3 text-xs font-semibold leading-5 text-slate-200">
