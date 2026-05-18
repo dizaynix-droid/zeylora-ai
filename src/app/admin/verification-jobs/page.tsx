@@ -69,21 +69,21 @@ export default async function AdminVerificationJobsPage({
   return (
     <AppShell area="admin" title="Doğrulama işleri" description="Email list cleaning job, provider, maliyet ve hata kayıtlarını izle.">
       <AdminSection title="Verification job kayıtları" description="Varsayılan olarak son 25 kayıt gelir; filtreler server-side çalışır.">
-        <form className="mb-4 grid gap-2 rounded-2xl border border-white/10 bg-white/5 p-3 md:grid-cols-[180px_1fr_auto]">
-          <select name="status" defaultValue={status} className="h-10 rounded-xl border border-white/10 bg-[#080d1f] px-3 text-sm font-bold text-white outline-none focus:border-cyan">
+        <form className="mb-4 grid gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 md:grid-cols-[180px_1fr_auto]">
+          <select name="status" defaultValue={status} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-900 outline-none focus:border-blue-500">
             <option value="all">Tüm durumlar</option>
             <option value="COMPLETED">Tamamlandı</option>
             <option value="FAILED">Hatalı</option>
             <option value="PROCESSING">İşleniyor</option>
             <option value="QUEUED">Sırada</option>
           </select>
-          <input name="user" defaultValue={user} placeholder="Kullanıcı email" className="h-10 rounded-xl border border-white/10 bg-[#080d1f] px-3 text-sm text-white outline-none focus:border-cyan" />
-          <button className="h-10 rounded-full bg-cyan px-5 text-sm font-black text-ink transition hover:bg-cyan/90">Filtrele</button>
+          <input name="user" defaultValue={user} placeholder="Kullanıcı email" className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-blue-500" />
+          <button className="h-10 rounded-lg bg-blue-600 px-5 text-sm font-black text-white transition hover:bg-blue-700">Filtrele</button>
         </form>
         <AdminPaginationControls basePath="/admin/verification-jobs" params={{ status, user }} pagination={pagination} />
         <AdminTable>
-          <table className="mt-3 min-w-[1280px] w-full divide-y divide-white/10 text-sm">
-            <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
+          <table className="mt-3 min-w-[1280px] w-full divide-y divide-slate-200 text-sm">
+            <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.16em] text-slate-500">
               <tr>
                 <th className="px-4 py-3">Job</th>
                 <th className="px-4 py-3">Durum</th>
@@ -96,19 +96,19 @@ export default async function AdminVerificationJobsPage({
                 <th className="px-4 py-3">Tarih</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/10">
+            <tbody className="divide-y divide-slate-200">
               {jobs.map((job) => (
                 <tr key={job.id}>
                   <td className="px-4 py-3">
-                    <Link href={`/dashboard/jobs/${job.id}`} className="font-black text-cyan hover:text-white">{job.id.slice(0, 8)}</Link>
+                    <Link href={`/dashboard/jobs/${job.id}`} className="font-black text-blue-600 hover:text-blue-700">{job.id.slice(0, 8)}</Link>
                     <p className="text-xs text-slate-500">{job.originalFilename || "paste"}</p>
                   </td>
                   <td className="px-4 py-3"><Status status={job.status} /></td>
-                  <td className="px-4 py-3 text-slate-300">{job.user.email}</td>
-                  <td className="px-4 py-3 text-slate-300">{job.uniqueEmails.toLocaleString()}</td>
-                  <td className="px-4 py-3 text-slate-300">{job.validCount.toLocaleString()} / {(job.invalidCount + job.riskyCount + job.catchAllCount + job.disposableCount).toLocaleString()}</td>
-                  <td className="px-4 py-3 text-slate-300">{job.creditsUsed.toLocaleString()}</td>
-                  <td className="px-4 py-3 text-slate-300">
+                  <td className="px-4 py-3 text-slate-700">{job.user.email}</td>
+                  <td className="px-4 py-3 text-slate-700">{job.uniqueEmails.toLocaleString()}</td>
+                  <td className="px-4 py-3 text-slate-700">{job.validCount.toLocaleString()} / {(job.invalidCount + job.riskyCount + job.catchAllCount + job.disposableCount).toLocaleString()}</td>
+                  <td className="px-4 py-3 text-slate-700">{job.creditsUsed.toLocaleString()}</td>
+                  <td className="px-4 py-3 text-slate-700">
                     ${Number(job.estimatedProfitAtRun || 0).toFixed(4)}
                     <p className="text-xs text-slate-500">cost ${Number(job.providerCostAtRun || 0).toFixed(4)}</p>
                   </td>

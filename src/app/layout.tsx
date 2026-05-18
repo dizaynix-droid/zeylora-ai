@@ -10,8 +10,8 @@ import { createMetadata } from "@/lib/seo";
 export const metadata: Metadata = createMetadata();
 
 export const viewport: Viewport = {
-  themeColor: "#03050D",
-  colorScheme: "dark",
+  themeColor: "#FFFFFF",
+  colorScheme: "light",
   width: "device-width",
   initialScale: 1
 };

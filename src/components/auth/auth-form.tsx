@@ -19,7 +19,7 @@ export function AuthForm({ authStatus, authError, next = "/dashboard" }: { authS
       ? authError || "Your sign-in could not be completed. Sign in with your email and password to continue."
       : authStatus === "password-reset"
       ? "Check your email for a secure password reset link."
-      : "Sign in to save edits, downloads, credits, and dashboard history."
+      : "Sign in to verify lists, manage credits, and download clean reports."
   );
   const configured = isSupabaseAuthConfigured();
 
@@ -144,14 +144,14 @@ export function AuthForm({ authStatus, authError, next = "/dashboard" }: { authS
           <Sparkles size={14} />
           Zeylora account
         </p>
-        <h1 className="mt-4 text-3xl font-black tracking-tight text-white sm:text-4xl md:text-5xl">
-          Sign in to your product photo workspace.
+        <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl md:text-5xl">
+          Sign in to your email verification workspace.
         </h1>
-        <p className="mt-3 text-sm leading-6 text-slate-300">
-          Secure sessions unlock uploads, AI jobs, dashboard history, downloads, ratings, and credits.
+        <p className="mt-3 text-sm leading-6 text-slate-600">
+          Secure sessions unlock CSV uploads, verification jobs, credit balance, and segmented downloads.
         </p>
 
-        <div className="mt-6 grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-white/[0.05] p-2">
+        <div className="mt-6 grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2">
           {[
             ["signin", "Sign in"],
             ["signup", "Sign up"]
@@ -163,11 +163,11 @@ export function AuthForm({ authStatus, authError, next = "/dashboard" }: { authS
                 setMode(value as AuthMode);
                 if (status !== "loading") {
                   setStatus("idle");
-                  setMessage("Sign in to save edits, downloads, credits, and dashboard history.");
+                  setMessage("Sign in to verify lists, manage credits, and download clean reports.");
                 }
               }}
-              className={`h-10 rounded-full text-sm font-black transition ${
-                mode === value ? "bg-cyan text-ink" : "text-slate-300 hover:bg-white/10"
+              className={`h-10 rounded-lg text-sm font-black transition ${
+                mode === value ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-white"
               }`}
             >
               {label}
@@ -179,16 +179,16 @@ export function AuthForm({ authStatus, authError, next = "/dashboard" }: { authS
           type="button"
           onClick={() => void handleGoogleAuth()}
           disabled={status === "loading" || !configured}
-          className="mt-4 inline-flex h-12 w-full items-center justify-center rounded-full border border-white/15 bg-white/[0.06] px-5 text-sm font-black text-white transition hover:border-cyan/40 hover:bg-white/[0.09] disabled:cursor-not-allowed disabled:opacity-60"
+          className="mt-4 inline-flex h-12 w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-5 text-sm font-black text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {status === "loading" ? <Loader2 className="mr-2 animate-spin" size={18} /> : <span className="mr-2 text-lg">G</span>}
           Continue with Google
         </button>
 
         <div className="my-5 flex items-center gap-3 text-xs font-black uppercase tracking-[0.16em] text-slate-500">
-          <span className="h-px flex-1 bg-white/10" />
+          <span className="h-px flex-1 bg-slate-200" />
           or use email
-          <span className="h-px flex-1 bg-white/10" />
+          <span className="h-px flex-1 bg-slate-200" />
         </div>
 
         <form onSubmit={(event) => void handlePasswordAuth(event)}>
@@ -204,9 +204,9 @@ export function AuthForm({ authStatus, authError, next = "/dashboard" }: { authS
               required
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              placeholder="you@store.com"
+              placeholder="you@company.com"
               autoComplete="email"
-              className="h-12 w-full rounded-full border border-white/10 bg-white/[0.06] pl-11 pr-4 text-sm font-semibold text-white outline-none transition placeholder:text-slate-500 focus:border-cyan/60"
+              className="h-12 w-full rounded-lg border border-slate-200 bg-white pl-11 pr-4 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
             />
           </div>
 
@@ -224,14 +224,14 @@ export function AuthForm({ authStatus, authError, next = "/dashboard" }: { authS
               onChange={(event) => setPassword(event.target.value)}
               placeholder="Minimum 8 characters"
               autoComplete={mode === "signup" ? "new-password" : "current-password"}
-              className="h-12 w-full rounded-full border border-white/10 bg-white/[0.06] pl-11 pr-4 text-sm font-semibold text-white outline-none transition placeholder:text-slate-500 focus:border-cyan/60"
+              className="h-12 w-full rounded-lg border border-slate-200 bg-white pl-11 pr-4 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
             />
           </div>
 
           <button
             type="submit"
             disabled={status === "loading"}
-            className="mt-4 inline-flex h-12 w-full items-center justify-center rounded-full bg-zeylora-brand px-5 text-sm font-black text-white shadow-glow transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+            className="mt-4 inline-flex h-12 w-full items-center justify-center rounded-lg bg-blue-600 px-5 text-sm font-black text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {status === "loading" ? (
               <>
@@ -250,7 +250,7 @@ export function AuthForm({ authStatus, authError, next = "/dashboard" }: { authS
           type="button"
           onClick={() => void handlePasswordReset(email, next, setStatus, setMessage)}
           disabled={status === "loading"}
-          className="mt-3 text-sm font-bold text-cyan transition hover:text-white disabled:opacity-60"
+          className="mt-3 text-sm font-bold text-blue-600 transition hover:text-blue-700 disabled:opacity-60"
         >
           Forgot password?
         </button>

@@ -145,22 +145,22 @@ export function VerificationDashboardClient({
       <section id="verify" className="grid gap-5 xl:grid-cols-[minmax(0,1.25fr)_minmax(360px,.75fr)]">
         <Card className="p-5 md:p-7">
           <div className="flex items-start gap-3">
-            <div className="rounded-2xl bg-cyan/15 p-3 text-cyan">
+            <div className="rounded-lg bg-blue-50 p-3 text-blue-600">
               <UploadCloud size={24} />
             </div>
             <div>
               <p className="eyebrow">Verify List</p>
-              <h2 className="mt-2 text-3xl font-black text-white">Upload CSV/TXT or paste emails.</h2>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
+              <h2 className="mt-2 text-3xl font-black text-slate-950">Upload CSV/TXT or paste emails.</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
                 Zeylora deduplicates your list, reserves credits, verifies through MillionVerifier, then creates segmented downloads.
               </p>
             </div>
           </div>
 
           <form onSubmit={submitVerification} className="mt-6 grid gap-4">
-            <label className="grid cursor-pointer gap-3 rounded-2xl border border-dashed border-cyan/35 bg-cyan/5 p-6 text-center transition hover:bg-cyan/10">
-              <UploadCloud className="mx-auto text-cyan" size={32} />
-              <span className="text-lg font-black text-white">{file ? file.name : "Choose CSV or TXT list"}</span>
+            <label className="grid cursor-pointer gap-3 rounded-xl border border-dashed border-blue-300 bg-blue-50 p-6 text-center transition hover:bg-blue-100/70">
+              <UploadCloud className="mx-auto text-blue-600" size={32} />
+              <span className="text-lg font-black text-slate-950">{file ? file.name : "Choose CSV or TXT list"}</span>
               <span className="text-sm text-slate-400">Maximum 10MB. CSV column detection is automatic.</span>
               <input type="file" accept=".csv,.txt,text/csv,text/plain" className="sr-only" onChange={onFileChange} />
             </label>
@@ -172,29 +172,29 @@ export function VerificationDashboardClient({
                 onChange={(event) => setEmails(event.target.value)}
                 rows={8}
                 placeholder="founder@example.com&#10;ops@example.com&#10;marketing@example.com"
-                className="min-h-44 rounded-2xl border border-white/10 bg-white/[0.045] p-4 text-sm font-semibold text-white outline-none transition placeholder:text-slate-600 focus:border-cyan/50"
+                className="min-h-44 rounded-xl border border-slate-200 bg-white p-4 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
               />
             </label>
 
-            <div className="grid gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4 md:grid-cols-3">
+            <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 md:grid-cols-3">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Detected now</p>
-                <p className="mt-1 text-2xl font-black text-white">{file ? "File selected" : estimatedEmails.toLocaleString()}</p>
+                <p className="mt-1 text-2xl font-black text-slate-950">{file ? "File selected" : estimatedEmails.toLocaleString()}</p>
               </div>
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Credits needed</p>
-                <p className="mt-1 text-2xl font-black text-white">{file ? "Calculated after upload" : estimatedEmails.toLocaleString()}</p>
+                <p className="mt-1 text-2xl font-black text-slate-950">{file ? "Calculated after upload" : estimatedEmails.toLocaleString()}</p>
               </div>
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Available</p>
-                <p className="mt-1 text-2xl font-black text-cyan">{creditBalance.toLocaleString()}</p>
+                <p className="mt-1 text-2xl font-black text-blue-600">{creditBalance.toLocaleString()}</p>
               </div>
             </div>
 
             <button
               type="submit"
               disabled={submitStatus === "running" || (!file && estimatedEmails === 0)}
-              className="inline-flex h-14 items-center justify-center rounded-full bg-zeylora-brand px-6 text-base font-black text-white shadow-glow transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-12 items-center justify-center rounded-lg bg-blue-600 px-6 text-base font-black text-white shadow-[0_10px_24px_rgba(37,99,235,.18)] transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {submitStatus === "running" ? <Loader2 className="mr-2 animate-spin" size={18} /> : <MailCheck className="mr-2" size={18} />}
               Verify email list
@@ -205,29 +205,29 @@ export function VerificationDashboardClient({
 
         <Card id="credits" className="p-5 md:p-6">
           <p className="eyebrow">Credits / Billing</p>
-          <h2 className="mt-2 text-2xl font-black text-white">Buy verification credits</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-300">
+          <h2 className="mt-2 text-2xl font-black text-slate-950">Buy verification credits</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
             Credits are spent only when verification starts. Failed jobs are refunded automatically.
           </p>
           <div className="mt-5 grid gap-3">
             {packages.slice(0, 3).map((pack) => (
-              <div key={pack.id} className="rounded-2xl border border-white/10 bg-white/[0.045] p-4">
+              <div key={pack.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-[0_8px_22px_rgba(15,23,42,.04)]">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-lg font-black text-white">{pack.name}</p>
-                    <p className="text-sm font-bold text-cyan">{pack.totalCredits.toLocaleString()} verifications</p>
+                    <p className="text-lg font-black text-slate-950">{pack.name}</p>
+                    <p className="text-sm font-bold text-blue-600">{pack.totalCredits.toLocaleString()} verifications</p>
                   </div>
-                  <p className="text-xl font-black text-white">${pack.price}</p>
+                  <p className="text-xl font-black text-slate-950">${pack.price}</p>
                 </div>
                 <CheckoutButton
                   packageId={pack.id}
                   label="Buy credits"
-                  className="mt-4 inline-flex h-10 w-full items-center justify-center rounded-full bg-cyan text-sm font-black text-ink transition hover:bg-cyan/90"
+                  className="mt-4 inline-flex h-10 w-full items-center justify-center rounded-lg bg-blue-600 text-sm font-black text-white transition hover:bg-blue-700"
                 />
               </div>
             ))}
           </div>
-          <Link href="/pricing" className="mt-4 inline-flex text-sm font-black text-cyan hover:text-white">
+          <Link href="/pricing" className="mt-4 inline-flex text-sm font-black text-blue-600 hover:text-blue-700">
             View all packages
           </Link>
         </Card>
@@ -238,7 +238,7 @@ export function VerificationDashboardClient({
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="eyebrow">Jobs / History</p>
-              <h2 className="mt-2 text-2xl font-black text-white">Recent verification jobs</h2>
+              <h2 className="mt-2 text-2xl font-black text-slate-950">Recent verification jobs</h2>
             </div>
             {pagination ? (
               <p className="text-sm font-semibold text-slate-400">
@@ -250,9 +250,9 @@ export function VerificationDashboardClient({
           <div className="mt-5 grid gap-3">
             {jobsStatus === "loading" ? <p className="text-sm font-bold text-slate-400">Loading jobs...</p> : null}
             {jobsStatus === "ready" && jobs.length === 0 ? (
-              <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-6 text-center">
-                <ShieldCheck className="mx-auto text-cyan" size={34} />
-                <p className="mt-3 text-lg font-black text-white">No verification jobs yet</p>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center">
+                <ShieldCheck className="mx-auto text-blue-600" size={34} />
+                <p className="mt-3 text-lg font-black text-slate-950">No verification jobs yet</p>
                 <p className="mt-2 text-sm text-slate-400">Upload a CSV or paste emails to create your first clean list.</p>
               </div>
             ) : null}
@@ -267,7 +267,7 @@ export function VerificationDashboardClient({
                 type="button"
                 onClick={() => setJobsPage((page) => Math.max(1, page - 1))}
                 disabled={!pagination.hasPrevious}
-                className="rounded-full border border-white/10 px-4 py-2 text-sm font-black text-white disabled:opacity-40"
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-black text-slate-900 disabled:opacity-40"
               >
                 Previous
               </button>
@@ -278,7 +278,7 @@ export function VerificationDashboardClient({
                 type="button"
                 onClick={() => setJobsPage((page) => page + 1)}
                 disabled={!pagination.hasNext}
-                className="rounded-full border border-white/10 px-4 py-2 text-sm font-black text-white disabled:opacity-40"
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-black text-slate-900 disabled:opacity-40"
               >
                 Next
               </button>
@@ -293,8 +293,8 @@ export function VerificationDashboardClient({
 function Metric({ label, value, copy }: { label: string; value: string; copy: string }) {
   return (
     <Card className="p-4">
-      <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan">{label}</p>
-      <p className="mt-2 text-3xl font-black text-white">{value}</p>
+      <p className="text-xs font-black uppercase tracking-[0.16em] text-blue-600">{label}</p>
+      <p className="mt-2 text-3xl font-black text-slate-950">{value}</p>
       <p className="mt-1 text-xs font-semibold text-slate-400">{copy}</p>
     </Card>
   );
@@ -305,10 +305,10 @@ function JobRow({ job }: { job: VerificationJob }) {
   const failed = job.status === "FAILED";
 
   return (
-    <div className="grid gap-4 rounded-2xl border border-white/10 bg-white/[0.035] p-4 lg:grid-cols-[1fr_auto] lg:items-center">
+    <div className="grid gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-[0_8px_22px_rgba(15,23,42,.04)] lg:grid-cols-[1fr_auto] lg:items-center">
       <div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-black ${completed ? "bg-emerald-400/15 text-emerald-200" : failed ? "bg-rose-400/15 text-rose-200" : "bg-cyan/15 text-cyan"}`}>
+          <span className={`inline-flex items-center rounded-md px-3 py-1 text-xs font-black ${completed ? "bg-emerald-50 text-emerald-700" : failed ? "bg-rose-50 text-rose-700" : "bg-blue-50 text-blue-700"}`}>
             {completed ? <CheckCircle2 className="mr-1" size={13} /> : failed ? <XCircle className="mr-1" size={13} /> : <Loader2 className="mr-1 animate-spin" size={13} />}
             {job.status}
           </span>
@@ -331,7 +331,7 @@ function JobRow({ job }: { job: VerificationJob }) {
         ) : null}
       </div>
       <div className="flex flex-wrap gap-2 lg:justify-end">
-        <Link href={`/dashboard/jobs/${job.id}`} className="inline-flex h-10 items-center justify-center rounded-full border border-white/10 px-4 text-sm font-black text-white hover:bg-white/10">
+        <Link href={`/dashboard/jobs/${job.id}`} className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 px-4 text-sm font-black text-slate-900 hover:bg-slate-50">
           View report
         </Link>
         {completed ? (
@@ -346,9 +346,9 @@ function JobRow({ job }: { job: VerificationJob }) {
 }
 
 function Count({ label, value, tone }: { label: string; value: number; tone?: "good" | "bad" | "warn" }) {
-  const color = tone === "good" ? "text-emerald-300" : tone === "bad" ? "text-rose-300" : tone === "warn" ? "text-amber-200" : "text-white";
+  const color = tone === "good" ? "text-emerald-700" : tone === "bad" ? "text-rose-700" : tone === "warn" ? "text-amber-700" : "text-slate-950";
   return (
-    <div className="rounded-xl bg-white/[0.04] px-3 py-2">
+    <div className="rounded-lg bg-slate-50 px-3 py-2">
       <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">{label}</p>
       <p className={`mt-1 text-lg font-black ${color}`}>{value.toLocaleString()}</p>
     </div>
@@ -366,7 +366,7 @@ function DownloadLink({ jobId, type, label }: { jobId: string; type: string; lab
     <button
       type="button"
       onClick={download}
-      className="inline-flex h-10 items-center justify-center rounded-full bg-cyan px-4 text-sm font-black text-ink hover:bg-cyan/90"
+      className="inline-flex h-10 items-center justify-center rounded-lg bg-blue-600 px-4 text-sm font-black text-white hover:bg-blue-700"
     >
       <Download className="mr-2" size={15} />
       {label}

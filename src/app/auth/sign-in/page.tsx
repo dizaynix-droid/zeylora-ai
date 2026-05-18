@@ -39,7 +39,7 @@ export default async function SignInPage({
   return (
     <>
       <SiteHeader />
-      <main className="min-h-[calc(100vh-8rem)] bg-cinematic-depth px-3 py-8 sm:px-4 md:py-20">
+      <main className="b2b-surface min-h-[calc(100vh-8rem)] bg-cinematic-depth px-3 py-8 sm:px-4 md:py-20">
         <AuthForm authStatus={params?.authStatus} authError={params?.authError} next={params?.next || "/dashboard"} />
       </main>
       <SiteFooter />

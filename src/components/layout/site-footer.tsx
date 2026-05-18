@@ -16,41 +16,41 @@ const footerLinks = [
 
 export function SiteFooter() {
   return (
-    <footer className="border-t border-white/10 bg-[#03050D]">
+    <footer className="b2b-surface border-t border-slate-200 bg-white">
       <div className="section-shell py-10 md:py-14">
         <div className="grid gap-8 lg:grid-cols-[1fr_1.2fr] lg:items-start">
           <div>
-            <Link href="/" className="flex items-center gap-2 font-black text-white">
+            <Link href="/" className="flex items-center gap-2 font-black text-slate-950">
               <Image
                 src={brandIdentity.assets.mark}
                 alt={`${appConfig.name} mark`}
                 width={36}
                 height={36}
-                className="size-9 rounded-xl shadow-glow"
+                className="size-9 rounded-lg"
               />
               {appConfig.name}
             </Link>
-            <p className="mt-4 max-w-md text-sm leading-6 text-slate-400">
+            <p className="mt-4 max-w-md text-sm leading-6 text-slate-600">
               A fast email verification and list cleaning platform for reducing bounce rate, protecting sender reputation, and exporting clean segmented CSV reports.
             </p>
           </div>
 
           <div className="grid gap-6 sm:grid-cols-2">
             <div>
-              <h3 className="text-sm font-black text-white">Product</h3>
+              <h3 className="text-sm font-black text-slate-950">Product</h3>
               <div className="mt-3 grid gap-2">
                 {marketingNav.map((item) => (
-                  <Link key={item.href} href={item.href} className="text-sm text-slate-400 transition hover:text-white">
+                  <Link key={item.href} href={item.href} className="text-sm text-slate-600 transition hover:text-slate-950">
                     {item.label}
                   </Link>
                 ))}
               </div>
             </div>
             <div>
-              <h3 className="text-sm font-black text-white">Trust</h3>
+              <h3 className="text-sm font-black text-slate-950">Trust</h3>
               <div className="mt-3 grid gap-2">
                 {footerLinks.map((item) => (
-                  <Link key={item.href} href={item.href} className="text-sm text-slate-400 transition hover:text-white">
+                  <Link key={item.href} href={item.href} className="text-sm text-slate-600 transition hover:text-slate-950">
                     {item.label}
                   </Link>
                 ))}
@@ -59,7 +59,7 @@ export function SiteFooter() {
           </div>
         </div>
 
-        <div className="mt-10 flex flex-col justify-between gap-3 border-t border-white/10 pt-5 text-xs font-semibold text-slate-500 sm:flex-row">
+        <div className="mt-10 flex flex-col justify-between gap-3 border-t border-slate-200 pt-5 text-xs font-semibold text-slate-500 sm:flex-row">
           <p>Copyright {new Date().getFullYear()} {appConfig.name}. All rights reserved.</p>
           <p>Verify emails before sending. Keep uploads private and downloads signed.</p>
         </div>

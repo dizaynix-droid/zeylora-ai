@@ -14,9 +14,9 @@ export function AdminMetricCard({
 }) {
   return (
     <Card className="p-4">
-      <p className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan">{label}</p>
-      <p className="mt-2 text-2xl font-black text-white md:text-3xl">{value}</p>
-      {note ? <p className="mt-1 text-xs leading-5 text-slate-400">{note}</p> : null}
+      <p className="text-[11px] font-black uppercase tracking-[0.16em] text-blue-600">{label}</p>
+      <p className="mt-2 text-2xl font-black text-slate-950 md:text-3xl">{value}</p>
+      {note ? <p className="mt-1 text-xs leading-5 text-slate-500">{note}</p> : null}
     </Card>
   );
 }
@@ -36,8 +36,8 @@ export function AdminSection({
     <Card className="p-4 md:p-5">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
-          <h2 className="text-lg font-black text-white md:text-xl">{title}</h2>
-          {description ? <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">{description}</p> : null}
+          <h2 className="text-lg font-black text-slate-950 md:text-xl">{title}</h2>
+          {description ? <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">{description}</p> : null}
         </div>
         {action}
       </div>
@@ -51,10 +51,10 @@ export function AdminStatusPill({ children, tone = "neutral" }: { children: Reac
     <span
       className={clsx(
         "inline-flex rounded-full border px-2.5 py-1 text-xs font-black uppercase tracking-[0.12em]",
-        tone === "good" && "border-emerald-400/30 bg-emerald-400/10 text-emerald-200",
-        tone === "bad" && "border-rose-400/30 bg-rose-400/10 text-rose-200",
-        tone === "warn" && "border-amber-300/30 bg-amber-300/10 text-amber-100",
-        tone === "neutral" && "border-white/10 bg-white/5 text-slate-300"
+        tone === "good" && "border-emerald-200 bg-emerald-50 text-emerald-700",
+        tone === "bad" && "border-rose-200 bg-rose-50 text-rose-700",
+        tone === "warn" && "border-amber-200 bg-amber-50 text-amber-700",
+        tone === "neutral" && "border-slate-200 bg-slate-50 text-slate-600"
       )}
     >
       {children}
@@ -63,14 +63,14 @@ export function AdminStatusPill({ children, tone = "neutral" }: { children: Reac
 }
 
 export function AdminTable({ children }: { children: ReactNode }) {
-  return <div className="w-full overflow-x-auto rounded-2xl border border-white/10 bg-[#080d1f]/55">{children}</div>;
+  return <div className="w-full overflow-x-auto rounded-xl border border-slate-200 bg-white">{children}</div>;
 }
 
 export function AdminLinkButton({ href, children }: { href: string; children: ReactNode }) {
   return (
     <Link
       href={href}
-      className="inline-flex h-10 items-center justify-center rounded-full border border-cyan/30 bg-cyan/10 px-4 text-sm font-black text-cyan transition hover:bg-cyan/15"
+      className="inline-flex h-10 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-4 text-sm font-black text-blue-700 transition hover:bg-blue-100"
     >
       {children}
     </Link>
@@ -112,33 +112,33 @@ export function AdminPaginationControls({
   const nextPage = Math.min(pagination.totalPages, pagination.page + 1);
 
   return (
-    <div className="flex flex-col gap-2 rounded-2xl border border-white/10 bg-white/[0.035] px-3 py-2 text-sm text-slate-300 md:flex-row md:items-center md:justify-between">
+    <div className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600 md:flex-row md:items-center md:justify-between">
       <p className="font-bold">
         Gösteriliyor{" "}
-        <span className="text-white">
+        <span className="text-slate-950">
           {pagination.from}-{pagination.to}
         </span>{" "}
-        / <span className="text-white">{pagination.total}</span>
+        / <span className="text-slate-950">{pagination.total}</span>
       </p>
       <div className="flex items-center gap-2">
         <Link
           href={makeHref(previousPage)}
           aria-disabled={!pagination.hasPrevious}
           className={clsx(
-            "inline-flex h-9 items-center rounded-full border border-white/10 px-3 text-xs font-black uppercase tracking-[0.12em] text-white transition hover:border-cyan/40 hover:bg-cyan/10",
+            "inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-black uppercase tracking-[0.12em] text-slate-700 transition hover:border-blue-200 hover:bg-blue-50",
             !pagination.hasPrevious && "pointer-events-none opacity-40"
           )}
         >
           Önceki
         </Link>
-        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-slate-300">
+        <span className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-slate-600">
           Sayfa {pagination.page} / {pagination.totalPages}
         </span>
         <Link
           href={makeHref(nextPage)}
           aria-disabled={!pagination.hasNext}
           className={clsx(
-            "inline-flex h-9 items-center rounded-full border border-white/10 px-3 text-xs font-black uppercase tracking-[0.12em] text-white transition hover:border-cyan/40 hover:bg-cyan/10",
+            "inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-black uppercase tracking-[0.12em] text-slate-700 transition hover:border-blue-200 hover:bg-blue-50",
             !pagination.hasNext && "pointer-events-none opacity-40"
           )}
         >

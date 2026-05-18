@@ -95,14 +95,14 @@ export function SiteHeaderAuthActions() {
   return (
     <div className="flex items-center gap-2">
       {authState === "loading" ? (
-        <span className="hidden h-10 w-20 animate-pulse rounded-full border border-white/10 bg-white/[0.06] sm:inline-flex" />
+        <span className="hidden h-10 w-20 animate-pulse rounded-lg border border-slate-200 bg-slate-100 sm:inline-flex" />
       ) : isSignedIn ? (
         <>
           <Button href="/dashboard" variant="ghost" className="hidden sm:inline-flex">
             Dashboard
           </Button>
           <form action="/auth/sign-out" method="post" className="hidden md:block">
-            <button className="inline-flex h-10 items-center justify-center rounded-full border border-white/10 px-4 text-sm font-black text-slate-200 transition hover:bg-white/10 hover:text-white">
+            <button className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50 hover:text-slate-950">
               Sign out
             </button>
           </form>
@@ -116,14 +116,14 @@ export function SiteHeaderAuthActions() {
       <Link
         href="/dashboard#verify"
         onClick={handleUploadClick}
-        className="focus-lift inline-flex h-11 items-center justify-center rounded-full bg-zeylora-brand px-4 text-sm font-bold text-white shadow-glow transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
+        className="focus-lift inline-flex h-10 items-center justify-center rounded-lg bg-blue-600 px-4 text-sm font-bold text-white shadow-[0_8px_20px_rgba(37,99,235,.18)] transition hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
       >
         Verify list
       </Link>
 
       <Link
         href={isSignedIn ? "/dashboard" : "/auth/sign-in"}
-        className="grid size-10 place-items-center rounded-full border border-white/10 bg-white/10 text-white transition hover:bg-white/15 md:hidden"
+        className="grid size-10 place-items-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 md:hidden"
         aria-label={isSignedIn ? "Open dashboard" : "Sign in"}
       >
         <UserCircle size={18} />

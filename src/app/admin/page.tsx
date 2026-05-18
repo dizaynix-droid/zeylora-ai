@@ -28,7 +28,7 @@ export default async function AdminPage() {
       title="İş kokpiti"
       description="Gelir, kâr, ödeme, kredi ve acil operasyon sinyalleri için owner dashboard."
     >
-      <div className="mb-4 rounded-2xl border border-cyan/20 bg-cyan/10 px-4 py-3 text-sm font-semibold text-cyan">
+      <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700">
         Admin girişi: {admin.email} ({admin.source === "role" ? "rol" : "email whitelist"})
       </div>
 
@@ -48,12 +48,12 @@ export default async function AdminPage() {
         <AdminMetricCard label="Bugün clean export" value={data.cockpit.today.cleanExports} note="Kredi kesilen export sayısı" />
       </div>
 
-      <div className="mt-4 grid gap-2 rounded-2xl border border-white/10 bg-white/[0.035] p-3 md:grid-cols-2 xl:grid-cols-3">
+      <div className="mt-4 grid gap-2 rounded-xl border border-slate-200 bg-white p-3 md:grid-cols-2 xl:grid-cols-3">
         {buildAlerts(data).map((alert) => (
           <a
             key={alert.href + alert.label}
             href={alert.href}
-            className={`rounded-2xl border px-4 py-3 text-sm font-black transition ${alert.tone === "bad" ? "border-rose-400/30 bg-rose-400/10 text-rose-100 hover:bg-rose-400/15" : alert.tone === "warn" ? "border-amber/30 bg-amber/10 text-amber hover:bg-amber/15" : "border-emerald/25 bg-emerald/10 text-emerald hover:bg-emerald/15"}`}
+            className={`rounded-lg border px-4 py-3 text-sm font-black transition ${alert.tone === "bad" ? "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100" : alert.tone === "warn" ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100" : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"}`}
           >
             {alert.label}
           </a>
@@ -72,7 +72,7 @@ export default async function AdminPage() {
           <a
             key={label}
             href={href}
-            className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm font-black text-white transition hover:border-cyan/30 hover:bg-cyan/10"
+            className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-center text-sm font-black text-slate-900 transition hover:border-blue-200 hover:bg-blue-50"
           >
             {label}
           </a>
@@ -86,8 +86,8 @@ export default async function AdminPage() {
           action={<AdminLinkButton href="/admin/jobs">Tüm işlemler</AdminLinkButton>}
         >
           <AdminTable>
-            <table className="min-w-[1180px] w-full divide-y divide-white/10 text-sm">
-              <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
+            <table className="min-w-[1180px] w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.16em] text-slate-500">
                 <tr>
                   <th className="px-4 py-3">Araç</th>
                   <th className="px-4 py-3">Durum</th>
@@ -98,14 +98,14 @@ export default async function AdminPage() {
                   <th className="px-4 py-3">Tarih</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/10">
+              <tbody className="divide-y divide-slate-200">
                 {data.recentJobs.map((job) => (
                   <tr key={job.id}>
-                    <td className="px-4 py-3 font-bold text-white">{job.tool.name}</td>
+                    <td className="px-4 py-3 font-bold text-slate-950">{job.tool.name}</td>
                     <td className="px-4 py-3"><JobStatusPill status={job.status} /></td>
-                    <td className="px-4 py-3 text-slate-300">{job.user?.email || "-"}</td>
-                    <td className="px-4 py-3 text-slate-300">{job.providerKey}</td>
-                    <td className="px-4 py-3 text-slate-300">{job.creditCost}</td>
+                    <td className="px-4 py-3 text-slate-700">{job.user?.email || "-"}</td>
+                    <td className="px-4 py-3 text-slate-700">{job.providerKey}</td>
+                    <td className="px-4 py-3 text-slate-700">{job.creditCost}</td>
                     <td className="max-w-xs truncate px-4 py-3 text-slate-400">{job.errorMessage || "-"}</td>
                     <td className="px-4 py-3 text-slate-400">{formatAdminDate(job.createdAt)}</td>
                   </tr>

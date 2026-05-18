@@ -10,16 +10,16 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 const variants = {
   primary:
-    "bg-zeylora-brand text-white shadow-glow hover:brightness-110 focus-visible:outline-cyan",
+    "bg-blue-600 text-white shadow-[0_8px_20px_rgba(37,99,235,.18)] hover:bg-blue-700 focus-visible:outline-blue-600",
   secondary:
-    "border border-white/15 bg-white/10 text-white hover:border-white/25 hover:bg-white/15 focus-visible:outline-white",
+    "border border-slate-200 bg-white text-slate-900 hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-slate-600",
   ghost:
-    "text-slate-200 hover:bg-white/10 focus-visible:outline-white"
+    "text-slate-700 hover:bg-slate-100 focus-visible:outline-slate-600"
 };
 
 export function Button({ href, children, variant = "primary", className, ...props }: ButtonProps) {
   const classes = clsx(
-    "focus-lift inline-flex h-11 items-center justify-center rounded-full px-5 text-sm font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2",
+    "focus-lift inline-flex h-10 items-center justify-center rounded-lg px-4 text-sm font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2",
     variants[variant],
     className
   );

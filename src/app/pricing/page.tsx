@@ -27,14 +27,14 @@ export default async function PricingPage({
   return (
     <>
       <SiteHeader />
-      <main className="min-h-screen bg-premium-radial py-14">
+      <main className="b2b-surface min-h-screen bg-premium-radial py-14">
         <section className="section-shell">
           <CheckoutResume packageId={checkoutPackage} />
           <p className="eyebrow">Verification credits</p>
-          <h1 className="mt-5 max-w-5xl text-4xl font-black tracking-tight text-white md:text-6xl">
+          <h1 className="mt-5 max-w-5xl text-4xl font-black tracking-tight text-slate-950 md:text-6xl">
             Clean email lists before campaigns hit inboxes.
           </h1>
-          <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-300">
+          <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-600">
             1 credit verifies 1 email. Buy once, upload lists anytime, and download valid, invalid, risky, disposable, and full report CSVs.
           </p>
 
@@ -44,27 +44,27 @@ export default async function PricingPage({
               ["Sender reputation", "Remove invalid and risky emails before sending."],
               ["Clean reports", "Download valid-only, risky/catch-all, invalid-only, or full CSV reports."]
             ].map(([label, copy]) => (
-              <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.045] p-4">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan">{label}</p>
-                <p className="mt-2 text-sm leading-6 text-slate-300">{copy}</p>
+              <div key={label} className="rounded-xl border border-slate-200 bg-white p-4 shadow-[0_8px_22px_rgba(15,23,42,.04)]">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-blue-600">{label}</p>
+                <p className="mt-2 text-sm leading-6 text-slate-600">{copy}</p>
               </div>
             ))}
           </div>
 
           <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
             {packages.map((pack) => (
-              <Card key={pack.key} className={pack.highlight ? "premium-ring p-6" : "p-6"}>
+              <Card key={pack.key} className={pack.highlight ? "border-blue-200 bg-blue-50 p-6" : "p-6"}>
                 <div className="flex items-center justify-between gap-3">
-                  <h2 className="text-2xl font-black text-white">{pack.name}</h2>
+                  <h2 className="text-2xl font-black text-slate-950">{pack.name}</h2>
                   {pack.badgeText ? (
-                    <span className="rounded-full bg-cyan px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-ink">
+                    <span className="rounded-md bg-blue-600 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-white">
                       {pack.badgeText}
                     </span>
                   ) : null}
                 </div>
-                <p className="mt-3 min-h-16 text-sm leading-6 text-slate-300">{pack.description}</p>
-                <p className="mt-6 text-5xl font-black text-white">${pack.price}</p>
-                <p className="mt-2 font-bold text-cyan">
+                <p className="mt-3 min-h-16 text-sm leading-6 text-slate-600">{pack.description}</p>
+                <p className="mt-6 text-5xl font-black text-slate-950">${pack.price}</p>
+                <p className="mt-2 font-bold text-blue-600">
                   {pack.totalCredits.toLocaleString()} verifications
                   {pack.bonusCredits ? ` (${pack.credits.toLocaleString()} + ${pack.bonusCredits.toLocaleString()} bonus)` : ""}
                 </p>
@@ -72,7 +72,7 @@ export default async function PricingPage({
                 <CheckoutButton
                   packageId={pack.id}
                   label={pack.key === "trial" ? "Start Trial Pack" : "Buy credits"}
-                  className="mt-6 inline-flex h-11 w-full items-center justify-center rounded-full bg-cyan text-sm font-black text-ink transition hover:bg-cyan/90"
+                  className="mt-6 inline-flex h-11 w-full items-center justify-center rounded-lg bg-blue-600 text-sm font-black text-white transition hover:bg-blue-700"
                 />
               </Card>
             ))}

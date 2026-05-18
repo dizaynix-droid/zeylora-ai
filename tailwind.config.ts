@@ -6,41 +6,41 @@ const config: Config = {
     extend: {
       colors: {
         zeylora: {
-          cyan: "#20D3FF",
-          violet: "#8B5CF6",
-          magenta: "#EC4899",
-          blue: "#3B82F6",
-          obsidian: "#03050D",
-          midnight: "#050814",
-          ink: "#0B1020",
-          surface: "#0E1628",
-          surface2: "#111B31",
-          surface3: "#17223A"
+          cyan: "#2563EB",
+          violet: "#4F46E5",
+          magenta: "#0F766E",
+          blue: "#2563EB",
+          obsidian: "#F8FAFC",
+          midnight: "#FFFFFF",
+          ink: "#0F172A",
+          surface: "#FFFFFF",
+          surface2: "#F1F5F9",
+          surface3: "#E2E8F0"
         },
-        midnight: "#050814",
-        ink: "#0B1020",
-        obsidian: "#03050D",
-        panel: "#0E1628",
-        line: "rgba(255, 255, 255, 0.10)",
-        cyan: "#20D3FF",
-        violet: "#8B5CF6",
-        magenta: "#EC4899",
-        emerald: "#34D399",
+        midnight: "#FFFFFF",
+        ink: "#0F172A",
+        obsidian: "#F8FAFC",
+        panel: "#FFFFFF",
+        line: "rgba(15, 23, 42, 0.10)",
+        cyan: "#2563EB",
+        violet: "#4F46E5",
+        magenta: "#0F766E",
+        emerald: "#059669",
         warning: "#FBBF24",
         danger: "#FB7185"
       },
       boxShadow: {
-        glow: "0 0 42px rgba(32, 211, 255, 0.28)",
-        violet: "0 18px 80px rgba(139, 92, 246, 0.24)",
-        magenta: "0 18px 90px rgba(236, 72, 153, 0.18)",
-        cinematic: "0 28px 120px rgba(0, 0, 0, 0.52)"
+        glow: "0 10px 24px rgba(15, 23, 42, 0.10)",
+        violet: "0 12px 34px rgba(15, 23, 42, 0.10)",
+        magenta: "0 12px 34px rgba(15, 23, 42, 0.10)",
+        cinematic: "0 18px 46px rgba(15, 23, 42, 0.12)"
       },
       backgroundImage: {
-        "zeylora-brand": "linear-gradient(135deg, #20D3FF 0%, #8B5CF6 52%, #EC4899 100%)",
+        "zeylora-brand": "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)",
         "premium-radial":
-          "radial-gradient(circle at top left, rgba(32,211,255,.24), transparent 34%), radial-gradient(circle at top right, rgba(236,72,153,.16), transparent 30%), linear-gradient(180deg, #050814 0%, #0B1020 52%, #03050D 100%)",
+          "linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 52%, #EFF6FF 100%)",
         "cinematic-depth":
-          "radial-gradient(circle at 18% 12%, rgba(32,211,255,.24), transparent 28%), radial-gradient(circle at 82% 18%, rgba(236,72,153,.16), transparent 24%), radial-gradient(circle at 52% 58%, rgba(139,92,246,.14), transparent 36%), linear-gradient(180deg, #050814 0%, #070A18 44%, #03050D 100%)"
+          "linear-gradient(180deg, #F8FAFC 0%, #FFFFFF 44%, #EFF6FF 100%)"
       },
       keyframes: {
         float: {
