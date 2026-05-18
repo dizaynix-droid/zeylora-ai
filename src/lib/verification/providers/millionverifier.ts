@@ -1,0 +1,82 @@
+import type { VerificationEmailStatus } from "@prisma/client";
+import type { VerificationProvider, VerificationProviderResult } from "@/lib/verification/types";
+
+const DEFAULT_BASE_URL = "https://api.millionverifier.com/api/v3";
+
+type MillionVerifierResponse = {
+  email?: string;
+  result?: string;
+  status?: string;
+  subresult?: string;
+  reason?: string;
+  disposable?: boolean;
+  catch_all?: boolean;
+  catchall?: boolean;
+  free?: boolean;
+  role?: boolean;
+  mx?: boolean;
+  [key: string]: unknown;
+};
+
+export function createMillionVerifierProvider(): VerificationProvider {
+  return {
+    key: "millionverifier",
+    async verifyBatch(emails: string[]) {
+      const apiKey = process.env.MILLIONVERIFIER_API_KEY;
+      const baseUrl = (process.env.MILLIONVERIFIER_API_BASE_URL || DEFAULT_BASE_URL).replace(/\/$/, "");
+
+      if (!apiKey) {
+        throw new Error("MillionVerifier API key is not configured.");
+      }
+
+      const results: VerificationProviderResult[] = [];
+
+      for (const email of emails) {
+        const url = new URL(baseUrl);
+        url.searchParams.set("api", apiKey);
+        url.searchParams.set("email", email);
+        url.searchParams.set("timeout", "10");
+
+        const response = await fetch(url, {
+          method: "GET",
+          cache: "no-store",
+          signal: AbortSignal.timeout(18_000)
+        });
+
+        if (!response.ok) {
+          throw new Error(`MillionVerifier failed with HTTP ${response.status}.`);
+        }
+
+        const json = (await response.json().catch(() => ({}))) as MillionVerifierResponse;
+        results.push({
+          email,
+          status: mapMillionVerifierStatus(json),
+          reason: String(json.subresult || json.reason || json.result || json.status || ""),
+          raw: sanitizeProviderPayload(json)
+        });
+      }
+
+      return results;
+    }
+  };
+}
+
+function mapMillionVerifierStatus(payload: MillionVerifierResponse): VerificationEmailStatus {
+  const result = String(payload.result || payload.status || "").toLowerCase();
+  const subresult = String(payload.subresult || payload.reason || "").toLowerCase();
+
+  if (payload.disposable || result.includes("disposable") || subresult.includes("disposable")) return "DISPOSABLE";
+  if (payload.catch_all || payload.catchall || result.includes("catch") || subresult.includes("catch")) return "CATCH_ALL";
+  if (result === "ok" || result === "valid" || result === "deliverable") return "VALID";
+  if (result === "invalid" || result === "bad" || result === "undeliverable") return "INVALID";
+  if (result === "risk" || result === "risky" || subresult.includes("role") || subresult.includes("mailbox_full")) return "RISKY";
+  return "UNKNOWN";
+}
+
+function sanitizeProviderPayload(payload: MillionVerifierResponse) {
+  const clone = { ...payload };
+  delete clone.api;
+  delete clone.apiKey;
+  delete clone.key;
+  return clone;
+}

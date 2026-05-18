@@ -2,7 +2,7 @@ export type PricingBillingModel = "one_time_credits" | "subscription";
 export type PaymentProviderKey = "stripe" | "paddle" | "lemonsqueezy";
 
 export type CreditPackageConfig = {
-  key: "starter-trial" | "starter" | "creator" | "pro-seller" | "business";
+  key: "trial" | "starter" | "growth" | "pro" | "business";
   name: string;
   billingModel: PricingBillingModel;
   credits: number;
@@ -19,76 +19,76 @@ export type CreditPackageConfig = {
 
 export const creditPackages: CreditPackageConfig[] = [
   {
-    key: "starter-trial",
-    name: "Starter Trial Pack",
+    key: "trial",
+    name: "Trial",
     billingModel: "one_time_credits",
-    credits: 15,
+    credits: 1000,
     bonusCredits: 0,
     price: 7.99,
     currency: "USD",
     highlight: true,
-    badgeText: "Most Popular",
-    description: "A low-risk first test pack for turning your first product photos into marketplace-ready visuals.",
-    audience: "First product test, no subscription",
-    featureFlagKey: "pricing_pack_starter_trial",
+    badgeText: "Start here",
+    description: "Run your first serious list cleanup before a campaign launch.",
+    audience: "First deliverability test",
+    featureFlagKey: "pricing_pack_trial",
     paymentProviderPriceIds: {}
   },
   {
     key: "starter",
     name: "Starter",
     billingModel: "one_time_credits",
-    credits: 20,
+    credits: 3000,
     bonusCredits: 0,
     price: 19,
     currency: "USD",
     highlight: false,
-    description: "A focused credit pack for small batches, listing refreshes, and clean ecommerce exports.",
-    audience: "New sellers and first product batches",
+    description: "Clean smaller marketing, ecommerce, and newsletter lists.",
+    audience: "Small campaigns and founders",
     featureFlagKey: "pricing_pack_starter",
     paymentProviderPriceIds: {}
   },
   {
-    key: "creator",
-    name: "Creator",
+    key: "growth",
+    name: "Growth",
     billingModel: "one_time_credits",
-    credits: 45,
-    bonusCredits: 5,
-    price: 39,
+    credits: 10000,
+    bonusCredits: 0,
+    price: 49,
     currency: "USD",
     highlight: false,
-    badgeText: "Seller Pack",
-    description: "A practical seller pack for recurring catalog edits, relights, crops, upscales, and clean exports.",
-    audience: "Shopify, Etsy, and TikTok Shop sellers",
-    featureFlagKey: "pricing_pack_creator",
+    badgeText: "Popular",
+    description: "Built for agencies and teams cleaning recurring campaign lists.",
+    audience: "Agencies and growing teams",
+    featureFlagKey: "pricing_pack_growth",
     paymentProviderPriceIds: {}
   },
   {
-    key: "pro-seller",
-    name: "Pro Seller",
+    key: "pro",
+    name: "Pro",
     billingModel: "one_time_credits",
-    credits: 100,
-    bonusCredits: 20,
-    price: 79,
+    credits: 25000,
+    bonusCredits: 0,
+    price: 99,
     currency: "USD",
     highlight: false,
     badgeText: "Best Value",
-    description: "Built for larger product batches, marketplace listing refreshes, and ad creative production.",
-    audience: "Growing ecommerce stores",
-    featureFlagKey: "pricing_pack_pro_seller",
+    description: "High-volume verification for cold email, ecommerce, and SaaS teams.",
+    audience: "High-volume operators",
+    featureFlagKey: "pricing_pack_pro",
     paymentProviderPriceIds: {}
   },
   {
     key: "business",
     name: "Business",
     billingModel: "one_time_credits",
-    credits: 220,
-    bonusCredits: 40,
-    price: 149,
+    credits: 60000,
+    bonusCredits: 0,
+    price: 199,
     currency: "USD",
     highlight: false,
     badgeText: "Scale",
-    description: "For operators and teams producing clean product visuals across marketplaces, stores, and paid channels.",
-    audience: "Agencies, catalog teams, and high-volume sellers",
+    description: "Large list cleaning for serious senders protecting sender reputation.",
+    audience: "Scale teams and agencies",
     featureFlagKey: "pricing_pack_business",
     paymentProviderPriceIds: {}
   }

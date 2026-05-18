@@ -155,10 +155,11 @@ async function main() {
   });
 
   for (const creditPackage of [
-    { name: "Starter", credits: 20, price: "19.00", currency: "usd", sortOrder: 1, featureFlagKey: "pricing_pack_starter" },
-    { name: "Creator", credits: 50, price: "39.00", currency: "usd", sortOrder: 2, featureFlagKey: "pricing_pack_creator" },
-    { name: "Pro Seller", credits: 120, price: "79.00", currency: "usd", sortOrder: 3, featureFlagKey: "pricing_pack_pro_seller" },
-    { name: "Business", credits: 260, price: "149.00", currency: "usd", sortOrder: 4, featureFlagKey: "pricing_pack_business" }
+    { name: "Trial", credits: 1000, price: "7.99", currency: "usd", sortOrder: 1, featureFlagKey: "pricing_pack_trial", description: "Run your first serious list cleanup before a campaign launch." },
+    { name: "Starter", credits: 3000, price: "19.00", currency: "usd", sortOrder: 2, featureFlagKey: "pricing_pack_starter", description: "Clean smaller marketing, ecommerce, and newsletter lists." },
+    { name: "Growth", credits: 10000, price: "49.00", currency: "usd", sortOrder: 3, featureFlagKey: "pricing_pack_growth", description: "Built for agencies and teams cleaning recurring campaign lists." },
+    { name: "Pro", credits: 25000, price: "99.00", currency: "usd", sortOrder: 4, featureFlagKey: "pricing_pack_pro", description: "High-volume verification for cold email, ecommerce, and SaaS teams." },
+    { name: "Business", credits: 60000, price: "199.00", currency: "usd", sortOrder: 5, featureFlagKey: "pricing_pack_business", description: "Large list cleaning for serious senders protecting sender reputation." }
   ]) {
     const existing = await prisma.creditPackage.findFirst({
       where: { name: creditPackage.name, deletedAt: null },

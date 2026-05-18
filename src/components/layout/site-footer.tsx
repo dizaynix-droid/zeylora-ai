@@ -31,7 +31,7 @@ export function SiteFooter() {
               {appConfig.name}
             </Link>
             <p className="mt-4 max-w-md text-sm leading-6 text-slate-400">
-              A cinematic AI photo studio built for premium product edits, private uploads, watermarked free exports, provider fallback, and global SEO growth.
+              A fast email verification and list cleaning platform for reducing bounce rate, protecting sender reputation, and exporting clean segmented CSV reports.
             </p>
           </div>
 
@@ -61,7 +61,7 @@ export function SiteFooter() {
 
         <div className="mt-10 flex flex-col justify-between gap-3 border-t border-white/10 pt-5 text-xs font-semibold text-slate-500 sm:flex-row">
           <p>Copyright {new Date().getFullYear()} {appConfig.name}. All rights reserved.</p>
-          <p>AI-generated results may vary. Clear policies and support pages are ready for production approval.</p>
+          <p>Verify emails before sending. Keep uploads private and downloads signed.</p>
         </div>
       </div>
     </footer>

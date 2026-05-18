@@ -393,8 +393,8 @@ export async function createCreditPackageAction(formData: FormData) {
       sortOrder,
       stripePriceId: stripePriceId || null,
       featureFlagKey: featureFlagKey || null,
-      description: description || "Credit pack for clean watermark-free exports.",
-      audience: audience || "Product sellers and creators",
+      description: description || "Verification credits for bulk email list cleaning.",
+      audience: audience || "Marketers, agencies, ecommerce, and SaaS teams",
       badgeText: badgeText || null,
       highlight,
       status: status as "ACTIVE" | "INACTIVE" | "SUSPENDED"

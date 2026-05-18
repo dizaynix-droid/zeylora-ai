@@ -1227,6 +1227,7 @@ export type AdminReportGrouping = "daily" | "weekly" | "monthly";
 
 const EXPENSE_CATEGORIES = ["ADS", "SEO", "PROVIDER", "SOFTWARE", "DESIGN", "DOMAIN", "HOSTING", "OTHER"] as const;
 const PROVIDER_RUNTIME_DEFAULTS = [
+  { providerKey: "millionverifier", name: "MillionVerifier", providerType: "email-verification", envKeyName: "MILLIONVERIFIER_API_KEY", priority: 5, defaultStatus: "ACTIVE" },
   { providerKey: "replicate", name: "Replicate", providerType: "replicate", envKeyName: "REPLICATE_API_TOKEN", priority: 10, defaultStatus: "ACTIVE" },
   { providerKey: "photoroom", name: "PhotoRoom", providerType: "photoroom", envKeyName: "PHOTOROOM_API_KEY", priority: 20, defaultStatus: "ACTIVE" },
   { providerKey: "removebg", name: "remove.bg", providerType: "removebg", envKeyName: "REMOVEBG_API_KEY", priority: 30, defaultStatus: "INACTIVE" },
@@ -1917,7 +1918,9 @@ function findAdminCreditPackageConfig(pack: { name: string; featureFlagKey?: str
     (item) =>
       item.name === pack.name ||
       item.featureFlagKey === pack.featureFlagKey ||
-      (item.key === "pro-seller" && pack.name === "Studio")
+      (item.key === "growth" && pack.name === "Creator") ||
+      (item.key === "pro" && (pack.name === "Pro Seller" || pack.name === "Studio")) ||
+      (item.key === "trial" && pack.name === "Starter Trial Pack")
   );
 }
 

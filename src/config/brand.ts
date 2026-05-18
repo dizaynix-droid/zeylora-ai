@@ -2,8 +2,8 @@ export const brandIdentity = {
   name: "Zeylora AI",
   shortName: "Zeylora",
   positioning:
-    "A cinematic AI photo studio for global creators and professionals.",
-  personality: ["premium", "cinematic", "futuristic", "elegant", "minimal", "trustworthy"],
+    "A premium email verification and list cleaning platform for serious senders.",
+  personality: ["premium", "fast", "accurate", "operational", "minimal", "trustworthy"],
   colors: {
     primary: {
       cyan: "#20D3FF",

@@ -38,9 +38,9 @@ export function SiteHeaderAuthActions() {
   function handleUploadClick(event: MouseEvent<HTMLAnchorElement>) {
     if (typeof window === "undefined") return;
 
-    if (window.location.pathname.startsWith("/tools/")) {
+    if (window.location.pathname === "/dashboard") {
       event.preventDefault();
-      const uploadPanel = document.getElementById("upload");
+      const uploadPanel = document.getElementById("verify");
       uploadPanel?.scrollIntoView({
         behavior: "smooth",
         block: "start"
@@ -48,12 +48,8 @@ export function SiteHeaderAuthActions() {
       return;
     }
 
-    if (window.location.pathname === "/") {
-      return;
-    }
-
     event.preventDefault();
-    window.location.href = "/tools/hd-upscale";
+    window.location.href = isSupabaseAuthConfigured() ? "/dashboard#verify" : "/auth/sign-in?next=/dashboard%23verify";
   }
 
   useEffect(() => {
@@ -118,11 +114,11 @@ export function SiteHeaderAuthActions() {
       )}
 
       <Link
-        href="/tools/hd-upscale"
+        href="/dashboard#verify"
         onClick={handleUploadClick}
         className="focus-lift inline-flex h-11 items-center justify-center rounded-full bg-zeylora-brand px-4 text-sm font-bold text-white shadow-glow transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
       >
-        Upload
+        Verify list
       </Link>
 
       <Link

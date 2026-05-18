@@ -65,8 +65,8 @@ export async function getCreditPackagesForDisplay(): Promise<PublicCreditPackage
           currency: pack.currency.toUpperCase(),
           highlight: pack.highlight || Boolean(fallback?.highlight),
           badgeText: pack.badgeText || fallback?.badgeText,
-          description: pack.description || fallback?.description || "Credit pack for clean watermark-free exports.",
-          audience: pack.audience || fallback?.audience || "Product sellers and creators",
+          description: pack.description || fallback?.description || "Verification credits for bulk email list cleaning.",
+          audience: pack.audience || fallback?.audience || "Marketers, agencies, ecommerce, and SaaS teams",
           stripePriceId: pack.stripePriceId,
           status: pack.status,
           sortOrder: pack.sortOrder
@@ -114,7 +114,7 @@ function getFallbackCreditPackages(): PublicCreditPackage[] {
 
 export async function ensureLaunchCreditPackageDefaults() {
   for (const [index, pack] of creditPackages.entries()) {
-    const legacyNames = pack.key === "pro-seller" ? ["Pro Seller", "Studio"] : [pack.name];
+    const legacyNames = [pack.name];
     const existing = await prisma.creditPackage.findFirst({
       where: {
         deletedAt: null,
@@ -189,10 +189,11 @@ function shouldRepairLaunchPackage(
 ) {
   const price = Number(pack.price);
   const legacyRecord =
-    (pack.name === "Starter" && pack.credits === 40 && price === 9) ||
-    (pack.name === "Creator" && pack.credits === 120 && price === 19) ||
-    (pack.name === "Studio" && pack.credits === 320 && price === 39) ||
-    (pack.name === "Pro Seller" && pack.credits === 320 && price === 39);
+    (pack.name === "Starter Trial Pack" && pack.credits <= 100 && price <= 9) ||
+    (pack.name === "Starter" && pack.credits < 1000) ||
+    (pack.name === "Creator" && price <= 49) ||
+    (pack.name === "Studio" && price <= 149) ||
+    (pack.name === "Pro Seller" && price <= 149);
   const missingFeatureFlag = !pack.featureFlagKey;
 
   if (legacyRecord || missingFeatureFlag) return true;
@@ -214,7 +215,9 @@ function findPackageConfig(name: string, featureFlagKey: string | null) {
     (item) =>
       item.name === name ||
       item.featureFlagKey === featureFlagKey ||
-      (item.key === "pro-seller" && name === "Studio")
+      (item.key === "growth" && name === "Creator") ||
+      (item.key === "pro" && (name === "Pro Seller" || name === "Studio")) ||
+      (item.key === "trial" && name === "Starter Trial Pack")
   );
 }
 

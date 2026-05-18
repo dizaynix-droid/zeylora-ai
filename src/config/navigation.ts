@@ -1,15 +1,16 @@
 import { adminTr } from "@/i18n/admin/tr";
 
 export const marketingNav = [
-  { label: "Tools", href: "/tools" },
+  { label: "How it works", href: "/#how-it-works" },
   { label: "Pricing", href: "/pricing" },
-  { label: "Examples", href: "/#examples" },
+  { label: "Results", href: "/#results" },
   { label: "FAQ", href: "/faq" }
 ] as const;
 
 export const dashboardNav = [
   { label: "Overview", href: "/dashboard#overview" },
-  { label: "Jobs", href: "/dashboard#jobs" },
+  { label: "Verify List", href: "/dashboard#verify" },
+  { label: "History", href: "/dashboard#jobs" },
   { label: "Support", href: "/dashboard/support" },
   { label: "Tickets", href: "/dashboard/tickets" },
   { label: "Creator Program", href: "/dashboard/affiliate" },
@@ -22,7 +23,7 @@ export const adminNav = [
   { label: adminTr.nav.overview, href: "/admin" },
   { label: adminTr.nav.users, href: "/admin/users" },
   { label: adminTr.nav.tools, href: "/admin/tools" },
-  { label: adminTr.nav.jobs, href: "/admin/jobs" },
+  { label: "Doğrulama İşleri", href: "/admin/verification-jobs" },
   { label: adminTr.nav.tickets, href: "/admin/tickets" },
   { label: "Partnerlar", href: "/admin/affiliates" },
   { label: adminTr.nav.credits, href: "/admin/credits" },

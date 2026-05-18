@@ -138,8 +138,8 @@ export async function POST(request: Request) {
         currency,
         unit_amount: Math.round(amount * 100),
         product_data: {
-          name: `${selectedPackage.name} Credits`,
-          description: `${credits} Zeylora AI credits for watermark-free clean exports.`
+          name: `${selectedPackage.name} Verification Credits`,
+          description: `${credits.toLocaleString()} Zeylora AI email verification credits. 1 credit verifies 1 email.`
         }
       }
     };

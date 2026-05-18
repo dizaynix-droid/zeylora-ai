@@ -181,6 +181,24 @@ enum TicketStatus {
   CLOSED
 }
 
+enum VerificationJobStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum VerificationEmailStatus {
+  VALID
+  INVALID
+  RISKY
+  CATCH_ALL
+  DISPOSABLE
+  UNKNOWN
+  DUPLICATE
+}
+
 enum ExpenseCategory {
   ADS
   SEO
@@ -209,6 +227,7 @@ model User {
   referredBy         User?               @relation("UserReferrals", fields: [referredByUserId], references: [id])
   referredUsers      User[]              @relation("UserReferrals")
   jobs               AiJob[]
+  verificationJobs   VerificationJob[]
   mediaAssets        MediaAsset[]
   creditTransactions CreditTransaction[]
   payments           Payment[]
@@ -484,6 +503,7 @@ model Ticket {
   id            String         @id @default(cuid())
   userId        String
   aiJobId       String?
+  verificationJobId String?
   category      TicketCategory
   status        TicketStatus   @default(OPEN)
   subject       String
@@ -495,12 +515,14 @@ model Ticket {
 
   user     User            @relation(fields: [userId], references: [id])
   aiJob    AiJob?          @relation(fields: [aiJobId], references: [id])
+  verificationJob VerificationJob? @relation(fields: [verificationJobId], references: [id])
   messages TicketMessage[]
 
   @@index([userId, status, lastMessageAt])
   @@index([status, lastMessageAt])
   @@index([category, status])
   @@index([aiJobId])
+  @@index([verificationJobId])
 }
 
 model TicketMessage {
@@ -556,17 +578,93 @@ model CreditTransaction {
   amount       Int
   balanceAfter Int
   aiJobId      String?
+  verificationJobId String?
   paymentId    String?
   note         String?
   createdAt    DateTime              @default(now())
 
-  user    User     @relation(fields: [userId], references: [id])
-  aiJob   AiJob?   @relation(fields: [aiJobId], references: [id])
-  payment Payment? @relation(fields: [paymentId], references: [id])
+  user            User             @relation(fields: [userId], references: [id])
+  aiJob           AiJob?           @relation(fields: [aiJobId], references: [id])
+  verificationJob VerificationJob? @relation(fields: [verificationJobId], references: [id])
+  payment         Payment?         @relation(fields: [paymentId], references: [id])
 
   @@index([userId, createdAt])
   @@index([type])
   @@index([createdAt, type])
+  @@index([verificationJobId])
+}
+
+model VerificationJob {
+  id                         String                @id @default(cuid())
+  userId                     String
+  status                     VerificationJobStatus @default(QUEUED)
+  sourceType                 String                @default("upload")
+  originalFilename           String?
+  inputStorageKey            String?
+  fullReportStorageKey       String?
+  validExportStorageKey      String?
+  invalidExportStorageKey    String?
+  riskyExportStorageKey      String?
+  providerKey                String                @default("millionverifier")
+  providerRequestId          String?
+  providerBatchCount         Int                   @default(0)
+  totalEmails                Int                   @default(0)
+  uniqueEmails               Int                   @default(0)
+  duplicateCount             Int                   @default(0)
+  validCount                 Int                   @default(0)
+  invalidCount               Int                   @default(0)
+  riskyCount                 Int                   @default(0)
+  catchAllCount              Int                   @default(0)
+  disposableCount            Int                   @default(0)
+  unknownCount               Int                   @default(0)
+  creditsReserved            Int                   @default(0)
+  creditsUsed                Int                   @default(0)
+  creditValueAtRun           Decimal?              @db.Decimal(10, 4)
+  costPerVerificationAtRun   Decimal?              @db.Decimal(10, 6)
+  providerCostAtRun          Decimal?              @db.Decimal(10, 4)
+  providerCostCurrency       String?               @default("usd")
+  estimatedRevenueAtRun      Decimal?              @db.Decimal(10, 4)
+  estimatedProfitAtRun       Decimal?              @db.Decimal(10, 4)
+  errorMessage               String?
+  progressPercent            Int                   @default(0)
+  metadataJson               Json?
+  deletedAt                  DateTime?
+  startedAt                  DateTime?
+  completedAt                DateTime?
+  createdAt                  DateTime              @default(now())
+  updatedAt                  DateTime              @updatedAt
+
+  user               User                      @relation(fields: [userId], references: [id])
+  results            VerificationEmailResult[]
+  creditTransactions CreditTransaction[]
+  tickets            Ticket[]
+
+  @@index([userId, status, createdAt])
+  @@index([status, createdAt])
+  @@index([providerKey, status, createdAt])
+  @@index([completedAt])
+}
+
+model VerificationEmailResult {
+  id                String                  @id @default(cuid())
+  verificationJobId String
+  email             String
+  normalizedEmail   String
+  status            VerificationEmailStatus
+  reason            String?
+  domain            String?
+  mxFound           Boolean?
+  disposable        Boolean?
+  roleBased         Boolean?
+  freeProvider      Boolean?
+  rawJson           Json?
+  createdAt         DateTime                @default(now())
+
+  verificationJob VerificationJob @relation(fields: [verificationJobId], references: [id], onDelete: Cascade)
+
+  @@index([verificationJobId, status])
+  @@index([normalizedEmail])
+  @@index([domain])
 }
 
 model CreditPackage {

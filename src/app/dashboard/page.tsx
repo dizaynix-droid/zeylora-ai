@@ -1,37 +1,43 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { DashboardClient } from "@/components/dashboard/dashboard-client";
 import { AppShell } from "@/components/layout/app-shell";
+import { VerificationDashboardClient } from "@/components/verification/verification-dashboard-client";
 import { getCurrentSessionUser } from "@/lib/auth/current-user";
 import { requireMfaIfNeeded } from "@/lib/auth/mfa";
-import { type DashboardFilter } from "@/lib/dashboard/data";
+import { prisma } from "@/lib/db";
+import { getCreditPackagesForDisplay } from "@/lib/pricing/packages";
 import { createMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createMetadata({
   title: "Dashboard",
-  description: "Private Zeylora AI dashboard for account jobs, downloads, and credit activity.",
+  description: "Private Zeylora AI dashboard for email verification jobs, credits, downloads, and billing.",
   path: "/dashboard",
   noIndex: true
 });
 
-export default async function DashboardPage({
-  searchParams
-}: {
-  searchParams?: Promise<{
-    filter?: string;
-  }>;
-}) {
+export default async function DashboardPage() {
   const shellStartedAt = Date.now();
-  const [sessionUser, resolvedSearchParams] = await Promise.all([
-    getCurrentSessionUser(),
-    searchParams
-  ]);
+  const sessionUser = await getCurrentSessionUser();
 
   if (!sessionUser) {
     redirect("/auth/sign-in?next=/dashboard");
   }
 
   await requireMfaIfNeeded("/dashboard");
+  const [appUser, packages] = await Promise.all([
+    prisma.user.findFirst({
+      where: {
+        OR: [{ id: sessionUser.id }, { email: sessionUser.email }],
+        deletedAt: null
+      },
+      select: {
+        id: true,
+        email: true,
+        creditBalance: true
+      }
+    }),
+    getCreditPackagesForDisplay()
+  ]);
 
   if (process.env.NODE_ENV === "development") {
     console.info("[dashboard-shell-timing]", {
@@ -43,18 +49,20 @@ export default async function DashboardPage({
   return (
     <AppShell
       area="dashboard"
-      title="Product photo workspace"
-      description="Review recent edits, compare inputs and outputs, download finished assets, and track upcoming seller tools."
+      title="Email verification workspace"
+      description="Upload CSV/TXT lists, remove invalid and risky emails, protect sender reputation, and download clean segmented reports."
     >
-      <DashboardClient
-        initialEmail={sessionUser.email}
-        initialFilter={normalizeFilter(resolvedSearchParams?.filter)}
+      <VerificationDashboardClient
+        email={appUser?.email ?? sessionUser.email}
+        creditBalance={appUser?.creditBalance ?? 0}
+        packages={packages.map((pack) => ({
+          id: pack.id,
+          name: pack.name,
+          price: pack.price,
+          totalCredits: pack.totalCredits,
+          badgeText: pack.badgeText
+        }))}
       />
     </AppShell>
   );
-}
-
-function normalizeFilter(filter?: string): DashboardFilter {
-  if (filter === "completed" || filter === "failed" || filter === "clean-export" || filter === "preview-only") return filter;
-  return "all";
 }

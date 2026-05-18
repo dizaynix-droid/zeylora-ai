@@ -5,8 +5,8 @@ export default function DashboardLoading() {
   return (
     <AppShell
       area="dashboard"
-      title="Product photo workspace"
-      description="Loading your recent edits and secure previews."
+      title="Email verification workspace"
+      description="Loading your list cleaning dashboard."
     >
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {Array.from({ length: 4 }).map((_, index) => (
