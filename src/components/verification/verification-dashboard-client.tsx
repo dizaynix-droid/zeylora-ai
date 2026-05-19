@@ -1,12 +1,12 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { AlertCircle, CheckCircle2, Download, Loader2, MailCheck, ShieldCheck, UploadCloud, XCircle } from "lucide-react";
+import { AlertCircle, Bell, CheckCircle2, CreditCard, Download, Loader2, MailCheck, ReceiptText, Settings, Shield, ShieldCheck, UploadCloud, UserCircle, XCircle } from "lucide-react";
 import { CheckoutButton } from "@/components/billing/checkout-button";
 import { trackEvent } from "@/lib/analytics/events";
-import { VerifyBadge, VerifyMetric, VerifyPanel } from "@/components/verify-ui/core";
+import { VerifyAction, VerifyBadge, VerifyMetric, VerifyPanel } from "@/components/verify-ui/core";
 
 type VerificationJob = {
   id: string;
@@ -48,6 +48,7 @@ type Package = {
 const DRAFT_STORAGE_KEY = "zeylora_verification_draft";
 
 export function VerificationDashboardClient({
+  email,
   creditBalance,
   packages
 }: {
@@ -276,6 +277,74 @@ export function VerificationDashboardClient({
         </VerifyPanel>
       </section>
 
+      <section id="payments" className="grid gap-5 lg:grid-cols-[minmax(0,.9fr)_minmax(0,1.1fr)]">
+        <VerifyPanel className="p-5 md:p-6">
+          <div className="flex items-start gap-3">
+            <div className="rounded-md bg-blue-50 p-3 text-blue-700">
+              <CreditCard size={22} />
+            </div>
+            <div>
+              <VerifyBadge tone="blue">Payments</VerifyBadge>
+              <h2 className="mt-3 text-2xl font-semibold tracking-[-0.02em] text-slate-950">Billing workspace</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Buy verification credits, then use them for bulk email checks. One credit verifies one unique email address.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Current balance</p>
+              <p className="mt-2 text-3xl font-semibold tracking-tight text-blue-700">{creditBalance.toLocaleString()}</p>
+              <p className="mt-1 text-sm text-slate-500">Available verification credits</p>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Billing model</p>
+              <p className="mt-2 text-lg font-semibold text-slate-950">Pay once</p>
+              <p className="mt-1 text-sm text-slate-500">No subscription. Credits stay in your account.</p>
+            </div>
+          </div>
+
+          <div className="mt-5 flex flex-wrap gap-3">
+            <VerifyAction href="/pricing">Open pricing</VerifyAction>
+            <VerifyAction href="/dashboard/support" variant="secondary">
+              Billing support
+            </VerifyAction>
+          </div>
+        </VerifyPanel>
+
+        <VerifyPanel className="p-5 md:p-6">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <VerifyBadge>Recommended packages</VerifyBadge>
+              <h3 className="mt-3 text-xl font-semibold tracking-[-0.02em] text-slate-950">Continue verification without leaving the workflow.</h3>
+            </div>
+            <ReceiptText className="hidden text-slate-300 sm:block" size={28} />
+          </div>
+          <div className="mt-5 grid gap-3">
+            {packages.slice(0, 4).map((pack) => (
+              <div key={pack.id} className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 sm:grid-cols-[1fr_auto] sm:items-center">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-base font-semibold text-slate-950">{pack.name}</p>
+                    {pack.badgeText ? <VerifyBadge tone="green">{pack.badgeText}</VerifyBadge> : null}
+                  </div>
+                  <p className="mt-1 text-sm text-slate-500">{pack.totalCredits.toLocaleString()} email verifications</p>
+                </div>
+                <div className="flex items-center gap-3 sm:justify-end">
+                  <p className="text-lg font-semibold text-slate-950">${pack.price}</p>
+                  <CheckoutButton
+                    packageId={pack.id}
+                    label="Buy"
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </VerifyPanel>
+      </section>
+
       <section id="jobs">
         <VerifyPanel className="p-4 md:p-6">
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -329,6 +398,77 @@ export function VerificationDashboardClient({
           ) : null}
         </VerifyPanel>
       </section>
+
+      <section id="settings" className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <VerifyPanel className="p-5 md:p-6">
+          <div className="flex items-start gap-3">
+            <div className="rounded-md bg-slate-100 p-3 text-slate-700">
+              <UserCircle size={22} />
+            </div>
+            <div>
+              <VerifyBadge>Account settings</VerifyBadge>
+              <h2 className="mt-3 text-2xl font-semibold tracking-[-0.02em] text-slate-950">Account and security</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Your verification jobs, billing history, and downloads are tied to this account.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-3">
+            <SettingRow icon={<MailCheck size={18} />} label="Account email" value={email} />
+            <SettingRow icon={<Shield size={18} />} label="Security" value="Password reset and MFA are managed through your account sign-in flow." />
+            <SettingRow icon={<Bell size={18} />} label="Notifications" value="Verification, billing, and support email preferences are prepared for this workspace." />
+          </div>
+
+          <div className="mt-5 flex flex-wrap gap-3">
+            <VerifyAction href="/auth/sign-in?mode=reset" variant="secondary">
+              Password reset
+            </VerifyAction>
+            <VerifyAction href="/dashboard/support" variant="secondary">
+              Contact support
+            </VerifyAction>
+          </div>
+        </VerifyPanel>
+
+        <VerifyPanel className="p-5 md:p-6">
+          <div className="flex items-start gap-3">
+            <div className="rounded-md bg-slate-100 p-3 text-slate-700">
+              <Settings size={22} />
+            </div>
+            <div>
+              <VerifyBadge>Workspace preferences</VerifyBadge>
+              <h3 className="mt-3 text-xl font-semibold tracking-[-0.02em] text-slate-950">Verification defaults</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Zeylora automatically deduplicates uploaded lists, estimates credit need, and keeps segmented CSV exports in job history.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-3">
+            <SettingRow label="Default workflow" value="Upload list, remove duplicates, verify unique emails, export valid/risky/invalid segments." />
+            <SettingRow label="Credits" value="One unique email uses one verification credit when the job starts." />
+            <SettingRow label="Support" value="Open a support ticket from the dashboard when a job fails or billing needs review." />
+          </div>
+
+          <form action="/auth/sign-out" method="post" className="mt-5">
+            <button className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+              Sign out
+            </button>
+          </form>
+        </VerifyPanel>
+      </section>
+    </div>
+  );
+}
+
+function SettingRow({ icon, label, value }: { icon?: ReactNode; label: string; value: string }) {
+  return (
+    <div className="flex gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+      {icon ? <div className="mt-0.5 text-slate-500">{icon}</div> : null}
+      <div className="min-w-0">
+        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">{label}</p>
+        <p className="mt-1 break-words text-sm font-medium leading-6 text-slate-800">{value}</p>
+      </div>
     </div>
   );
 }

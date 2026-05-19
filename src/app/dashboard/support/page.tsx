@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
-import { Card } from "@/components/ui/card";
+import { VerifyAction, VerifyBadge, VerifyPanel } from "@/components/verify-ui/core";
 import { createSupportTicketAction, replyToTicketAction } from "@/lib/support/actions";
 import { getCurrentUserFromSession } from "@/lib/auth/current-user";
 import { listUserTickets, ticketCategories } from "@/lib/support/tickets";
@@ -16,9 +15,9 @@ export default async function DashboardSupportPage({
   if (!user) {
     return (
       <AppShell area="dashboard" title="Support" description="Sign in to create and view support tickets.">
-        <Card className="p-6">
-          <Link href="/auth/sign-in?next=/dashboard/support" className="text-cyan">Sign in to continue</Link>
-        </Card>
+        <VerifyPanel className="p-6">
+          <VerifyAction href="/auth/sign-in?next=/dashboard/support">Sign in to continue</VerifyAction>
+        </VerifyPanel>
       </AppShell>
     );
   }
@@ -26,45 +25,46 @@ export default async function DashboardSupportPage({
   const [params, tickets] = await Promise.all([searchParams, listUserTickets(user.id)]);
 
   return (
-    <AppShell area="dashboard" title="Support tickets" description="Create a ticket, track replies, and keep support history tied to your Zeylora account.">
+    <AppShell area="dashboard" title="Support tickets" description="Create a ticket, track replies, and keep billing or verification-job support tied to your Zeylora account.">
       {params?.saved ? <Notice tone="good">Ticket saved. We will reply here in your dashboard.</Notice> : null}
       {params?.error ? <Notice tone="bad">Ticket could not be saved. Please check the fields and try again.</Notice> : null}
 
       <div className="grid gap-5 xl:grid-cols-[420px_minmax(0,1fr)]">
-        <Card className="p-5">
-          <h2 className="text-xl font-black text-white">Create ticket</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-400">For billing, credits, clean exports, failed jobs, account access, or result quality questions.</p>
+        <VerifyPanel className="p-5">
+          <VerifyBadge tone="blue">New support request</VerifyBadge>
+          <h2 className="mt-3 text-xl font-semibold tracking-[-0.02em] text-slate-950">Create ticket</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">For billing, verification credits, failed jobs, CSV exports, account access, or deliverability report questions.</p>
           <form action={createSupportTicketAction} className="mt-5 grid gap-3">
-            <select name="category" className="h-11 rounded-xl border border-white/10 bg-[#101525] px-3 text-sm font-bold text-white outline-none focus:border-cyan">
+            <select name="category" className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-950 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100">
               {ticketCategories.map((category) => (
                 <option key={category.value} value={category.value}>{category.label}</option>
               ))}
             </select>
-            <input name="subject" required minLength={3} maxLength={160} placeholder="Subject" className="h-11 rounded-xl border border-white/10 bg-white/5 px-3 text-sm font-bold text-white outline-none focus:border-cyan" />
-            <input name="aiJobId" defaultValue={params?.jobId || ""} placeholder="Related job ID (optional)" className="h-11 rounded-xl border border-white/10 bg-white/5 px-3 text-sm font-bold text-white outline-none focus:border-cyan" />
-            <textarea name="message" required minLength={5} rows={7} placeholder="Tell us what happened." className="rounded-2xl border border-white/10 bg-white/5 p-3 text-sm leading-6 text-white outline-none focus:border-cyan" />
-            <button className="h-11 rounded-full bg-zeylora-brand text-sm font-black text-white shadow-glow transition hover:brightness-110">Create ticket</button>
+            <input name="subject" required minLength={3} maxLength={160} placeholder="Subject" className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-950 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
+            <input name="aiJobId" defaultValue={params?.jobId || ""} placeholder="Related verification job ID (optional)" className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-950 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
+            <textarea name="message" required minLength={5} rows={7} placeholder="Tell us what happened." className="rounded-md border border-slate-300 bg-white p-3 text-sm leading-6 text-slate-950 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
+            <button className="h-11 rounded-md bg-blue-600 text-sm font-semibold text-white transition hover:bg-blue-700">Create ticket</button>
           </form>
-        </Card>
+        </VerifyPanel>
 
         <div className="grid gap-4">
           {tickets.length ? tickets.map((ticket) => (
-            <Card key={ticket.id} className="p-5">
+            <VerifyPanel key={ticket.id} className="p-5">
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-lg font-black text-white">{ticket.subject}</h3>
+                    <h3 className="text-lg font-semibold text-slate-950">{ticket.subject}</h3>
                     <TicketPill>{ticket.status}</TicketPill>
                     <TicketPill>{ticket.category.replaceAll("_", " ")}</TicketPill>
                   </div>
-                  <p className="mt-2 text-xs font-bold text-slate-500">Last reply {formatDate(ticket.lastMessageAt)} {ticket.aiJobId ? `• Job ${ticket.aiJobId}` : ""}</p>
+                  <p className="mt-2 text-xs font-medium text-slate-500">Last reply {formatDate(ticket.lastMessageAt)} {ticket.aiJobId ? `• Job ${ticket.aiJobId}` : ""}</p>
                 </div>
               </div>
               <div className="mt-4 grid gap-3">
                 {ticket.messages.map((message) => (
-                  <div key={message.id} className="rounded-2xl border border-white/10 bg-white/[0.035] p-3">
-                    <p className="text-xs font-black uppercase tracking-[0.14em] text-cyan">{message.actorType}</p>
-                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-200">{message.body}</p>
+                  <div key={message.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-blue-700">{message.actorType}</p>
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{message.body}</p>
                     <p className="mt-2 text-xs text-slate-500">{formatDate(message.createdAt)}</p>
                   </div>
                 ))}
@@ -72,16 +72,16 @@ export default async function DashboardSupportPage({
               {ticket.status !== "CLOSED" ? (
                 <form action={replyToTicketAction} className="mt-4 grid gap-2">
                   <input type="hidden" name="ticketId" value={ticket.id} />
-                  <textarea name="message" rows={3} required placeholder="Reply to this ticket" className="rounded-2xl border border-white/10 bg-white/5 p-3 text-sm leading-6 text-white outline-none focus:border-cyan" />
-                  <button className="h-10 w-fit rounded-full border border-cyan/30 bg-cyan/10 px-4 text-sm font-black text-cyan transition hover:bg-cyan/15">Send reply</button>
+                  <textarea name="message" rows={3} required placeholder="Reply to this ticket" className="rounded-md border border-slate-300 bg-white p-3 text-sm leading-6 text-slate-950 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
+                  <button className="h-10 w-fit rounded-md border border-blue-200 bg-blue-50 px-4 text-sm font-semibold text-blue-700 transition hover:bg-blue-100">Send reply</button>
                 </form>
               ) : null}
-            </Card>
+            </VerifyPanel>
           )) : (
-            <Card className="p-8 text-center">
-              <h2 className="text-xl font-black text-white">No tickets yet</h2>
-              <p className="mt-2 text-sm text-slate-400">Create a ticket when you need help with credits, exports, jobs, or account access.</p>
-            </Card>
+            <VerifyPanel className="p-8 text-center">
+              <h2 className="text-xl font-semibold text-slate-950">No tickets yet</h2>
+              <p className="mt-2 text-sm text-slate-500">Create a ticket when you need help with verification credits, CSV exports, jobs, or account access.</p>
+            </VerifyPanel>
           )}
         </div>
       </div>
@@ -90,11 +90,11 @@ export default async function DashboardSupportPage({
 }
 
 function Notice({ children, tone }: { children: string; tone: "good" | "bad" }) {
-  return <div className={`mb-5 rounded-2xl border p-4 text-sm font-bold ${tone === "good" ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100" : "border-rose-400/20 bg-rose-400/10 text-rose-100"}`}>{children}</div>;
+  return <div className={`mb-5 rounded-lg border p-4 text-sm font-semibold ${tone === "good" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-rose-200 bg-rose-50 text-rose-700"}`}>{children}</div>;
 }
 
 function TicketPill({ children }: { children: string }) {
-  return <span className="rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-xs font-black uppercase text-slate-200">{children}</span>;
+  return <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold uppercase text-slate-600">{children}</span>;
 }
 
 function formatDate(date: Date | string) {

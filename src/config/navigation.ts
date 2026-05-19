@@ -9,10 +9,9 @@ export const dashboardNav = [
   { label: "Overview", href: "/dashboard#overview" },
   { label: "Verify List", href: "/dashboard#verify" },
   { label: "History", href: "/dashboard#jobs" },
-  { label: "Support", href: "/dashboard/support" },
-  { label: "Tickets", href: "/dashboard/tickets" },
-  { label: "Creator Program", href: "/dashboard/affiliate" },
-  { label: "Credits", href: "/dashboard#credits" },
+  { label: "Support Tickets", href: "/dashboard/support" },
+  { label: "Partner Program", href: "/dashboard/affiliate" },
+  { label: "Verification Credits", href: "/dashboard#credits" },
   { label: "Payments", href: "/dashboard#payments" },
   { label: "Settings", href: "/dashboard#settings" }
 ] as const;

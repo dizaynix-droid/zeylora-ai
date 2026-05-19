@@ -3,10 +3,10 @@ import { prisma } from "@/lib/db";
 
 export const ticketCategories: Array<{ value: TicketCategory; label: string }> = [
   { value: "BILLING", label: "Billing" },
-  { value: "CREDITS", label: "Credits" },
-  { value: "CLEAN_EXPORT", label: "Clean Export" },
-  { value: "FAILED_JOB", label: "Failed Job" },
-  { value: "AI_RESULT_QUALITY", label: "AI Result Quality" },
+  { value: "CREDITS", label: "Verification Credits" },
+  { value: "CLEAN_EXPORT", label: "CSV Export" },
+  { value: "FAILED_JOB", label: "Failed Verification Job" },
+  { value: "AI_RESULT_QUALITY", label: "Verification Result Quality" },
   { value: "ACCOUNT_ACCESS", label: "Account Access" },
   { value: "BUG_REPORT", label: "Bug Report" },
   { value: "OTHER", label: "Other" }

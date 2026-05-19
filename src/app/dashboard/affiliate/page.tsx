@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Card } from "@/components/ui/card";
 import { AppShell } from "@/components/layout/app-shell";
 import { ReferralLinkCopy } from "@/components/affiliate/referral-link-copy";
+import { VerifyBadge, VerifyMetric, VerifyPanel } from "@/components/verify-ui/core";
 import { getCurrentUserFromSession } from "@/lib/auth/current-user";
 import { requireMfaIfNeeded } from "@/lib/auth/mfa";
 import { getAffiliateDashboardData } from "@/lib/affiliate/data";
@@ -13,8 +13,8 @@ import { prisma } from "@/lib/db";
 import { createMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createMetadata({
-  title: "Creator Program",
-  description: "Invite ecommerce sellers and earn Zeylora AI credits from successful referral payments.",
+  title: "Partner Program",
+  description: "Invite marketers, agencies, and operators to verify email lists and earn Zeylora verification credits.",
   path: "/dashboard/affiliate",
   noIndex: true
 });
@@ -34,10 +34,10 @@ export default async function DashboardAffiliatePage() {
 
   if (!data) {
     return (
-      <AppShell area="dashboard" title="Creator Program" description="Invite sellers and earn platform credits from successful paid referrals.">
-        <Card className="p-6">
-          <p className="text-sm font-bold text-slate-300">Your creator profile is being prepared. Refresh this page in a moment.</p>
-        </Card>
+      <AppShell area="dashboard" title="Partner Program" description="Invite teams to clean email lists and earn verification credits from successful paid referrals.">
+        <VerifyPanel className="p-6">
+          <p className="text-sm font-semibold text-slate-600">Your partner profile is being prepared. Refresh this page in a moment.</p>
+        </VerifyPanel>
       </AppShell>
     );
   }
@@ -59,46 +59,46 @@ export default async function DashboardAffiliatePage() {
   return (
     <AppShell
       area="dashboard"
-      title="Zeylora Creator Program"
-      description="Invite ecommerce sellers. Earn platform credits when referred users complete successful purchases. Rewards are credits only, not cash payouts."
+      title="Zeylora Partner Program"
+      description="Invite marketers, agencies, SaaS teams, and ecommerce operators. Earn verification credits when referred users complete successful purchases. Rewards are credits only, not cash payouts."
     >
       <div className="grid gap-4 md:grid-cols-4">
-        <Metric label="Clicks" value={data.profile.totalClicks} />
-        <Metric label="Signups" value={data.profile.totalSignups} />
-        <Metric label="Paid conversions" value={data.profile.totalPaidReferrals} />
-        <Metric label="Earned credits" value={data.profile.totalRewardCredits} />
+        <VerifyMetric label="Referral clicks" value={data.profile.totalClicks} />
+        <VerifyMetric label="Signups" value={data.profile.totalSignups} />
+        <VerifyMetric label="Paid conversions" value={data.profile.totalPaidReferrals} tone="green" />
+        <VerifyMetric label="Earned credits" value={data.profile.totalRewardCredits} tone="blue" />
       </div>
 
-      <Card className="mt-4 p-5">
-        <p className="eyebrow">Referral link</p>
-        <h2 className="mt-2 text-xl font-black text-white">Share this link with ecommerce sellers.</h2>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-          When someone signs up through your link and later completes a successful Stripe credit purchase, Zeylora converts your reward into platform credits. Signup alone does not create a reward.
+      <VerifyPanel className="mt-4 p-5">
+        <VerifyBadge tone="blue">Referral link</VerifyBadge>
+        <h2 className="mt-3 text-xl font-semibold tracking-[-0.02em] text-slate-950">Share this link with list owners.</h2>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+          When someone signs up through your link and later completes a successful Stripe credit purchase, Zeylora converts your reward into verification credits. Signup alone does not create a reward.
         </p>
         <div className="mt-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="min-w-0 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 font-mono text-sm text-cyan">
+          <div className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 font-mono text-sm text-blue-700">
             <span className="break-all">{data.referralUrl}</span>
           </div>
           <ReferralLinkCopy referralUrl={data.referralUrl} />
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-3">
-          <Link className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm font-black text-white hover:bg-white/10" href={`https://twitter.com/intent/tweet?text=${encodeURIComponent("I use Zeylora AI for ecommerce product photos. Try it here: " + data.referralUrl)}`}>
+          <Link className="rounded-md border border-slate-200 bg-white px-4 py-3 text-center text-sm font-semibold text-slate-700 hover:bg-slate-50" href={`https://twitter.com/intent/tweet?text=${encodeURIComponent("I use Zeylora to clean email lists before campaigns. Try it here: " + data.referralUrl)}`}>
             Share on X
           </Link>
-          <Link className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm font-black text-white hover:bg-white/10" href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(data.referralUrl)}`}>
+          <Link className="rounded-md border border-slate-200 bg-white px-4 py-3 text-center text-sm font-semibold text-slate-700 hover:bg-slate-50" href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(data.referralUrl)}`}>
             Share on LinkedIn
           </Link>
-          <Link className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm font-black text-white hover:bg-white/10" href={`mailto:?subject=${encodeURIComponent("Try Zeylora AI")}&body=${encodeURIComponent(data.referralUrl)}`}>
+          <Link className="rounded-md border border-slate-200 bg-white px-4 py-3 text-center text-sm font-semibold text-slate-700 hover:bg-slate-50" href={`mailto:?subject=${encodeURIComponent("Clean your email list with Zeylora")}&body=${encodeURIComponent(data.referralUrl)}`}>
             Share by email
           </Link>
         </div>
-      </Card>
+      </VerifyPanel>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-4">
         <ExplainerStep
           label="1"
           title="Share your link"
-          text="Send your referral link to Shopify, Amazon, Etsy, TikTok Shop, or product-photo clients."
+          text="Send your referral link to marketers, agencies, SaaS teams, cold email operators, or ecommerce list owners."
         />
         <ExplainerStep
           label="2"
@@ -113,69 +113,69 @@ export default async function DashboardAffiliatePage() {
         <ExplainerStep
           label="4"
           title="You receive credits"
-          text="Approved rewards are delivered as Zeylora platform credits. They are not cash payouts and can be used for clean exports."
+          text="Approved rewards are delivered as Zeylora verification credits. They are not cash payouts and can be used to verify more emails."
         />
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-[.9fr_1.1fr]">
-        <Card className="p-5">
-          <p className="eyebrow">Program rules</p>
-          <h2 className="mt-2 text-xl font-black text-white">{rewardPercent}% equivalent in credits</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-300">
-            Your current tier is <span className="font-black text-cyan">{activeTier?.name ?? data.profile.tierKey}</span>. Rewards apply to {rewardScope}. The reward formula is payment amount × reward percentage ÷ estimated credit value.
+        <VerifyPanel className="p-5">
+          <VerifyBadge>Program rules</VerifyBadge>
+          <h2 className="mt-3 text-xl font-semibold tracking-[-0.02em] text-slate-950">{rewardPercent}% equivalent in credits</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            Your current tier is <span className="font-semibold text-blue-700">{activeTier?.name ?? data.profile.tierKey}</span>. Rewards apply to {rewardScope}. The reward formula is payment amount × reward percentage ÷ estimated credit value.
           </p>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm font-bold text-slate-300">
-              Current tier: <span className="text-cyan">{activeTier?.name ?? data.profile.tierKey}</span>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm font-medium text-slate-600">
+              Current tier: <span className="font-semibold text-blue-700">{activeTier?.name ?? data.profile.tierKey}</span>
               <br />
-              Conversion rate: <span className="text-white">%{data.conversionRate}</span>
+              Conversion rate: <span className="font-semibold text-slate-950">%{data.conversionRate}</span>
             </div>
-            <div className="rounded-2xl border border-cyan/20 bg-cyan/10 p-4 text-sm font-bold text-cyan">
+            <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm font-semibold text-blue-700">
               Example: ${samplePayment} paid referral = about {sampleCredits} credits.
             </div>
           </div>
-          <div className="mt-3 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm leading-6 text-slate-300">
-            <p className="font-black text-white">When do credits appear?</p>
+          <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600">
+            <p className="font-semibold text-slate-950">When do credits appear?</p>
             <p className="mt-1">
               Credits are added after Stripe confirms the payment and the reward passes basic fraud checks. If a payment is refunded, duplicated, suspicious, or made by your own account, it will not qualify.
             </p>
           </div>
-        </Card>
+        </VerifyPanel>
 
-        <Card className="p-5">
-          <p className="eyebrow">Recent rewards</p>
+        <VerifyPanel className="p-5">
+          <VerifyBadge>Recent rewards</VerifyBadge>
           <div className="mt-4 grid gap-3">
             {data.profile.rewards.map((reward) => (
-              <div key={reward.id} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+              <div key={reward.id} className="rounded-lg border border-slate-200 bg-white p-4">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="font-black text-white">+{reward.rewardCredits} credits</p>
-                  <span className="rounded-full border border-cyan/25 bg-cyan/10 px-2 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-cyan">{reward.status}</span>
+                  <p className="font-semibold text-slate-950">+{reward.rewardCredits} credits</p>
+                  <VerifyBadge tone="green">{reward.status}</VerifyBadge>
                 </div>
-                <p className="mt-1 text-xs font-bold text-slate-400">
+                <p className="mt-1 text-xs font-medium text-slate-500">
                   {reward.referredUser.email} · {Number(reward.paymentAmount).toFixed(2)} {reward.paymentCurrency.toUpperCase()} · {new Date(reward.createdAt).toLocaleDateString("en-US")}
                 </p>
               </div>
             ))}
-            {data.profile.rewards.length === 0 ? <p className="text-sm font-bold text-slate-400">No referral rewards yet.</p> : null}
+            {data.profile.rewards.length === 0 ? <p className="text-sm font-semibold text-slate-500">No referral rewards yet.</p> : null}
           </div>
-        </Card>
+        </VerifyPanel>
       </div>
 
-      <Card className="mt-4 p-5">
+      <VerifyPanel className="mt-4 p-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="eyebrow">Partner tiers</p>
-            <h2 className="mt-2 text-xl font-black text-white">Higher tiers earn higher credit rewards.</h2>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-              Bring more paid sellers and your reward percentage increases automatically. Admin can still apply trusted/special overrides when needed.
+            <VerifyBadge>Partner tiers</VerifyBadge>
+            <h2 className="mt-3 text-xl font-semibold tracking-[-0.02em] text-slate-950">Higher tiers earn higher verification-credit rewards.</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+              Bring more paid verification users and your reward percentage increases automatically. Admin can still apply trusted/special overrides when needed.
             </p>
           </div>
           {nextTier ? (
-            <div className="rounded-2xl border border-cyan/20 bg-cyan/10 px-4 py-3 text-sm font-bold text-cyan">
+            <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700">
               Next: {nextTier.name} · {nextTier.rewardPercent}% rewards
             </div>
           ) : (
-            <div className="rounded-2xl border border-emerald-300/20 bg-emerald-300/10 px-4 py-3 text-sm font-bold text-emerald-100">
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
               You are on the highest active tier.
             </div>
           )}
@@ -209,69 +209,60 @@ export default async function DashboardAffiliatePage() {
             />
           </div>
         ) : null}
-      </Card>
+      </VerifyPanel>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-[1.1fr_.9fr]">
-        <Card className="p-5">
-          <p className="eyebrow">Recent referred signups</p>
+        <VerifyPanel className="p-5">
+          <VerifyBadge>Recent referred signups</VerifyBadge>
           <div className="mt-4 grid gap-3">
             {data.profile.signups.map((signup) => (
-              <div key={signup.id} className="flex flex-col gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm md:flex-row md:items-center md:justify-between">
+              <div key={signup.id} className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white p-4 text-sm md:flex-row md:items-center md:justify-between">
                 <div>
-                  <p className="font-black text-white">{signup.referredUser.email}</p>
-                  <p className="mt-1 text-xs font-bold text-slate-400">
+                  <p className="font-semibold text-slate-950">{signup.referredUser.email}</p>
+                  <p className="mt-1 text-xs font-medium text-slate-500">
                     Signed up {new Date(signup.createdAt).toLocaleDateString("en-US")}
                   </p>
                 </div>
-                <span className={`w-fit rounded-full border px-3 py-1 text-xs font-black uppercase ${signup.suspicious ? "border-amber-300/30 bg-amber-300/10 text-amber-100" : "border-cyan/25 bg-cyan/10 text-cyan"}`}>
+                <span className={`w-fit rounded-md border px-3 py-1 text-xs font-semibold uppercase ${signup.suspicious ? "border-amber-200 bg-amber-50 text-amber-700" : "border-blue-200 bg-blue-50 text-blue-700"}`}>
                   {signup.suspicious ? "Review" : "Tracked"}
                 </span>
               </div>
             ))}
-            {data.profile.signups.length === 0 ? <p className="text-sm font-bold text-slate-400">No referred signups yet.</p> : null}
+            {data.profile.signups.length === 0 ? <p className="text-sm font-semibold text-slate-500">No referred signups yet.</p> : null}
           </div>
-        </Card>
+        </VerifyPanel>
 
-        <Card className="p-5">
-          <p className="eyebrow">Important limits</p>
-          <div className="mt-4 grid gap-3 text-sm leading-6 text-slate-300">
-            <p className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-              Minimum qualifying payment: <span className="font-black text-white">${data.settings.minimumPaymentAmount}</span>
+        <VerifyPanel className="p-5">
+          <VerifyBadge>Important limits</VerifyBadge>
+          <div className="mt-4 grid gap-3 text-sm leading-6 text-slate-600">
+            <p className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              Minimum qualifying payment: <span className="font-semibold text-slate-950">${data.settings.minimumPaymentAmount}</span>
             </p>
-            <p className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-              Maximum reward per payment: <span className="font-black text-white">{data.settings.maxRewardCreditsPerPayment} credits</span>
+            <p className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              Maximum reward per payment: <span className="font-semibold text-slate-950">{data.settings.maxRewardCreditsPerPayment} credits</span>
             </p>
-            <p className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-              Monthly reward cap: <span className="font-black text-white">{data.settings.maxMonthlyRewardCreditsPerAffiliate} credits</span>
+            <p className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              Monthly reward cap: <span className="font-semibold text-slate-950">{data.settings.maxMonthlyRewardCreditsPerAffiliate} credits</span>
             </p>
-            <p className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-              Reward type: <span className="font-black text-white">platform credits only, no cash payouts</span>
+            <p className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              Reward type: <span className="font-semibold text-slate-950">verification credits only, no cash payouts</span>
             </p>
           </div>
-        </Card>
+        </VerifyPanel>
       </div>
     </AppShell>
   );
 }
 
-function Metric({ label, value }: { label: string; value: string | number }) {
-  return (
-    <Card className="p-4">
-      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan">{label}</p>
-      <p className="mt-2 text-3xl font-black text-white">{value}</p>
-    </Card>
-  );
-}
-
 function ExplainerStep({ label, title, text }: { label: string; title: string; text: string }) {
   return (
-    <Card className="p-4">
-      <span className="inline-flex size-8 items-center justify-center rounded-full bg-cyan text-sm font-black text-slate-950">
+    <VerifyPanel className="p-4">
+      <span className="inline-flex size-8 items-center justify-center rounded-md bg-blue-600 text-sm font-semibold text-white">
         {label}
       </span>
-      <h3 className="mt-3 text-base font-black text-white">{title}</h3>
-      <p className="mt-2 text-sm leading-6 text-slate-300">{text}</p>
-    </Card>
+      <h3 className="mt-3 text-base font-semibold text-slate-950">{title}</h3>
+      <p className="mt-2 text-sm leading-6 text-slate-600">{text}</p>
+    </VerifyPanel>
   );
 }
 
@@ -290,27 +281,27 @@ function TierCard({
   const exampleCredits = Math.floor((examplePayment * (tier.rewardPercent / 100)) / Math.max(creditValue, 0.01));
 
   return (
-    <div className={`rounded-3xl border p-4 ${active ? "border-cyan/40 bg-cyan/10" : "border-white/10 bg-white/[0.04]"}`}>
+    <div className={`rounded-lg border p-4 ${active ? "border-blue-200 bg-blue-50" : "border-slate-200 bg-white"}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-base font-black text-white">{tier.name}</p>
-          <p className="mt-1 text-3xl font-black text-cyan">{tier.rewardPercent}%</p>
+          <p className="text-base font-semibold text-slate-950">{tier.name}</p>
+          <p className="mt-1 text-3xl font-semibold text-blue-700">{tier.rewardPercent}%</p>
         </div>
-        <span className={`rounded-full border px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${active ? "border-cyan/30 bg-cyan/15 text-cyan" : locked ? "border-white/10 bg-black/20 text-slate-400" : "border-emerald-300/20 bg-emerald-300/10 text-emerald-100"}`}>
+        <span className={`rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] ${active ? "border-blue-200 bg-white text-blue-700" : locked ? "border-slate-200 bg-slate-50 text-slate-500" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}>
           {active ? "Current" : locked ? "Unlock" : "Reached"}
         </span>
       </div>
-      <div className="mt-4 grid gap-2 text-sm leading-6 text-slate-300">
+      <div className="mt-4 grid gap-2 text-sm leading-6 text-slate-600">
         <p>
-          Requirement: <span className="font-black text-white">{tier.requiredPaidReferrals} paid referrals</span>
+          Requirement: <span className="font-semibold text-slate-950">{tier.requiredPaidReferrals} paid referrals</span>
         </p>
         <p>
-          Revenue target: <span className="font-black text-white">${tier.requiredReferredRevenue}</span>
+          Revenue target: <span className="font-semibold text-slate-950">${tier.requiredReferredRevenue}</span>
         </p>
         <p>
-          Monthly cap: <span className="font-black text-white">{tier.monthlyCapCredits} credits</span>
+          Monthly cap: <span className="font-semibold text-slate-950">{tier.monthlyCapCredits} credits</span>
         </p>
-        <p className="rounded-2xl border border-white/10 bg-black/20 p-3 font-bold text-cyan">
+        <p className="rounded-lg border border-blue-200 bg-blue-50 p-3 font-semibold text-blue-700">
           Example: ${examplePayment} referral payment = about {exampleCredits} credits.
         </p>
       </div>
@@ -320,15 +311,15 @@ function TierCard({
 
 function ProgressCard({ label, value, percent, helper }: { label: string; value: string; percent: number; helper: string }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{label}</p>
-        <p className="text-sm font-black text-white">{value}</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">{label}</p>
+        <p className="text-sm font-semibold text-slate-950">{value}</p>
       </div>
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
-        <div className="h-full rounded-full bg-gradient-to-r from-cyan to-fuchsia-400" style={{ width: `${percent}%` }} />
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200">
+        <div className="h-full rounded-full bg-blue-600" style={{ width: `${percent}%` }} />
       </div>
-      <p className="mt-2 text-xs font-bold leading-5 text-slate-400">{helper}</p>
+      <p className="mt-2 text-xs font-medium leading-5 text-slate-500">{helper}</p>
     </div>
   );
 }
