@@ -10,7 +10,6 @@ import {
   FileCheck2,
   Globe2,
   KeyRound,
-  LineChart,
   MailCheck,
   Radio,
   ShieldCheck,
@@ -67,18 +66,18 @@ export default async function HomePage() {
               <div className="mt-7 flex flex-wrap items-center justify-center gap-2 text-sm font-semibold text-slate-600">
                 <AudiencePill icon={Users2} label="Marketers" />
                 <AudiencePill icon={Building2} label="Agencies" />
-                <AudiencePill icon={DatabaseZap} label="Ecommerce operators" />
+                <AudiencePill icon={DatabaseZap} label="B2B operators" />
                 <AudiencePill icon={MailCheck} label="SaaS GTM teams" />
               </div>
             </div>
 
             <HeroActivityStrip />
 
-            <div className="mt-9 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <HeroMetric label="Emails checked" value="12.8M" note="High-volume hygiene" icon={DatabaseZap} tone="blue" />
-              <HeroMetric label="Bounce risk reduced" value="74%" note="Before sending" icon={TrendingDown} tone="green" />
-              <HeroMetric label="Deliverability score" value="91" note="Campaign-ready lists" icon={LineChart} tone="blue" />
-              <HeroMetric label="Spam-risk prevention" value="24/7" note="Operational guardrail" icon={ShieldCheck} tone="green" />
+            <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <HeroPromise icon={FileCheck2} title="Free pre-check" text="Estimate list size and credit need before you process." />
+              <HeroPromise icon={MailCheck} title="1 credit = 1 email" text="Only unique addresses are counted after deduplication." />
+              <HeroPromise icon={ShieldCheck} title="Reputation-first" text="Isolate invalid, disposable, risky, and catch-all emails." />
+              <HeroPromise icon={Download} title="Clean CSV exports" text="Download valid-only, risky, invalid, and full reports." />
             </div>
 
             <div id="verify-list" className="mt-6 grid gap-5 xl:grid-cols-[1.02fr_.98fr] xl:items-stretch">
@@ -260,33 +259,18 @@ export default async function HomePage() {
   );
 }
 
-function HeroMetric({
-  icon: Icon,
-  label,
-  value,
-  note,
-  tone
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: string;
-  note: string;
-  tone: "blue" | "green";
-}) {
+function HeroPromise({ icon: Icon, title, text }: { icon: LucideIcon; title: string; text: string }) {
   return (
-    <div className="rounded-2xl border border-white/70 bg-white/75 p-4 shadow-[0_16px_50px_rgba(15,23,42,.08)] backdrop-blur-xl">
-      <div className="flex items-center justify-between gap-3">
-        <span className={tone === "green" ? "rounded-xl bg-emerald-50 p-2 text-emerald-700" : "rounded-xl bg-blue-50 p-2 text-blue-700"}>
-          <Icon size={20} />
+    <div className="rounded-xl border border-white/70 bg-white/75 p-4 text-left shadow-[0_12px_42px_rgba(15,23,42,.07)] backdrop-blur-xl">
+      <div className="flex items-start gap-3">
+        <span className="rounded-lg bg-blue-50 p-2 text-blue-700">
+          <Icon size={19} />
         </span>
-        <span className="flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
-          <span className="size-1.5 animate-pulse rounded-full bg-emerald-500" />
-          Live
-        </span>
+        <div>
+          <p className="text-sm font-semibold text-slate-950">{title}</p>
+          <p className="mt-1 text-xs leading-5 text-slate-500">{text}</p>
+        </div>
       </div>
-      <p className="mt-4 text-3xl font-semibold tracking-[-0.04em] text-slate-950">{value}</p>
-      <p className="mt-1 text-sm font-semibold text-slate-700">{label}</p>
-      <p className="mt-1 text-xs leading-5 text-slate-500">{note}</p>
     </div>
   );
 }
@@ -302,16 +286,16 @@ function AudiencePill({ icon: Icon, label }: { icon: LucideIcon; label: string }
 
 function HeroActivityStrip() {
   const items = [
-    ["Emails verified", "28,450"],
-    ["Duplicates removed", "1,204"],
-    ["Catch-all isolated", "842"],
-    ["Disposable blocked", "319"],
-    ["Bounce risk reduced", "74%"]
+    ["Upload received", "CSV/TXT"],
+    ["Duplicates removed", "before credits"],
+    ["Credits estimated", "unique emails"],
+    ["Risk segments", "valid / risky / invalid"],
+    ["Exports prepared", "clean CSV"]
   ];
 
   return (
     <div className="mt-8 overflow-hidden rounded-2xl border border-white/70 bg-white/70 p-2 shadow-[0_18px_60px_rgba(15,23,42,.09)] backdrop-blur-xl">
-      <div className="flex min-w-max animate-[pulse_3.4s_ease-in-out_infinite] items-center gap-2">
+      <div className="flex min-w-max items-center gap-2">
         {items.map(([label, value]) => (
           <div key={label} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
             <span className="relative flex size-2">

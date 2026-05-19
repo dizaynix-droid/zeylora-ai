@@ -66,7 +66,7 @@ export async function getCreditPackagesForDisplay(): Promise<PublicCreditPackage
           highlight: pack.highlight || Boolean(fallback?.highlight),
           badgeText: pack.badgeText || fallback?.badgeText,
           description: pack.description || fallback?.description || "Verification credits for bulk email list cleaning.",
-          audience: pack.audience || fallback?.audience || "Marketers, agencies, ecommerce, and SaaS teams",
+          audience: pack.audience || fallback?.audience || "Marketers, agencies, sales teams, and SaaS GTM teams",
           stripePriceId: pack.stripePriceId,
           status: pack.status,
           sortOrder: pack.sortOrder
