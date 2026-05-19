@@ -70,7 +70,7 @@ export function VerificationDashboardClient({
     async function loadJobs() {
       setJobsStatus("loading");
       try {
-        const response = await fetch(`/api/v1/verification/jobs?page=${jobsPage}&pageSize=10`, { cache: "no-store" });
+        const response = await fetch(`/api/v1/verification/jobs?page=${jobsPage}&pageSize=5`, { cache: "no-store" });
         const payload = await response.json();
         if (!payload?.ok) throw new Error(payload?.error || "Jobs could not be loaded.");
         if (!cancelled) {

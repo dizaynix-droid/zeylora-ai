@@ -103,7 +103,7 @@ export default async function AdminUsersPage({
                   </td>
                   <td className="px-4 py-3 text-2xl font-black text-white">{user.creditBalance}</td>
                   <td className="px-4 py-3 text-slate-300">
-                    <p>{user._count.jobs} job</p>
+                    <p>{user._count.verificationJobs} doğrulama</p>
                     <p className="text-xs text-slate-500">{user._count.creditTransactions} credit tx</p>
                   </td>
                   <td className="px-4 py-3 text-slate-400">{formatAdminDate(user.createdAt)}</td>

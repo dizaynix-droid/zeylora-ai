@@ -14,30 +14,50 @@ export async function GET(
   }
 
   const { jobId } = await params;
-  const job = await prisma.verificationJob.findFirst({
-    where: {
-      id: jobId,
-      userId: user.id,
-      deletedAt: null
-    },
-    include: {
-      results: {
-        orderBy: { createdAt: "asc" },
-        take: 100,
-        select: {
-          id: true,
-          email: true,
-          status: true,
-          reason: true,
-          domain: true
+  const url = new URL(request.url);
+  const page = Math.max(1, Number(url.searchParams.get("page") || 1));
+  const pageSize = Math.min(50, Math.max(10, Number(url.searchParams.get("pageSize") || 50)));
+  const skip = (page - 1) * pageSize;
+  const where = {
+    id: jobId,
+    userId: user.id,
+    deletedAt: null
+  };
+  const [job, totalResults] = await Promise.all([
+    prisma.verificationJob.findFirst({
+      where,
+      include: {
+        results: {
+          orderBy: { createdAt: "asc" },
+          skip,
+          take: pageSize,
+          select: {
+            id: true,
+            email: true,
+            status: true,
+            reason: true,
+            domain: true
+          }
         }
       }
-    }
-  });
+    }),
+    prisma.verificationEmailResult.count({ where: { verificationJobId: jobId } })
+  ]);
 
   if (!job) {
     return NextResponse.json({ ok: false, error: "Verification job not found." }, { status: 404 });
   }
 
-  return NextResponse.json({ ok: true, job });
+  return NextResponse.json({
+    ok: true,
+    job,
+    pagination: {
+      page,
+      pageSize,
+      total: totalResults,
+      totalPages: Math.max(1, Math.ceil(totalResults / pageSize)),
+      hasPrevious: page > 1,
+      hasNext: page * pageSize < totalResults
+    }
+  });
 }

@@ -89,11 +89,12 @@ export default async function AdminPage() {
             <table className="min-w-[1180px] w-full divide-y divide-slate-200 text-sm">
               <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.16em] text-slate-500">
                 <tr>
-                  <th className="px-4 py-3">Araç</th>
+                  <th className="px-4 py-3">Liste</th>
                   <th className="px-4 py-3">Durum</th>
                   <th className="px-4 py-3">Kullanıcı</th>
                   <th className="px-4 py-3">Provider</th>
                   <th className="px-4 py-3">Kredi</th>
+                  <th className="px-4 py-3">Email</th>
                   <th className="px-4 py-3">Hata</th>
                   <th className="px-4 py-3">Tarih</th>
                 </tr>
@@ -101,17 +102,18 @@ export default async function AdminPage() {
               <tbody className="divide-y divide-slate-200">
                 {data.recentJobs.map((job) => (
                   <tr key={job.id}>
-                    <td className="px-4 py-3 font-bold text-slate-950">{job.tool.name}</td>
+                    <td className="px-4 py-3 font-bold text-slate-950">{job.originalFilename || job.id.slice(0, 8)}</td>
                     <td className="px-4 py-3"><JobStatusPill status={job.status} /></td>
                     <td className="px-4 py-3 text-slate-700">{job.user?.email || "-"}</td>
                     <td className="px-4 py-3 text-slate-700">{job.providerKey}</td>
-                    <td className="px-4 py-3 text-slate-700">{job.creditCost}</td>
+                    <td className="px-4 py-3 text-slate-700">{job.creditsUsed || job.creditsReserved}</td>
+                    <td className="px-4 py-3 text-slate-700">{job.uniqueEmails.toLocaleString()}</td>
                     <td className="max-w-xs truncate px-4 py-3 text-slate-400">{job.errorMessage || "-"}</td>
                     <td className="px-4 py-3 text-slate-400">{formatAdminDate(job.createdAt)}</td>
                   </tr>
                 ))}
                 {data.recentJobs.length === 0 ? (
-                  <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400">Henüz işlem yok.</td></tr>
+                  <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400">Henüz işlem yok.</td></tr>
                 ) : null}
               </tbody>
             </table>

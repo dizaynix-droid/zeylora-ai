@@ -17,6 +17,7 @@ const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const BATCH_SIZE = 50;
 
 export async function GET(request: Request) {
+  const startedAt = Date.now();
   const user = await getCurrentUser(request);
 
   if (!user) {
@@ -59,11 +60,24 @@ export async function GET(request: Request) {
     }),
     prisma.verificationJob.count({ where })
   ]);
+  const totalMs = Date.now() - startedAt;
+
+  if (process.env.NODE_ENV === "development" || process.env.ADMIN_PERF_LOGS === "true") {
+    console.info("[dashboard-perf] verification.jobs.list", {
+      totalMs,
+      page,
+      pageSize,
+      resultCount: jobs.length,
+      total,
+      status: status || "all"
+    });
+  }
 
   return NextResponse.json({
     ok: true,
     jobs,
-    pagination: createPagination(page, pageSize, total)
+    pagination: createPagination(page, pageSize, total),
+    timing: { totalMs }
   });
 }
 

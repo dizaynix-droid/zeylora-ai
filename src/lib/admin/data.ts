@@ -65,109 +65,107 @@ async function buildAdminOverviewData() {
   const last7Start = startOfDay(new Date(todayStart.getTime() - 6 * 86_400_000));
   const last30Start = startOfDay(new Date(todayStart.getTime() - 29 * 86_400_000));
   const monthStart = new Date(todayStart.getFullYear(), todayStart.getMonth(), 1);
-  const broadStart = new Date(Math.min(last30Start.getTime(), monthStart.getTime()));
   const cardsStartedAt = adminPerfNow();
+
   const overviewPromise = Promise.all([
-    measureAdminQuery("overview.cards.users.count", prisma.user.count({ where: { deletedAt: null } })),
+    measureAdminQuery("overview.users.count", prisma.user.count({ where: { deletedAt: null } })),
     measureAdminQuery(
-      "overview.cards.jobs.statusGroup",
-      prisma.aiJob.groupBy({
+      "overview.verificationJobs.statusGroup",
+      prisma.verificationJob.groupBy({
         by: ["status"],
         where: { deletedAt: null },
         _count: { _all: true }
       })
     ),
     measureAdminQuery(
-      "overview.payments.recent",
-      prisma.payment.findMany({
-        where: {
-          deletedAt: null,
-          status: "PAID",
-          createdAt: { gte: broadStart, lte: todayEnd }
-        },
-        select: { amount: true, creditsDelivered: true, createdAt: true }
+      "overview.payments.today",
+      prisma.payment.aggregate({
+        where: { deletedAt: null, status: "PAID", createdAt: { gte: todayStart, lte: todayEnd } },
+        _sum: { amount: true, creditsDelivered: true },
+        _count: { _all: true }
       })
     ),
     measureAdminQuery(
-      "overview.jobs.completed.recent",
-      prisma.aiJob.findMany({
-        where: {
-          deletedAt: null,
-          status: "COMPLETED",
-          createdAt: { gte: broadStart, lte: todayEnd }
-        },
-        select: {
-          id: true,
-          providerKey: true,
-          createdAt: true,
-          estimatedCostAtRun: true,
-          estimatedCostSource: true,
-          tool: { select: { estimatedCostPerRun: true } }
-        }
+      "overview.payments.yesterday",
+      prisma.payment.aggregate({
+        where: { deletedAt: null, status: "PAID", createdAt: { gte: yesterdayStart, lte: yesterdayEnd } },
+        _sum: { amount: true, creditsDelivered: true },
+        _count: { _all: true }
       })
     ),
     measureAdminQuery(
-      "overview.jobs.failed.today",
-      prisma.aiJob.count({
-        where: {
-          deletedAt: null,
-          status: "FAILED",
-          createdAt: { gte: todayStart, lte: todayEnd }
-        }
+      "overview.payments.last7",
+      prisma.payment.aggregate({
+        where: { deletedAt: null, status: "PAID", createdAt: { gte: last7Start, lte: todayEnd } },
+        _sum: { amount: true, creditsDelivered: true },
+        _count: { _all: true }
       })
     ),
     measureAdminQuery(
-      "overview.credits.used.recent",
-      prisma.creditTransaction.findMany({
-        where: {
-          type: "USE",
-          createdAt: { gte: broadStart, lte: todayEnd }
-        },
-        select: { amount: true, createdAt: true }
+      "overview.payments.last30",
+      prisma.payment.aggregate({
+        where: { deletedAt: null, status: "PAID", createdAt: { gte: last30Start, lte: todayEnd } },
+        _sum: { amount: true, creditsDelivered: true },
+        _count: { _all: true }
       })
     ),
     measureAdminQuery(
-      "overview.expenses.recent",
-      prisma.businessExpense.findMany({
-        where: {
-          deletedAt: null,
-          expenseDate: { gte: broadStart, lte: todayEnd }
-        },
-        select: { amount: true, expenseDate: true }
+      "overview.payments.month",
+      prisma.payment.aggregate({
+        where: { deletedAt: null, status: "PAID", createdAt: { gte: monthStart, lte: todayEnd } },
+        _sum: { amount: true, creditsDelivered: true },
+        _count: { _all: true }
       })
     ),
     measureAdminQuery(
-      "overview.tickets.open",
-      prisma.ticket.count({ where: { deletedAt: null, status: "OPEN" } })
+      "overview.verificationJobs.today",
+      prisma.verificationJob.aggregate({
+        where: { deletedAt: null, createdAt: { gte: todayStart, lte: todayEnd } },
+        _sum: { creditsUsed: true, providerCostAtRun: true },
+        _count: { _all: true }
+      })
     ),
+    measureAdminQuery("overview.verificationJobs.failedToday", prisma.verificationJob.count({ where: { deletedAt: null, status: "FAILED", createdAt: { gte: todayStart, lte: todayEnd } } })),
+    measureAdminQuery("overview.verificationJobs.pending", prisma.verificationJob.count({ where: { deletedAt: null, status: { in: ["QUEUED", "PROCESSING"] } } })),
+    measureAdminQuery("overview.tickets.open", prisma.ticket.count({ where: { deletedAt: null, status: "OPEN" } })),
     getAdminProvidersData(),
-    measureAdminQuery(
-      "overview.tools.activeCostWarnings",
-      prisma.aiTool.findMany({
-        where: { deletedAt: null, status: "ACTIVE" },
-        select: { name: true, slug: true, providerKey: true, estimatedCostPerRun: true }
-      })
-    ),
     getOperationalSettings()
-  ]).then(([totalUsers, jobStatusCounts, payments, completedJobsInRange, failedJobsToday, creditUses, expenses, openTickets, providers, activeTools, operations]) => {
-    const providerDefaults = new Map(providers.map((provider) => [provider.providerKey, provider]));
+  ]).then(([totalUsers, jobStatusCounts, todayPayments, yesterdayPayments, last7Payments, last30Payments, monthPayments, todayJobs, failedJobsToday, pendingJobs, openTickets, providers, operations]) => {
     const completedJobs = getStatusCount(jobStatusCounts, "COMPLETED");
     const failedJobs = getStatusCount(jobStatusCounts, "FAILED");
     const totalJobs = jobStatusCounts.reduce((sum, item) => sum + item._count._all, 0);
-    const today = summarizeOverviewRange({ start: todayStart, end: todayEnd, payments, completedJobs: completedJobsInRange, creditUses, expenses, providerDefaults });
-    const yesterday = summarizeOverviewRange({ start: yesterdayStart, end: yesterdayEnd, payments, completedJobs: completedJobsInRange, creditUses, expenses, providerDefaults });
-    const last7 = summarizeOverviewRange({ start: last7Start, end: todayEnd, payments, completedJobs: completedJobsInRange, creditUses, expenses, providerDefaults });
-    const last30 = summarizeOverviewRange({ start: last30Start, end: todayEnd, payments, completedJobs: completedJobsInRange, creditUses, expenses, providerDefaults });
-    const thisMonth = summarizeOverviewRange({ start: monthStart, end: todayEnd, payments, completedJobs: completedJobsInRange, creditUses, expenses, providerDefaults });
-    const missingActiveCostTargets = buildMissingActiveCostWarnings(activeTools, providerDefaults);
+    const paymentSummary = (aggregate: {
+      _sum: { amount: unknown; creditsDelivered: number | null };
+      _count: { _all: number };
+    }) => {
+      const revenue = decimalToNumber(aggregate._sum.amount);
+      const creditsSold = aggregate._sum.creditsDelivered ?? 0;
+      return {
+        revenue,
+        paymentCount: aggregate._count._all,
+        creditsSold,
+        creditsUsed: 0,
+        cleanExports: 0,
+        providerCost: 0,
+        manualExpenses: 0,
+        netProfit: revenue
+      };
+    };
+    const today = paymentSummary(todayPayments);
+    today.creditsUsed = todayJobs._sum.creditsUsed ?? 0;
+    today.cleanExports = todayJobs._count._all;
+    today.providerCost = decimalToNumber(todayJobs._sum.providerCostAtRun);
+    today.netProfit = today.revenue - today.providerCost;
+    const missingActiveCostTargets = providers
+      .filter((provider) => provider.status === "ACTIVE" && provider.providerKey === "millionverifier" && !provider.estimatedCostPerRun)
+      .map((provider) => ({ name: provider.name, providerName: provider.providerKey }));
     const missingEnvProviders = providers.filter((provider) => provider.status === "ACTIVE" && !provider.configured);
 
     logAdminPerf("overview.cards", {
       duration: `${adminPerfNow() - cardsStartedAt}ms`,
       queryCount: 11,
       statusBuckets: jobStatusCounts.length,
-      paymentCount: payments.length,
-      completedJobsInRange: completedJobsInRange.length
+      pendingJobs
     });
 
     return {
@@ -176,32 +174,35 @@ async function buildAdminOverviewData() {
       completedJobs,
       failedJobs,
       failedJobsToday,
+      pendingJobs,
       openTickets,
       today,
-      yesterday,
-      last7,
-      last30,
-      thisMonth,
+      yesterday: paymentSummary(yesterdayPayments),
+      last7: paymentSummary(last7Payments),
+      last30: paymentSummary(last30Payments),
+      thisMonth: paymentSummary(monthPayments),
       missingActiveCostTargets,
       missingEnvProviders,
       operations
     };
   });
   const recentJobsPromise = measureAdminQuery(
-    "overview.recentJobs",
-    prisma.aiJob.findMany({
+    "overview.recentVerificationJobs",
+    prisma.verificationJob.findMany({
       where: { deletedAt: null },
       orderBy: { createdAt: "desc" },
       take: 10,
       select: {
         id: true,
         status: true,
-        creditCost: true,
+        originalFilename: true,
+        uniqueEmails: true,
+        creditsUsed: true,
+        creditsReserved: true,
         providerKey: true,
         errorMessage: true,
         createdAt: true,
         completedAt: true,
-        tool: { select: { name: true, slug: true } },
         user: { select: { email: true } }
       }
     }),
@@ -228,7 +229,7 @@ async function buildAdminOverviewData() {
       failedJobsToday: overview.failedJobsToday,
       openTickets: overview.openTickets,
       creditsUsed: overview.today.creditsUsed,
-      recentExports: overview.completedJobs
+      recentExports: overview.today.cleanExports
     },
     cockpit: overview,
     recentJobs
@@ -259,7 +260,7 @@ export async function getAdminUsersData(input: {
         }
       : {}),
     ...(filter === "with-credits" ? { creditBalance: { gt: 0 } } : {}),
-    ...(filter === "with-jobs" ? { jobs: { some: { deletedAt: null } } } : {}),
+    ...(filter === "with-jobs" ? { verificationJobs: { some: { deletedAt: null } } } : {}),
     ...(filter === "recent" ? { createdAt: { gte: new Date(Date.now() - 1000 * 60 * 60 * 24 * 14) } } : {})
   };
 
@@ -281,7 +282,7 @@ export async function getAdminUsersData(input: {
           createdAt: true,
           _count: {
             select: {
-              jobs: true,
+              verificationJobs: true,
               creditTransactions: true,
               payments: true
             }
@@ -808,7 +809,7 @@ export async function getAdminPaymentDiagnosticsData() {
         prisma.webhookLog.findMany({
           where: { source: "stripe" },
           orderBy: { createdAt: "desc" },
-          take: 25,
+          take: 10,
           select: {
             id: true,
             externalEventId: true,
@@ -821,7 +822,7 @@ export async function getAdminPaymentDiagnosticsData() {
             processedAt: true
           }
         }),
-        { take: 25 }
+        { take: 10 }
       ),
       measureAdminQuery(
         "payments.diagnostics.lastPaid",
@@ -987,6 +988,8 @@ async function buildAdminAnalyticsData() {
       "analytics.behavior.todayVisitors",
       prisma.analyticsEvent.findMany({
         where: { createdAt: { gte: todayStart } },
+        orderBy: { createdAt: "desc" },
+        take: 1000,
         select: { sessionId: true, anonymousId: true, userId: true }
       })
     ),
@@ -995,7 +998,7 @@ async function buildAdminAnalyticsData() {
       prisma.analyticsEvent.findMany({
         where: { createdAt: { gte: since } },
         orderBy: { createdAt: "desc" },
-        take: 2000,
+        take: 300,
         select: {
           event: true,
           sessionId: true,
@@ -1013,7 +1016,8 @@ async function buildAdminAnalyticsData() {
       "analytics.behavior.daily",
       prisma.analyticsEvent.findMany({
         where: { createdAt: { gte: since } },
-        orderBy: { createdAt: "asc" },
+        orderBy: { createdAt: "desc" },
+        take: 1000,
         select: { event: true, createdAt: true, sessionId: true, anonymousId: true }
       })
     )
@@ -1511,7 +1515,7 @@ export async function getAdminReportsData(input: {
       prisma.payment.findMany({
         where: paidPaymentWhere,
         orderBy: { createdAt: "desc" },
-        take: 500,
+        take: 50,
         select: {
           id: true,
           amount: true,
@@ -1556,7 +1560,7 @@ export async function getAdminReportsData(input: {
       prisma.aiJob.findMany({
         where: completedJobWhere,
         orderBy: { createdAt: "desc" },
-        take: 1000,
+        take: 50,
         select: {
           id: true,
           providerKey: true,
@@ -1598,7 +1602,7 @@ export async function getAdminReportsData(input: {
       prisma.aiJob.findMany({
         where: failedJobWhere,
         orderBy: { createdAt: "desc" },
-        take: 500,
+        take: 50,
         select: {
           id: true,
           providerKey: true,
@@ -1616,7 +1620,7 @@ export async function getAdminReportsData(input: {
       prisma.businessExpense.findMany({
         where: expenseWhere,
         orderBy: { expenseDate: "desc" },
-        take: 100,
+        take: 50,
         select: {
           id: true,
           title: true,
@@ -1958,36 +1962,6 @@ function createAdminCacheEntry<T>(value: T, ttlMs: number): AdminCacheEntry<T> {
 
 function getStatusCount<T extends { status: string; _count: { _all: number } }>(items: T[], status: string) {
   return items.find((item) => item.status === status)?._count._all ?? 0;
-}
-
-function summarizeOverviewRange(input: {
-  start: Date;
-  end: Date;
-  payments: Array<{ amount: unknown; creditsDelivered: number; createdAt: Date }>;
-  completedJobs: Array<CostedJob & { createdAt: Date }>;
-  creditUses: Array<{ amount: number; createdAt: Date }>;
-  expenses: Array<{ amount: unknown; expenseDate: Date }>;
-  providerDefaults: Map<string, { estimatedCostPerRun: unknown }>;
-}) {
-  const inRange = (date: Date) => date >= input.start && date <= input.end;
-  const payments = input.payments.filter((payment) => inRange(payment.createdAt));
-  const completedJobs = input.completedJobs.filter((job) => inRange(job.createdAt));
-  const creditUses = input.creditUses.filter((credit) => inRange(credit.createdAt));
-  const expenses = input.expenses.filter((expense) => inRange(expense.expenseDate));
-  const revenue = payments.reduce((sum, payment) => sum + decimalToNumber(payment.amount), 0);
-  const providerCost = completedJobs.reduce((sum, job) => sum + getJobEstimatedCost(job, input.providerDefaults), 0);
-  const manualExpenses = expenses.reduce((sum, expense) => sum + decimalToNumber(expense.amount), 0);
-
-  return {
-    revenue,
-    paymentCount: payments.length,
-    creditsSold: payments.reduce((sum, payment) => sum + (payment.creditsDelivered || 0), 0),
-    creditsUsed: Math.abs(creditUses.reduce((sum, credit) => sum + credit.amount, 0)),
-    cleanExports: creditUses.length,
-    providerCost,
-    manualExpenses,
-    netProfit: revenue - providerCost - manualExpenses
-  };
 }
 
 function normalizeReportRange(value: unknown): AdminReportRangeKey {

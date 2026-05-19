@@ -592,6 +592,7 @@ model CreditTransaction {
   @@index([type])
   @@index([createdAt, type])
   @@index([verificationJobId])
+  @@index([paymentId])
 }
 
 model VerificationJob {
@@ -640,9 +641,11 @@ model VerificationJob {
   tickets            Ticket[]
 
   @@index([userId, status, createdAt])
+  @@index([userId, createdAt])
   @@index([status, createdAt])
   @@index([providerKey, status, createdAt])
   @@index([completedAt])
+  @@index([createdAt, status])
 }
 
 model VerificationEmailResult {
@@ -663,6 +666,8 @@ model VerificationEmailResult {
   verificationJob VerificationJob @relation(fields: [verificationJobId], references: [id], onDelete: Cascade)
 
   @@index([verificationJobId, status])
+  @@index([verificationJobId, createdAt])
+  @@index([verificationJobId, status, createdAt])
   @@index([normalizedEmail])
   @@index([domain])
 }
@@ -710,6 +715,7 @@ model Payment {
   @@index([userId, createdAt])
   @@index([status])
   @@index([status, createdAt])
+  @@index([stripePaymentIntentId])
 }
 
 model Subscription {
