@@ -14,7 +14,7 @@ export default async function AdminPage() {
   const admin = await requireAdmin();
   const authMs = adminPerfNow() - authStartedAt;
   const dataStartedAt = adminPerfNow();
-  const data = await getAdminOverviewData();
+  const { data, error: adminLoadError } = await getSafeAdminOverviewData();
   logAdminPerf("page./admin", {
     authMs: `${authMs}ms`,
     dataMs: `${adminPerfNow() - dataStartedAt}ms`,
@@ -31,6 +31,11 @@ export default async function AdminPage() {
       <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700">
         Admin girişi: {admin.email} ({admin.source === "role" ? "rol" : "email whitelist"})
       </div>
+      {adminLoadError ? (
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+          Admin overview güvenli fallback modunda açıldı. Bazı opsiyonel widget verileri okunamadı; migration/env durumunu kontrol et.
+        </div>
+      ) : null}
 
       <div className="grid gap-3 md:grid-cols-3 2xl:grid-cols-5">
         <AdminMetricCard label="Bugünkü gelir" value={formatCurrency(data.cockpit.today.revenue)} note={trendNote(data.cockpit.today.revenue, data.cockpit.yesterday.revenue)} />
@@ -232,4 +237,87 @@ function JobStatusPill({ status }: { status: string }) {
   if (status === "PROCESSING") return <AdminStatusPill tone="warn">İşleniyor</AdminStatusPill>;
   if (status === "PENDING") return <AdminStatusPill tone="warn">Bekliyor</AdminStatusPill>;
   return <AdminStatusPill>{status}</AdminStatusPill>;
+}
+
+async function getSafeAdminOverviewData(): Promise<{
+  data: Awaited<ReturnType<typeof getAdminOverviewData>>;
+  error: string | null;
+}> {
+  try {
+    return { data: await getAdminOverviewData(), error: null };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown admin overview error";
+    console.error("[admin-page-failed]", {
+      page: "/admin",
+      message,
+      name: error instanceof Error ? error.name : "UnknownError"
+    });
+
+    return {
+      data: buildFallbackAdminOverviewData(),
+      error: message
+    };
+  }
+}
+
+function buildFallbackAdminOverviewData(): Awaited<ReturnType<typeof getAdminOverviewData>> {
+  const emptyRange = {
+    revenue: 0,
+    paymentCount: 0,
+    creditsSold: 0,
+    creditsUsed: 0,
+    cleanExports: 0,
+    providerCost: 0,
+    manualExpenses: 0,
+    netProfit: 0
+  };
+
+  return {
+    metrics: {
+      totalUsers: 0,
+      totalJobs: 0,
+      completedJobs: 0,
+      failedJobs: 0,
+      failedJobsToday: 0,
+      openTickets: 0,
+      creditsUsed: 0,
+      recentExports: 0
+    },
+    cockpit: {
+      totalUsers: 0,
+      totalJobs: 0,
+      completedJobs: 0,
+      failedJobs: 0,
+      failedJobsToday: 0,
+      pendingJobs: 0,
+      openTickets: 0,
+      today: emptyRange,
+      yesterday: emptyRange,
+      last7: emptyRange,
+      last30: emptyRange,
+      thisMonth: emptyRange,
+      missingActiveCostTargets: [{ name: "Admin data", providerName: "fallback" }],
+      missingEnvProviders: [],
+      operations: {
+        previewEnabled: true,
+        cleanExportsEnabled: true,
+        checkoutEnabled: true,
+        uploadsEnabled: true,
+        registrationEnabled: true,
+        emailsEnabled: false,
+        maintenanceMode: false,
+        uploadMaxSizeMb: 10,
+        guestPreviewPerMinute: 3,
+        guestPreviewPerHour: 15,
+        userJobsPerMinute: 10,
+        userJobsPerDay: 100,
+        estimatedCreditUsdValue: 0.01,
+        supportEmail: process.env.NEXT_PUBLIC_SUPPORT_EMAIL || process.env.SUPPORT_EMAIL || "support@zeylora.ai",
+        billingEmail: process.env.SUPPORT_EMAIL || "support@zeylora.ai",
+        brandName: process.env.NEXT_PUBLIC_BRAND_NAME || "Zeylora",
+        defaultCurrency: "USD"
+      }
+    },
+    recentJobs: []
+  };
 }

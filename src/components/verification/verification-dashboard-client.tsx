@@ -2,8 +2,10 @@
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { AlertCircle, CheckCircle2, Download, Loader2, MailCheck, ShieldCheck, UploadCloud, XCircle } from "lucide-react";
 import { CheckoutButton } from "@/components/billing/checkout-button";
+import { trackEvent } from "@/lib/analytics/events";
 import { VerifyBadge, VerifyMetric, VerifyPanel } from "@/components/verify-ui/core";
 
 type VerificationJob = {
@@ -43,6 +45,8 @@ type Package = {
   badgeText?: string;
 };
 
+const DRAFT_STORAGE_KEY = "zeylora_verification_draft";
+
 export function VerificationDashboardClient({
   creditBalance,
   packages
@@ -51,6 +55,7 @@ export function VerificationDashboardClient({
   creditBalance: number;
   packages: Package[];
 }) {
+  const searchParams = useSearchParams();
   const [jobs, setJobs] = useState<VerificationJob[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [jobsPage, setJobsPage] = useState(1);
@@ -59,6 +64,7 @@ export function VerificationDashboardClient({
   const [emails, setEmails] = useState("");
   const [submitStatus, setSubmitStatus] = useState<"idle" | "running" | "error" | "success">("idle");
   const [message, setMessage] = useState<string | null>(null);
+  const [draftRestored, setDraftRestored] = useState(false);
 
   const estimatedEmails = useMemo(() => {
     const matches = emails.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) ?? [];
@@ -91,6 +97,47 @@ export function VerificationDashboardClient({
     };
   }, [jobsPage, submitStatus]);
 
+  useEffect(() => {
+    if (draftRestored || searchParams.get("resumeVerification") !== "1") return;
+    setDraftRestored(true);
+
+    const raw =
+      sessionStorage.getItem(DRAFT_STORAGE_KEY) ||
+      localStorage.getItem(DRAFT_STORAGE_KEY);
+    if (!raw) {
+      setMessage("Verification workspace is ready. Upload or paste your list to continue.");
+      return;
+    }
+
+    try {
+      const draft = JSON.parse(raw) as {
+        sourceText?: string;
+        fileName?: string | null;
+        uniqueEmails?: number;
+        truncated?: boolean;
+      };
+      if (!draft.sourceText?.trim()) return;
+      setEmails(draft.sourceText);
+      setFile(null);
+      setMessage(
+        draft.truncated
+          ? "Your large list draft was partially restored. Review it before starting verification."
+          : `Draft restored${draft.fileName ? ` from ${draft.fileName}` : ""}. You can start verification now.`
+      );
+      trackEvent({
+        event: "homepage_verification_resume",
+        properties: {
+          restored: true,
+          uniqueEmails: draft.uniqueEmails ?? null,
+          fileName: draft.fileName ?? null
+        }
+      });
+      document.getElementById("verify")?.scrollIntoView({ block: "start", behavior: "smooth" });
+    } catch {
+      setMessage("We could not restore the saved draft. Please paste or upload the list again.");
+    }
+  }, [draftRestored, searchParams]);
+
   async function submitVerification(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (submitStatus === "running") return;
@@ -115,6 +162,8 @@ export function VerificationDashboardClient({
       }
       setSubmitStatus("success");
       setMessage("List verified. Your segmented CSV exports are ready in history.");
+      sessionStorage.removeItem(DRAFT_STORAGE_KEY);
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
       setFile(null);
       setEmails("");
       setJobsPage(1);

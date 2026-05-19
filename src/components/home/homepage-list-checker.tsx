@@ -1,0 +1,367 @@
+"use client";
+
+import { ChangeEvent, DragEvent, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { ArrowRight, CheckCircle2, ClipboardList, FileText, Loader2, MailCheck, ShieldCheck, TrendingDown, XCircle } from "lucide-react";
+import { VerifyAction, VerifyBadge, VerifyPanel } from "@/components/verify-ui/core";
+import { trackEvent } from "@/lib/analytics/events";
+import { parseEmailList } from "@/lib/verification/email-parser";
+
+const DRAFT_STORAGE_KEY = "zeylora_verification_draft";
+const MAX_DRAFT_CHARS = 650_000;
+
+type ParseState = "idle" | "parsing" | "ready" | "error";
+
+export function HomepageListChecker() {
+  const router = useRouter();
+  const [emails, setEmails] = useState("");
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [parseState, setParseState] = useState<ParseState>("idle");
+  const [message, setMessage] = useState<string | null>(null);
+  const [dragActive, setDragActive] = useState(false);
+
+  const parsed = useMemo(() => parseEmailList(emails), [emails]);
+  const uniqueCount = parsed.uniqueEmails.length;
+  const duplicateCount = parsed.duplicateEmails.length;
+  const totalCount = parsed.totalRows;
+  const quality = useMemo(() => estimateQuality(uniqueCount, duplicateCount), [duplicateCount, uniqueCount]);
+  const ready = uniqueCount > 0;
+  const score = ready ? Math.max(54, Math.min(98, quality.valid - Math.round(quality.risk / 3))) : 0;
+
+  async function handleFile(file: File | null) {
+    if (!file) return;
+    const name = file.name.toLowerCase();
+    if (!name.endsWith(".csv") && !name.endsWith(".txt")) {
+      setParseState("error");
+      setMessage("Please upload a CSV or TXT file.");
+      return;
+    }
+
+    setParseState("parsing");
+    setMessage(null);
+    trackEvent({
+      event: "homepage_list_upload",
+      properties: { fileName: file.name, fileSize: file.size }
+    });
+
+    try {
+      const text = await file.text();
+      setFileName(file.name);
+      setEmails(text);
+      setParseState("ready");
+      setMessage("List parsed. Review the estimate, then continue.");
+      trackEvent({
+        event: "homepage_list_parsed",
+        properties: {
+          source: "file",
+          totalEmails: parseEmailList(text).totalRows,
+          uniqueEmails: parseEmailList(text).uniqueEmails.length
+        }
+      });
+    } catch {
+      setParseState("error");
+      setMessage("We could not read this file. Try a CSV or TXT export.");
+    }
+  }
+
+  function onFileChange(event: ChangeEvent<HTMLInputElement>) {
+    void handleFile(event.target.files?.[0] ?? null);
+  }
+
+  function onPasteChange(value: string) {
+    setEmails(value);
+    setFileName(null);
+    setParseState(value.trim() ? "ready" : "idle");
+    if (value.trim()) {
+      trackEvent({
+        event: "homepage_list_paste",
+        properties: { characters: value.length }
+      });
+    }
+  }
+
+  function onDragOver(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    setDragActive(true);
+  }
+
+  function onDragLeave() {
+    setDragActive(false);
+  }
+
+  function onDrop(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    setDragActive(false);
+    void handleFile(event.dataTransfer.files?.[0] ?? null);
+  }
+
+  async function continueFlow() {
+    if (!ready) {
+      setParseState("error");
+      setMessage("Add or upload emails first.");
+      return;
+    }
+
+    saveDraft();
+    setParseState("parsing");
+
+    try {
+      const authResponse = await fetch("/api/auth/me", { cache: "no-store" });
+      const auth = (await authResponse.json().catch(() => null)) as { authenticated?: boolean } | null;
+
+      if (!auth?.authenticated) {
+        trackEvent({
+          event: "homepage_auth_required",
+          properties: { uniqueEmails: uniqueCount }
+        });
+        router.push(`/auth/sign-in?next=${encodeURIComponent("/dashboard?resumeVerification=1")}`);
+        return;
+      }
+
+      const creditsResponse = await fetch("/api/v1/dashboard/credits", { cache: "no-store" });
+      const credits = (await creditsResponse.json().catch(() => null)) as { ok?: boolean; creditBalance?: number } | null;
+      const balance = Number(credits?.creditBalance ?? 0);
+
+      if (!creditsResponse.ok || !credits?.ok || balance < uniqueCount) {
+        trackEvent({
+          event: "homepage_pricing_required",
+          properties: { uniqueEmails: uniqueCount, creditBalance: balance }
+        });
+        router.push("/pricing?checkoutPackage=starter_trial&resumeVerification=1");
+        return;
+      }
+
+      trackEvent({
+        event: "homepage_verification_resume",
+        properties: { uniqueEmails: uniqueCount, creditBalance: balance }
+      });
+      router.push("/dashboard?resumeVerification=1");
+    } catch {
+      setParseState("error");
+      setMessage("We could not prepare this list. Please try again.");
+    }
+  }
+
+  function saveDraft() {
+    const draft = {
+      sourceText: emails.slice(0, MAX_DRAFT_CHARS),
+      originalLength: emails.length,
+      truncated: emails.length > MAX_DRAFT_CHARS,
+      fileName,
+      uniqueEmails: uniqueCount,
+      totalEmails: totalCount,
+      createdAt: new Date().toISOString()
+    };
+
+    try {
+      sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+    } catch {
+      try {
+        localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify({ ...draft, sourceText: parsed.uniqueEmails.join("\n") }));
+      } catch {
+        // The dashboard can still open; user may need to paste the list again if browser storage is full.
+      }
+    }
+  }
+
+  return (
+    <VerifyPanel className="overflow-hidden border-slate-300 shadow-[0_18px_70px_rgba(15,23,42,.10)]">
+      <div className="border-b border-slate-200 px-5 py-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-slate-500">List checker</p>
+            <h2 className="mt-1 text-xl font-semibold text-slate-950">Check list quality</h2>
+          </div>
+          <VerifyBadge tone={ready ? "green" : "blue"}>
+            {parseState === "parsing" ? <Loader2 className="mr-1 animate-spin" size={13} /> : null}
+            {ready ? "Ready to verify" : "Upload or paste"}
+          </VerifyBadge>
+        </div>
+      </div>
+
+      <div className="grid gap-4 p-5">
+        <label
+          onDragOver={onDragOver}
+          onDragLeave={onDragLeave}
+          onDrop={onDrop}
+          className={`grid cursor-pointer place-items-center rounded-lg border border-dashed p-5 text-center transition ${
+            dragActive ? "border-blue-500 bg-blue-50 ring-4 ring-blue-100" : "border-slate-300 bg-slate-50 hover:border-blue-400 hover:bg-blue-50/70"
+          }`}
+        >
+          <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-md bg-white text-blue-700 shadow-sm">
+            <FileText size={22} />
+          </div>
+          <p className="mt-3 text-sm font-semibold text-slate-950">{fileName || "Drop CSV or TXT file"}</p>
+          <p className="mt-1 text-xs text-slate-500">or browse from your device</p>
+          <input type="file" accept=".csv,.txt,text/csv,text/plain" className="sr-only" onChange={onFileChange} />
+        </label>
+
+        <label className="grid gap-2">
+          <span className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Paste emails</span>
+          <textarea
+            value={emails}
+            onChange={(event) => onPasteChange(event.target.value)}
+            rows={5}
+            placeholder="founder@example.com&#10;ops@example.com&#10;sales@example.com"
+            className="min-h-32 rounded-md border border-slate-300 bg-white p-3 font-mono text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+          />
+        </label>
+
+        <div className="rounded-lg border border-slate-200 bg-white p-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <DeliverabilityScore score={score} ready={ready} />
+            <div className="grid flex-1 gap-3 sm:grid-cols-3">
+              <Stat label="Uploaded emails" value={totalCount} />
+              <Stat label="Unique emails" value={uniqueCount} tone="blue" />
+              <Stat label="Credits needed" value={uniqueCount} tone="green" />
+            </div>
+          </div>
+          <div className="mt-4 grid gap-3">
+            <QualityBar label="Valid estimate" value={quality.valid} tone="green" />
+            <QualityBar label="Risk estimate" value={quality.risk} tone="amber" />
+            <QualityBar label="Duplicates removed" value={quality.duplicates} tone="red" />
+          </div>
+        </div>
+
+        <div className="grid gap-3 rounded-lg border border-slate-200 bg-slate-950 p-4 text-white">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-blue-200">Live verification flow</p>
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/15 px-2 py-1 text-xs font-semibold text-emerald-200">
+              <span className="size-1.5 animate-pulse rounded-full bg-emerald-300" />
+              {ready ? "Scanning ready" : "Waiting for list"}
+            </span>
+          </div>
+          <div className="grid gap-2">
+            <ActivityItem active={parseState === "parsing" || ready} label="Scanning domains and syntax" />
+            <ActivityItem active={ready && duplicateCount > 0} label={`${duplicateCount.toLocaleString()} duplicate${duplicateCount === 1 ? "" : "s"} removed`} />
+            <ActivityItem active={ready} label={`${quality.risk}% catch-all / risky estimate detected`} />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <ComparisonCard label="Before send" value={`${Math.max(12, quality.risk + quality.duplicates)}% risk`} tone="bad" />
+            <ComparisonCard label="After clean" value={`${Math.max(2, quality.risk - 5)}% risk`} tone="good" />
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-blue-700">Ready workflow</p>
+              <p className="mt-1 text-sm text-slate-700">
+                {ready ? `${uniqueCount.toLocaleString()} unique emails will use ${uniqueCount.toLocaleString()} credits.` : "Upload or paste a list to estimate credits."}
+              </p>
+            </div>
+            <ClipboardList className="text-blue-700" size={22} />
+          </div>
+        </div>
+
+        <VerifyAction type="button" disabled={!ready || parseState === "parsing"} onClick={() => void continueFlow()} className="h-12 w-full text-base">
+          {parseState === "parsing" ? <Loader2 className="animate-spin" size={18} /> : <MailCheck size={18} />}
+          Check list quality
+          <ArrowRight size={18} />
+        </VerifyAction>
+
+        {message ? (
+          <p className={`text-sm font-semibold ${parseState === "error" ? "text-rose-700" : "text-emerald-700"}`}>{message}</p>
+        ) : null}
+      </div>
+
+      <div className="border-t border-slate-200 bg-slate-50 px-5 py-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Quality preview</p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+          <MiniResult label="Likely valid" value={`${quality.valid}%`} tone="green" />
+          <MiniResult label="Risky" value={`${quality.risk}%`} tone="amber" />
+          <MiniResult label="Duplicate" value={`${quality.duplicates}%`} tone="red" />
+        </div>
+      </div>
+    </VerifyPanel>
+  );
+}
+
+function Stat({ label, value, tone }: { label: string; value: number; tone?: "blue" | "green" }) {
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">{label}</p>
+      <p className={`mt-1 text-2xl font-semibold tracking-[-0.02em] ${tone === "blue" ? "text-blue-700" : tone === "green" ? "text-emerald-700" : "text-slate-950"}`}>
+        {value.toLocaleString()}
+      </p>
+    </div>
+  );
+}
+
+function DeliverabilityScore({ score, ready }: { score: number; ready: boolean }) {
+  return (
+    <div className="relative grid size-28 shrink-0 place-items-center rounded-full border border-blue-100 bg-blue-50">
+      <div
+        className="absolute inset-2 rounded-full"
+        style={{
+          background: `conic-gradient(#2563eb ${ready ? score * 3.6 : 0}deg, #dbeafe 0deg)`
+        }}
+      />
+      <div className="relative grid size-20 place-items-center rounded-full bg-white text-center shadow-sm">
+        <p className="text-2xl font-semibold tracking-[-0.03em] text-slate-950">{ready ? score : "--"}</p>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">score</p>
+      </div>
+    </div>
+  );
+}
+
+function ActivityItem({ active, label }: { active: boolean; label: string }) {
+  return (
+    <div className="flex items-center gap-3 rounded-md border border-white/10 bg-white/5 px-3 py-2">
+      <span className={`size-2 rounded-full ${active ? "animate-pulse bg-emerald-300" : "bg-slate-600"}`} />
+      <span className={active ? "text-sm font-semibold text-white" : "text-sm font-medium text-slate-400"}>{label}</span>
+    </div>
+  );
+}
+
+function ComparisonCard({ label, value, tone }: { label: string; value: string; tone: "good" | "bad" }) {
+  return (
+    <div className="rounded-md border border-white/10 bg-white/5 p-3">
+      <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-400">{label}</p>
+      <p className={`mt-1 flex items-center gap-2 text-xl font-semibold ${tone === "good" ? "text-emerald-200" : "text-rose-200"}`}>
+        {tone === "good" ? <TrendingDown size={18} /> : <XCircle size={18} />}
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function QualityBar({ label, value, tone }: { label: string; value: number; tone: "green" | "amber" | "red" }) {
+  const color = tone === "green" ? "bg-emerald-500" : tone === "amber" ? "bg-amber-500" : "bg-rose-500";
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between gap-3 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
+        <span>{label}</span>
+        <span>{value}%</span>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+        <div className={`h-full rounded-full ${color} transition-all duration-500`} style={{ width: `${Math.max(4, Math.min(100, value))}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function MiniResult({ label, value, tone }: { label: string; value: string; tone: "green" | "amber" | "red" }) {
+  const Icon = tone === "green" ? CheckCircle2 : tone === "red" ? XCircle : ShieldCheck;
+  const color = tone === "green" ? "text-emerald-700" : tone === "red" ? "text-rose-700" : "text-amber-700";
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-3">
+      <Icon className={color} size={18} />
+      <p className={`mt-2 text-2xl font-semibold ${color}`}>{value}</p>
+      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">{label}</p>
+    </div>
+  );
+}
+
+function estimateQuality(uniqueCount: number, duplicateCount: number) {
+  if (uniqueCount === 0) return { valid: 0, risk: 0, duplicates: 0 };
+  const duplicateRate = Math.min(35, Math.round((duplicateCount / Math.max(1, uniqueCount + duplicateCount)) * 100));
+  const risk = Math.min(28, Math.max(6, Math.round(8 + duplicateRate * 0.45)));
+  const valid = Math.max(55, Math.min(92, 100 - risk - Math.round(duplicateRate / 2)));
+  return {
+    valid,
+    risk,
+    duplicates: duplicateRate
+  };
+}

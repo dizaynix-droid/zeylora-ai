@@ -12,6 +12,7 @@ export const runtime = "nodejs";
 
 type CheckoutRequest = {
   packageId?: string;
+  resumeVerification?: boolean;
 };
 
 export async function POST(request: Request) {
@@ -54,6 +55,7 @@ export async function POST(request: Request) {
 
     const body = (await request.json().catch(() => null)) as CheckoutRequest | null;
     const packageId = String(body?.packageId || "");
+    const resumeVerification = body?.resumeVerification === true;
 
     if (!packageId) {
       checkoutLog("missing_package", { requestId, userId: user.id, ms: Date.now() - startedAt });
@@ -83,7 +85,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: "Active credit package not found." }, { status: 404 });
     }
 
-    const checkoutUrls = getCheckoutUrls();
+    const checkoutUrls = getCheckoutUrls({ resumeVerification });
     const successUrl = checkoutUrls.successUrl;
     const cancelUrl = checkoutUrls.cancelUrl;
     const amount = Number(selectedPackage.price);
@@ -124,7 +126,8 @@ export async function POST(request: Request) {
           packageName: selectedPackage.name,
           packageSource: dbPackage ? "db" : "config_fallback",
           credits,
-          checkoutRequestId: requestId
+          checkoutRequestId: requestId,
+          resumeVerification
         }
       },
       select: {
@@ -211,7 +214,8 @@ export async function POST(request: Request) {
           lineItemMode,
           successUrl,
           cancelUrl,
-          checkoutRequestId: requestId
+          checkoutRequestId: requestId,
+          resumeVerification
         }
       }
     });
@@ -301,14 +305,22 @@ function normalizeStripePriceId(value: string | null) {
   return priceId;
 }
 
-function getCheckoutUrls() {
+function getCheckoutUrls({ resumeVerification = false }: { resumeVerification?: boolean } = {}) {
   const siteUrl = normalizeAbsoluteUrl(process.env.NEXT_PUBLIC_SITE_URL, "https://www.zeylora.ai");
+  const defaultSuccessPath = resumeVerification
+    ? "/dashboard?checkout=success&resumeVerification=1"
+    : "/dashboard?checkout=success";
+  const successUrl = normalizeAbsoluteUrl(
+    process.env.STRIPE_SUCCESS_URL,
+    `${siteUrl.origin}${defaultSuccessPath}`
+  );
+
+  if (resumeVerification) {
+    successUrl.searchParams.set("resumeVerification", "1");
+  }
 
   return {
-    successUrl: normalizeAbsoluteUrl(
-      process.env.STRIPE_SUCCESS_URL,
-      `${siteUrl.origin}/dashboard?checkout=success`
-    ).toString(),
+    successUrl: successUrl.toString(),
     cancelUrl: normalizeAbsoluteUrl(
       process.env.STRIPE_CANCEL_URL,
       `${siteUrl.origin}/pricing?checkout=cancelled`

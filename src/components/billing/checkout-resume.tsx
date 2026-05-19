@@ -32,12 +32,14 @@ export function CheckoutResume({ packageId }: { packageId?: string }) {
 
         if (cancelled) return;
         setMessage("Opening secure checkout...");
+        const params = new URLSearchParams(window.location.search);
+        const resumeVerification = params.get("resumeVerification") === "1";
 
         const checkoutResponse = await fetch("/api/v1/billing/checkout", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "same-origin",
-          body: JSON.stringify({ packageId: selectedPackageId })
+          body: JSON.stringify({ packageId: selectedPackageId, resumeVerification })
         });
         const checkoutPayload = (await checkoutResponse.json().catch(() => null)) as CheckoutResponse | null;
         const checkoutUrl = checkoutPayload?.url || checkoutPayload?.checkoutUrl;

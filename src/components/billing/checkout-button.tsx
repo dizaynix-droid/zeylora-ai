@@ -28,11 +28,14 @@ export function CheckoutButton({ packageId, label = "Get credits", className }: 
 
     try {
       console.info("[checkout-client]", { event: "started", packageId });
+      const params = new URLSearchParams(window.location.search);
+      const resumeVerification = params.get("resumeVerification") === "1";
+      const pricingNext = `/pricing?checkoutPackage=${encodeURIComponent(packageId)}${resumeVerification ? "&resumeVerification=1" : ""}`;
       const response = await fetch("/api/v1/billing/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ packageId })
+        body: JSON.stringify({ packageId, resumeVerification })
       });
       const payload = (await response.json().catch(() => null)) as CheckoutResponse | null;
       const checkoutUrl = payload?.url || payload?.checkoutUrl;
@@ -47,7 +50,7 @@ export function CheckoutButton({ packageId, label = "Get credits", className }: 
       });
 
       if (response.status === 401 || payload?.code === "unauthenticated") {
-        window.location.assign(`/auth/sign-in?next=${encodeURIComponent(`/pricing?checkoutPackage=${encodeURIComponent(packageId)}`)}`);
+        window.location.assign(`/auth/sign-in?next=${encodeURIComponent(pricingNext)}`);
         return;
       }
 
