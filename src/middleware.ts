@@ -3,6 +3,11 @@ import { NextResponse } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 
 export async function middleware(request: NextRequest) {
+  const canonicalRedirect = getCanonicalRedirect(request);
+  if (canonicalRedirect) {
+    return canonicalRedirect;
+  }
+
   const maintenanceEnabled = process.env.MAINTENANCE_MODE === "true";
 
   if (
@@ -43,4 +48,13 @@ function shouldShowMaintenance(pathname: string, enabled: boolean) {
 
 function normalizeReferralCode(value: string) {
   return value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 40);
+}
+
+function getCanonicalRedirect(request: NextRequest) {
+  const host = request.headers.get("host")?.toLowerCase() || "";
+  if (host !== "zeylora-ai.vercel.app") return null;
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.zeylora.ai";
+  const target = new URL(request.nextUrl.pathname + request.nextUrl.search, siteUrl);
+  return NextResponse.redirect(target, 301);
 }
