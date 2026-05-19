@@ -1,4 +1,19 @@
-import { ArrowRight, BarChart3, Download, MailCheck, ShieldCheck, TrendingDown, UploadCloud } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import {
+  Activity,
+  ArrowRight,
+  BarChart3,
+  Building2,
+  DatabaseZap,
+  Download,
+  LineChart,
+  MailCheck,
+  Radio,
+  ShieldCheck,
+  TrendingDown,
+  UploadCloud,
+  Users2,
+} from "lucide-react";
 import { CheckoutButton } from "@/components/billing/checkout-button";
 import { HomepageListChecker } from "@/components/home/homepage-list-checker";
 import { SiteFooter } from "@/components/layout/site-footer";
@@ -15,51 +30,72 @@ import { getCreditPackagesForDisplay } from "@/lib/pricing/packages";
 
 export default async function HomePage() {
   const packages = await getCreditPackagesForDisplay();
-  const compactPackages = packages.slice(0, 3);
+  const compactPackages = packages.slice(0, 4);
 
   return (
     <>
       <SiteHeader />
       <VerifyPageShell>
-        <section className="border-b border-slate-200 bg-white">
-          <VerifyContainer className="grid gap-8 py-8 lg:grid-cols-[0.92fr_1.08fr] lg:items-center lg:py-16">
-            <div className="max-w-2xl">
-              <VerifyBadge tone="blue">Bulk email verification</VerifyBadge>
-              <h1 className="mt-4 text-4xl font-semibold tracking-[-0.045em] text-slate-950 sm:text-5xl lg:text-6xl">
-                Stop paying to send emails that bounce.
+        <section className="relative isolate overflow-hidden border-b border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f6f9ff_52%,#eef5ff_100%)]">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(37,99,235,.13),transparent_34%),radial-gradient(circle_at_82%_16%,rgba(14,165,233,.16),transparent_30%),linear-gradient(rgba(15,23,42,.035)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,.035)_1px,transparent_1px)] bg-[size:auto,auto,44px_44px,44px_44px]" />
+          <div className="pointer-events-none absolute left-1/2 top-12 h-72 w-[min(900px,90vw)] -translate-x-1/2 rounded-full bg-blue-200/30 blur-3xl" />
+
+          <VerifyContainer className="relative py-10 sm:py-12 lg:py-16">
+            <div className="mx-auto max-w-5xl text-center">
+              <VerifyBadge tone="blue" className="shadow-sm">
+                Email verification infrastructure
+              </VerifyBadge>
+              <h1 className="mt-5 text-5xl font-semibold tracking-[-0.06em] text-slate-950 sm:text-6xl lg:text-7xl">
+                Verify every list before it touches your sender reputation.
               </h1>
-              <p className="mt-5 text-base leading-7 text-slate-600 sm:text-lg">
-                Clean invalid, risky, catch-all, disposable, and duplicate addresses before campaigns hit spam folders, waste sends, or damage sender reputation.
+              <p className="mx-auto mt-5 max-w-3xl text-base leading-7 text-slate-600 sm:text-lg">
+                Upload CSV/TXT lists, remove invalid and risky addresses, and export clean campaign segments before bounces damage inbox placement.
               </p>
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                <VerifyAction href="/auth/sign-in?next=/dashboard" className="h-12 px-6 text-base">
-                  Check my list
+              <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
+                <VerifyAction href="#verify-list" className="h-12 px-6 text-base shadow-lg shadow-blue-600/20">
+                  Verify a list now
                   <ArrowRight size={18} />
                 </VerifyAction>
-                <VerifyAction href="#how-it-works" variant="secondary" className="h-12 px-6 text-base">
-                  See how it works
+                <VerifyAction href="#live-demo" variant="secondary" className="h-12 px-6 text-base">
+                  See live engine
                 </VerifyAction>
               </div>
-              <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                <TrustPoint icon={ShieldCheck} label="Private uploads" />
-                <TrustPoint icon={MailCheck} label="Bounce risk removal" />
-                <TrustPoint icon={Download} label="Segmented CSV exports" />
+              <div className="mt-7 flex flex-wrap items-center justify-center gap-2 text-sm font-semibold text-slate-600">
+                <AudiencePill icon={Users2} label="Marketers" />
+                <AudiencePill icon={Building2} label="Agencies" />
+                <AudiencePill icon={DatabaseZap} label="Ecommerce operators" />
+                <AudiencePill icon={MailCheck} label="SaaS GTM teams" />
               </div>
             </div>
 
-            <HomepageListChecker />
+            <div className="mt-9 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <HeroMetric label="Emails checked" value="12.8M" note="High-volume hygiene" icon={DatabaseZap} tone="blue" />
+              <HeroMetric label="Bounce risk reduced" value="74%" note="Before sending" icon={TrendingDown} tone="green" />
+              <HeroMetric label="Deliverability score" value="91" note="Campaign-ready lists" icon={LineChart} tone="blue" />
+              <HeroMetric label="Spam-risk prevention" value="24/7" note="Operational guardrail" icon={ShieldCheck} tone="green" />
+            </div>
+
+            <div id="verify-list" className="mt-6 grid gap-5 xl:grid-cols-[1.02fr_.98fr] xl:items-stretch">
+              <div className="relative">
+                <div className="absolute -inset-3 rounded-2xl bg-white/60 blur-xl" />
+                <div className="relative rounded-2xl border border-white/70 bg-white/75 p-2 shadow-[0_24px_80px_rgba(15,23,42,.12)] backdrop-blur-xl">
+                  <HomepageListChecker />
+                </div>
+              </div>
+              <VerificationEnginePanel />
+            </div>
           </VerifyContainer>
         </section>
 
-        <section id="live-demo" className="border-b border-slate-200 bg-[#f7f8fb]">
+        <section id="live-demo" className="border-b border-slate-200 bg-white">
           <VerifyContainer className="py-12 lg:py-16">
             <div className="mx-auto max-w-3xl text-center">
-              <VerifyBadge tone="blue">Live verification demo</VerifyBadge>
+              <VerifyBadge tone="blue">Operational proof</VerifyBadge>
               <h2 className="mt-4 text-3xl font-semibold tracking-[-0.035em] text-slate-950 sm:text-4xl">
-                Watch list quality move from risky to campaign-ready.
+                The dashboard shows exactly what your campaign gained.
               </h2>
               <p className="mt-4 text-base leading-7 text-slate-600">
-                Zeylora gives operators the metrics that matter: deliverability score, valid rate, bounce risk, duplicates removed, and segmented export readiness.
+                Zeylora reports deliverability score, valid rate, bounce risk, duplicate removal, and segmented export readiness in one operator-friendly view.
               </p>
             </div>
             <div className="mt-8">
@@ -68,15 +104,15 @@ export default async function HomePage() {
           </VerifyContainer>
         </section>
 
-        <section id="results" className="border-b border-slate-200 bg-white">
-          <VerifyContainer className="grid gap-8 py-12 lg:grid-cols-[0.8fr_1.2fr] lg:items-center lg:py-16">
+        <section id="results" className="border-b border-slate-200 bg-[#f7f8fb]">
+          <VerifyContainer className="grid gap-8 py-12 lg:grid-cols-[0.78fr_1.22fr] lg:items-center lg:py-16">
             <div>
               <VerifyBadge tone="green">Deliverability improvement</VerifyBadge>
               <h2 className="mt-4 text-3xl font-semibold tracking-[-0.035em] text-slate-950 sm:text-4xl">
                 See the bounce risk disappear before you spend on sending.
               </h2>
               <p className="mt-4 text-base leading-7 text-slate-600">
-                Upload a messy list, remove the addresses that hurt deliverability, then export clean segments for campaigns, CRMs, and cold email tools.
+                Upload a messy list, isolate the addresses that hurt deliverability, then export clean segments for CRMs, cold email tools, and newsletter platforms.
               </p>
               <div className="mt-6 grid gap-3">
                 <OutcomePoint icon={TrendingDown} label="Reduce wasted sends and bounce penalties." />
@@ -84,7 +120,7 @@ export default async function HomePage() {
                 <OutcomePoint icon={MailCheck} label="Improve inbox placement by keeping risky mail out." />
               </div>
             </div>
-            <VerifyPanel className="p-5">
+            <VerifyPanel className="p-5 shadow-[0_20px_60px_rgba(15,23,42,.08)]">
               <div className="grid gap-5">
                 <BeforeAfterRow label="Before cleaning" valid={58} invalid={24} risky={18} />
                 <BeforeAfterRow label="After cleaning" valid={86} invalid={3} risky={11} />
@@ -133,37 +169,41 @@ export default async function HomePage() {
           <VerifyContainer className="py-12 lg:py-16">
             <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
               <div>
-                <VerifyBadge>Credits</VerifyBadge>
+                <VerifyBadge>Usage-based verification</VerifyBadge>
                 <h2 className="mt-4 text-3xl font-semibold tracking-[-0.035em] text-slate-950 sm:text-4xl">
-                  Start small, verify when you need it.
+                  Buy verification volume, not another subscription.
                 </h2>
                 <p className="mt-3 max-w-2xl text-base leading-7 text-slate-600">
-                  Pricing stays below the workflow, because the product is the verification tool. 1 credit verifies 1 email.
+                  1 credit verifies 1 email. Start with a small list, then scale to higher-volume campaign hygiene when the numbers make sense.
                 </p>
               </div>
-              <VerifyAction href="/pricing" variant="secondary">View all credit packs</VerifyAction>
+              <VerifyAction href="/pricing" variant="secondary">View all plans</VerifyAction>
             </div>
 
-            <div className="mt-7 grid gap-4 md:grid-cols-3">
+            <div className="mt-7 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               {compactPackages.map((pack) => (
-                <VerifyPanel key={pack.id} className="p-5">
+                <VerifyPanel key={pack.id} className={`flex h-full flex-col p-5 ${pack.highlight ? "border-blue-300 bg-blue-50 shadow-[0_18px_50px_rgba(37,99,235,.12)]" : ""}`}>
                   <div className="flex items-start justify-between gap-3">
-                    <h3 className="text-lg font-semibold text-slate-950">{pack.name}</h3>
+                    <h3 className="text-xl font-semibold text-slate-950">{pack.name}</h3>
                     {pack.badgeText ? <VerifyBadge tone="blue">{pack.badgeText}</VerifyBadge> : null}
                   </div>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">{pack.description}</p>
-                  <div className="mt-4 flex items-end justify-between gap-4">
-                    <div>
-                      <p className="text-3xl font-semibold tracking-[-0.03em] text-slate-950">${pack.price}</p>
-                      <p className="mt-1 text-sm font-semibold text-blue-700">{pack.totalCredits.toLocaleString()} verifications</p>
-                      <p className="mt-1 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Pay per verified email</p>
-                    </div>
-                    <CheckoutButton
-                      packageId={pack.id}
-                      label={pack.key === "trial" ? "Start trial" : "Buy"}
-                      className="inline-flex h-10 items-center justify-center rounded-md bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700"
-                    />
+                  <p className="mt-2 min-h-16 text-sm leading-6 text-slate-600">{pack.description}</p>
+                  <div className="mt-5">
+                    <p className="text-4xl font-semibold tracking-[-0.04em] text-slate-950">${pack.price}</p>
+                    <p className="mt-2 text-sm font-semibold text-blue-700">{pack.totalCredits.toLocaleString()} email verifications</p>
+                    <p className="mt-1 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
+                      {formatCostPerThousand(pack.price, pack.totalCredits)} per 1k verifications
+                    </p>
                   </div>
+                  <div className="mt-5 grid gap-2 text-sm text-slate-600">
+                    <p>Reduce bounce rate before sending.</p>
+                    <p>Export valid, invalid, risky, and full report CSVs.</p>
+                  </div>
+                  <CheckoutButton
+                    packageId={pack.id}
+                    label={pack.key === "trial" ? "Start verification trial" : "Buy verifications"}
+                    className="mt-auto inline-flex h-10 w-full items-center justify-center rounded-md bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700"
+                  />
                 </VerifyPanel>
               ))}
             </div>
@@ -175,20 +215,164 @@ export default async function HomePage() {
   );
 }
 
-function TrustPoint({ icon: Icon, label }: { icon: typeof ShieldCheck; label: string }) {
+function HeroMetric({
+  icon: Icon,
+  label,
+  value,
+  note,
+  tone
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+  note: string;
+  tone: "blue" | "green";
+}) {
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3">
-      <span className="rounded-md bg-blue-50 p-2 text-blue-700">
-        <Icon size={18} />
-      </span>
-      <span className="text-sm font-semibold text-slate-900">{label}</span>
+    <div className="rounded-2xl border border-white/70 bg-white/75 p-4 shadow-[0_16px_50px_rgba(15,23,42,.08)] backdrop-blur-xl">
+      <div className="flex items-center justify-between gap-3">
+        <span className={tone === "green" ? "rounded-xl bg-emerald-50 p-2 text-emerald-700" : "rounded-xl bg-blue-50 p-2 text-blue-700"}>
+          <Icon size={20} />
+        </span>
+        <span className="flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
+          <span className="size-1.5 animate-pulse rounded-full bg-emerald-500" />
+          Live
+        </span>
+      </div>
+      <p className="mt-4 text-3xl font-semibold tracking-[-0.04em] text-slate-950">{value}</p>
+      <p className="mt-1 text-sm font-semibold text-slate-700">{label}</p>
+      <p className="mt-1 text-xs leading-5 text-slate-500">{note}</p>
     </div>
   );
 }
 
-function WorkflowStep({ icon: Icon, title, copy }: { icon: typeof UploadCloud; title: string; copy: string }) {
+function AudiencePill({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
   return (
-    <VerifyPanel className="p-5">
+    <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-2 shadow-sm backdrop-blur">
+      <Icon size={15} className="text-blue-700" />
+      {label}
+    </span>
+  );
+}
+
+function VerificationEnginePanel() {
+  return (
+    <div className="grid gap-4">
+      <VerifyPanel className="relative overflow-hidden border-white/80 bg-white/80 p-5 shadow-[0_24px_80px_rgba(15,23,42,.12)] backdrop-blur-xl">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-500 via-cyan-400 to-emerald-400" />
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <Radio size={16} className="animate-pulse text-emerald-600" />
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Live verification engine</p>
+            </div>
+            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-slate-950">campaign-leads-may.csv</h2>
+          </div>
+          <VerifyBadge tone="green">Scanning now</VerifyBadge>
+        </div>
+
+        <div className="mt-5 grid gap-5 lg:grid-cols-[.82fr_1.18fr]">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Deliverability score</p>
+            <div className="mx-auto mt-4 grid size-40 place-items-center rounded-full bg-[conic-gradient(#2563eb_0_328deg,#dbeafe_328deg_360deg)] p-3 shadow-inner">
+              <div className="grid size-32 place-items-center rounded-full bg-white shadow-sm">
+                <div className="text-center">
+                  <p className="text-5xl font-semibold tracking-[-0.06em] text-slate-950">91</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-blue-700">Ready</p>
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-200">
+              <div className="h-full w-[91%] rounded-full bg-gradient-to-r from-blue-600 via-cyan-500 to-emerald-500" />
+            </div>
+          </div>
+
+          <div className="grid content-between gap-4">
+            <BeforeAfterRow label="Raw list quality" valid={58} invalid={24} risky={18} />
+            <BeforeAfterRow label="Verified export quality" valid={86} invalid={3} risky={11} />
+            <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-slate-900">Verification progress</p>
+                <span className="text-sm font-semibold text-blue-700">72%</span>
+              </div>
+              <div className="mt-3 h-3 overflow-hidden rounded-full bg-white">
+                <div className="h-full w-[72%] rounded-full bg-gradient-to-r from-blue-600 via-cyan-500 to-emerald-500 shadow-[0_0_18px_rgba(37,99,235,.35)]" />
+              </div>
+              <p className="mt-3 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">MX, SMTP, disposable, catch-all, duplicate checks</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          <EngineStat label="Valid" value="18,642" tone="green" />
+          <EngineStat label="Risky isolated" value="2,184" tone="amber" />
+          <EngineStat label="Invalid blocked" value="5,209" tone="red" />
+        </div>
+      </VerifyPanel>
+
+      <div className="grid gap-4 lg:grid-cols-[1fr_.9fr]">
+        <VerifyPanel className="p-4 shadow-[0_16px_50px_rgba(15,23,42,.08)]">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Verification activity</p>
+            <Activity size={16} className="text-blue-700" />
+          </div>
+          <div className="mt-4 grid gap-2">
+            {[
+              ["MX records confirmed", "4,812"],
+              ["Duplicates removed", "312"],
+              ["Catch-all detected", "624"],
+              ["Disposable domains blocked", "189"]
+            ].map(([label, value]) => (
+              <div key={label} className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                <span className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                  <span className="size-1.5 animate-pulse rounded-full bg-emerald-400" />
+                  {label}
+                </span>
+                <span className="text-sm font-semibold text-blue-700">{value}</span>
+              </div>
+            ))}
+          </div>
+        </VerifyPanel>
+
+        <VerifyPanel className="overflow-hidden p-4 shadow-[0_16px_50px_rgba(15,23,42,.08)]">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Bounce risk curve</p>
+            <TrendingDown size={16} className="text-emerald-700" />
+          </div>
+          <div className="mt-4 flex h-28 items-end gap-2">
+            {[76, 71, 66, 51, 43, 35, 24, 18].map((height, index) => (
+              <div key={height} className="flex flex-1 flex-col items-center gap-2">
+                <div
+                  className="w-full rounded-t-lg bg-gradient-to-t from-blue-600 to-cyan-400 shadow-[0_8px_22px_rgba(37,99,235,.18)]"
+                  style={{ height: `${height}%`, opacity: 0.7 + index * 0.035 }}
+                />
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 flex items-center justify-between text-xs font-semibold text-slate-500">
+            <span>Raw import</span>
+            <span className="text-emerald-700">-74% risk</span>
+          </div>
+        </VerifyPanel>
+      </div>
+    </div>
+  );
+}
+
+function EngineStat({ label, value, tone }: { label: string; value: string; tone: "green" | "amber" | "red" }) {
+  const toneClass =
+    tone === "green" ? "text-emerald-700 bg-emerald-50 border-emerald-100" : tone === "amber" ? "text-amber-700 bg-amber-50 border-amber-100" : "text-rose-700 bg-rose-50 border-rose-100";
+  return (
+    <div className={`rounded-2xl border p-4 ${toneClass}`}>
+      <p className="text-xs font-semibold uppercase tracking-[0.1em] opacity-80">{label}</p>
+      <p className="mt-2 text-2xl font-semibold tracking-[-0.03em]">{value}</p>
+    </div>
+  );
+}
+
+function WorkflowStep({ icon: Icon, title, copy }: { icon: LucideIcon; title: string; copy: string }) {
+  return (
+    <VerifyPanel className="p-5 transition hover:-translate-y-0.5 hover:shadow-[0_16px_48px_rgba(15,23,42,.08)]">
       <div className="w-fit rounded-md bg-blue-50 p-3 text-blue-700">
         <Icon size={22} />
       </div>
@@ -198,9 +382,9 @@ function WorkflowStep({ icon: Icon, title, copy }: { icon: typeof UploadCloud; t
   );
 }
 
-function OutcomePoint({ icon: Icon, label }: { icon: typeof TrendingDown; label: string }) {
+function OutcomePoint({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3">
+    <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
       <span className="rounded-md bg-emerald-50 p-2 text-emerald-700">
         <Icon size={18} />
       </span>
@@ -211,7 +395,7 @@ function OutcomePoint({ icon: Icon, label }: { icon: typeof TrendingDown; label:
 
 function DashboardPreview() {
   return (
-    <VerifyPanel className="overflow-hidden">
+    <VerifyPanel className="overflow-hidden shadow-[0_22px_70px_rgba(15,23,42,.08)]">
       <div className="border-b border-slate-200 bg-white px-5 py-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -269,7 +453,7 @@ function BeforeAfterRow({ label, valid, invalid, risky }: { label: string; valid
         <span>{label}</span>
         <span>{valid}% valid</span>
       </div>
-      <div className="flex h-4 overflow-hidden rounded-full bg-slate-200">
+      <div className="flex h-4 overflow-hidden rounded-full bg-slate-200 shadow-inner">
         <div className="bg-emerald-500" style={{ width: `${valid}%` }} />
         <div className="bg-amber-400" style={{ width: `${risky}%` }} />
         <div className="bg-rose-500" style={{ width: `${invalid}%` }} />
@@ -281,4 +465,9 @@ function BeforeAfterRow({ label, valid, invalid, risky }: { label: string; valid
       </div>
     </div>
   );
+}
+
+function formatCostPerThousand(price: number, credits: number) {
+  if (!credits) return "$0.00";
+  return `$${((price / credits) * 1000).toFixed(2)}`;
 }

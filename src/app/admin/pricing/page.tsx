@@ -88,7 +88,7 @@ export default async function AdminPricingPage({
 
       <AdminSection
         title="Kredi paketleri"
-        description="Ana kredi + bonus toplamı kullanıcıya teslim edilir. Starter bonus içermez; Creator, Pro Seller ve Business launch bonusuyla hazır."
+        description="Ana verification kredisi + bonus toplamı kullanıcıya teslim edilir. Launch paketleri Trial, Starter, Growth ve Business sırasıyla yönetilir."
         action={
           <form action={syncLaunchCreditPackagesAction}>
             <button className="h-10 rounded-full border border-cyan/30 bg-cyan/10 px-4 text-sm font-black text-cyan transition hover:bg-cyan/15">

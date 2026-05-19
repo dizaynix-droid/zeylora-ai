@@ -43,7 +43,7 @@ export default async function PricingPage({
               {[
                 ["No subscription", "Buy verification credits once and use them as needed."],
                 ["Sender reputation", "Remove invalid and risky emails before sending."],
-                ["Clean exports", "Download segmented CSVs for reporting and campaign hygiene."]
+                ["Segmented exports", "Download clean CSV segments for reporting and campaign hygiene."]
               ].map(([label, copy]) => (
                 <VerifyPanel key={label} className="p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.08em] text-blue-700">{label}</p>
@@ -68,6 +68,9 @@ export default async function PricingPage({
                   <p className="mt-2 font-semibold text-blue-700">
                     {pack.totalCredits.toLocaleString()} email verifications
                     {pack.bonusCredits ? ` (${pack.credits.toLocaleString()} + ${pack.bonusCredits.toLocaleString()} bonus)` : ""}
+                  </p>
+                  <p className="mt-2 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
+                    {formatCostPerThousand(pack.price, pack.totalCredits)} per 1k verifications
                   </p>
                   <div className="mt-5 grid gap-2 text-sm text-slate-600">
                     <p>Reduce bounce rate before sending.</p>
@@ -121,4 +124,9 @@ function sanitizePackageId(value: string | undefined) {
   } catch {
     return undefined;
   }
+}
+
+function formatCostPerThousand(price: number, credits: number) {
+  if (!credits) return "$0.00";
+  return `$${((price / credits) * 1000).toFixed(2)}`;
 }
