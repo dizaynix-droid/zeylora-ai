@@ -59,6 +59,33 @@ export async function uploadPrivateObject(input: {
   );
 }
 
+export async function getPrivateObjectBuffer(key: string) {
+  const config = getStorageConfig();
+  const client = createStorageClient();
+
+  const response = await client.send(
+    new GetObjectCommand({
+      Bucket: config.bucket,
+      Key: key
+    })
+  );
+
+  if (!response.Body) {
+    throw new Error("Storage object is empty.");
+  }
+
+  const chunks: Buffer[] = [];
+  for await (const chunk of response.Body as AsyncIterable<Uint8Array>) {
+    chunks.push(Buffer.from(chunk));
+  }
+
+  return Buffer.concat(chunks);
+}
+
+export async function getPrivateObjectText(key: string) {
+  return (await getPrivateObjectBuffer(key)).toString("utf8");
+}
+
 export async function createPrivateReadUrl(key: string, expiresIn?: number) {
   const config = getStorageConfig();
   const client = createStorageClient();

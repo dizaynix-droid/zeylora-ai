@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Download } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
+import { JobAutoRefresh } from "@/components/verification/job-auto-refresh";
 import { VerifyPanel } from "@/components/verify-ui/core";
 import { getCurrentSessionUser } from "@/lib/auth/current-user";
 import { requireMfaIfNeeded } from "@/lib/auth/mfa";
@@ -58,6 +59,7 @@ export default async function VerificationJobPage({
         originalFilename: true,
         status: true,
         uniqueEmails: true,
+        progressPercent: true,
         creditsUsed: true,
         creditsReserved: true,
         validCount: true,
@@ -70,6 +72,7 @@ export default async function VerificationJobPage({
         invalidExportStorageKey: true,
         riskyExportStorageKey: true,
         fullReportStorageKey: true,
+        errorMessage: true,
         results: {
           orderBy: { createdAt: "asc" },
           skip,
@@ -90,6 +93,7 @@ export default async function VerificationJobPage({
 
   const totalPages = Math.max(1, Math.ceil(resultTotal / RESULT_PAGE_SIZE));
   const downloadLinks = job.status === "COMPLETED" ? await buildDownloadLinks(job) : [];
+  const active = job.status === "QUEUED" || job.status === "PROCESSING";
 
   return (
     <AppShell
@@ -97,6 +101,7 @@ export default async function VerificationJobPage({
       title="Verification report"
       description="Review deliverability breakdown and download segmented CSV exports."
     >
+      <JobAutoRefresh enabled={active} />
       <div className="grid gap-5">
         <VerifyPanel className="p-5 md:p-7">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -120,6 +125,30 @@ export default async function VerificationJobPage({
             <Metric label="Disposable" value={job.disposableCount} tone="warn" />
             <Metric label="Unknown" value={job.unknownCount} />
           </div>
+
+          {active ? (
+            <div className="mt-6 rounded-lg border border-blue-200 bg-blue-50 p-4">
+              <div className="flex items-center justify-between gap-3 text-sm font-semibold text-blue-900">
+                <span>{job.status === "QUEUED" ? "Queued for worker processing" : "Processing in safe chunks"}</span>
+                <span>{Math.max(0, Math.min(100, job.progressPercent || 0))}%</span>
+              </div>
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
+                <div
+                  className="h-full rounded-full bg-blue-600 transition-all"
+                  style={{ width: `${Math.max(5, Math.min(100, job.progressPercent || 5))}%` }}
+                />
+              </div>
+              <p className="mt-3 text-sm leading-6 text-blue-900/75">
+                Large lists do not run inside the browser request. Zeylora verifies this list in background chunks and refreshes this report automatically.
+              </p>
+            </div>
+          ) : null}
+
+          {job.status === "FAILED" && job.errorMessage ? (
+            <div className="mt-6 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-800">
+              {job.errorMessage}
+            </div>
+          ) : null}
 
           {downloadLinks.length > 0 ? (
             <div className="mt-6 flex flex-wrap gap-3">

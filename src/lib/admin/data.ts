@@ -1967,9 +1967,10 @@ function findAdminCreditPackageConfig(pack: { name: string; featureFlagKey?: str
     (item) =>
       item.name === pack.name ||
       item.featureFlagKey === pack.featureFlagKey ||
-      (item.key === "growth" && pack.name === "Creator") ||
-      (item.key === "pro" && (pack.name === "Pro Seller" || pack.name === "Studio")) ||
-      (item.key === "trial" && pack.name === "Starter Trial Pack")
+      (item.key === "starter" && pack.name === "Starter Trial Pack") ||
+      (item.key === "growth" && (pack.name === "Creator" || pack.name === "Starter")) ||
+      (item.key === "scale" && pack.name === "Pro Seller") ||
+      (item.key === "business" && pack.name === "Studio")
   );
 }
 

@@ -157,9 +157,9 @@ export function HomepageListChecker() {
       sessionStorage.removeItem(DRAFT_STORAGE_KEY);
       localStorage.removeItem(DRAFT_STORAGE_KEY);
       router.push(jobPayload.job?.id ? `/dashboard/jobs/${jobPayload.job.id}` : "/dashboard#jobs");
-    } catch {
+    } catch (error) {
       setParseState("error");
-      setMessage("We could not start verification from this page. Your pasted list is saved; open the dashboard and try again.");
+      setMessage(getFriendlyStartError(error));
     }
   }
 
@@ -430,10 +430,33 @@ function estimateQuality(uniqueCount: number, duplicateCount: number) {
 }
 
 function getRecommendedPackage(uniqueCount: number) {
-  if (uniqueCount <= 1000) return { key: "trial", name: "Starter" };
-  if (uniqueCount <= 5000) return { key: "starter", name: "Growth" };
-  if (uniqueCount <= 20000) return { key: "growth", name: "Scale" };
-  return { key: "business", name: "Business" };
+  if (uniqueCount <= 1000) return { key: "starter", name: "Starter" };
+  if (uniqueCount <= 5000) return { key: "growth", name: "Growth" };
+  if (uniqueCount <= 20000) return { key: "scale", name: "Scale" };
+  if (uniqueCount <= 50000) return { key: "business", name: "Business" };
+  if (uniqueCount <= 100000) return { key: "agency", name: "Agency" };
+  if (uniqueCount <= 250000) return { key: "pro", name: "Pro" };
+  if (uniqueCount <= 500000) return { key: "enterprise", name: "Enterprise" };
+  return { key: "enterprise-plus", name: "Enterprise Plus" };
+}
+
+function getFriendlyStartError(error: unknown) {
+  const message = error instanceof Error ? error.message : "";
+  const lower = message.toLowerCase();
+
+  if (lower.includes("provider") || lower.includes("millionverifier")) {
+    return "Verification provider is not ready right now. Your pasted list is saved; please open the dashboard and try again after provider setup is checked.";
+  }
+
+  if (lower.includes("storage") || lower.includes("upload") || lower.includes("r2")) {
+    return "We could not save this list for processing. Your pasted list is still saved in this browser; open the dashboard and try again.";
+  }
+
+  if (message && message.length < 180 && !lower.includes("prisma") && !lower.includes("database")) {
+    return message;
+  }
+
+  return "We could not start verification from this page. Your pasted list is saved; open the dashboard and try again.";
 }
 
 function getWorkflowSteps(parseState: ParseState, ready: boolean) {

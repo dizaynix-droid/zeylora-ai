@@ -80,7 +80,7 @@ export default async function HomePage() {
               <HeroPromise icon={Download} title="Clean CSV exports" text="Download valid-only, risky, invalid, and full reports." />
             </div>
 
-            <div id="verify-list" className="mt-6 grid gap-5 xl:grid-cols-[1.02fr_.98fr] xl:items-stretch">
+            <div id="verify-list" className="mt-6 grid gap-5 xl:grid-cols-[1.02fr_.98fr] xl:items-start">
               <div className="relative">
                 <div className="absolute -inset-3 rounded-2xl bg-white/60 blur-xl" />
                 <div className="relative rounded-2xl border border-white/70 bg-white/75 p-2 shadow-[0_24px_80px_rgba(15,23,42,.12)] backdrop-blur-xl">
@@ -243,9 +243,9 @@ export default async function HomePage() {
                     <p>Reduce bounce rate before sending.</p>
                     <p>Export valid, invalid, risky, and full report CSVs.</p>
                   </div>
-                  <CheckoutButton
+                <CheckoutButton
                     packageId={pack.id}
-                    label={pack.key === "trial" ? "Start with 1,000" : "Buy verifications"}
+                    label={pack.key === "starter" ? "Start here" : "Buy verifications"}
                     className="mt-auto inline-flex h-10 w-full items-center justify-center rounded-md bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700"
                   />
                 </VerifyPanel>

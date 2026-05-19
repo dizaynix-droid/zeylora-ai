@@ -21,7 +21,9 @@ type VerificationJob = {
   disposableCount: number;
   unknownCount: number;
   creditsUsed: number;
+  creditsReserved: number;
   providerKey: string;
+  progressPercent: number;
   createdAt: string;
   completedAt: string | null;
   errorMessage: string | null;
@@ -67,6 +69,7 @@ export function VerificationDashboardClient({
   const [submitStatus, setSubmitStatus] = useState<"idle" | "running" | "error" | "success">("idle");
   const [message, setMessage] = useState<string | null>(null);
   const [draftRestored, setDraftRestored] = useState(false);
+  const [refreshTick, setRefreshTick] = useState(0);
 
   const estimatedEmails = useMemo(() => {
     const matches = emails.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) ?? [];
@@ -97,7 +100,16 @@ export function VerificationDashboardClient({
     return () => {
       cancelled = true;
     };
-  }, [jobsPage, submitStatus]);
+  }, [jobsPage, submitStatus, refreshTick]);
+
+  useEffect(() => {
+    const hasActiveJob = jobs.some((job) => job.status === "QUEUED" || job.status === "PROCESSING");
+    if (!hasActiveJob) return;
+    const interval = window.setInterval(() => {
+      setRefreshTick((tick) => tick + 1);
+    }, 5000);
+    return () => window.clearInterval(interval);
+  }, [jobs]);
 
   useEffect(() => {
     if (draftRestored || searchParams.get("resumeVerification") !== "1") return;
@@ -163,7 +175,7 @@ export function VerificationDashboardClient({
         throw new Error(payload?.error || "Verification failed.");
       }
       setSubmitStatus("success");
-      setMessage("List verified. Opening your segmented report.");
+      setMessage("Verification job queued. Large lists are processed safely in chunks; opening progress now.");
       sessionStorage.removeItem(DRAFT_STORAGE_KEY);
       localStorage.removeItem(DRAFT_STORAGE_KEY);
       setFile(null);
@@ -216,7 +228,7 @@ export function VerificationDashboardClient({
             <label className="grid cursor-pointer gap-3 rounded-lg border border-dashed border-blue-300 bg-blue-50 p-6 text-center transition hover:bg-blue-100/70">
               <UploadCloud className="mx-auto text-blue-700" size={32} />
               <span className="text-lg font-semibold text-slate-950">{file ? file.name : "Choose CSV or TXT list"}</span>
-              <span className="text-sm text-slate-500">Maximum 10MB. CSV column detection is automatic.</span>
+              <span className="text-sm text-slate-500">CSV/TXT supported. Large lists are queued and processed in background chunks.</span>
               <input type="file" accept=".csv,.txt,text/csv,text/plain" className="sr-only" onChange={onFileChange} />
             </label>
 
@@ -500,6 +512,7 @@ function InputEstimate({ label, value, tone }: { label: string; value: string; t
 function JobRow({ job }: { job: VerificationJob }) {
   const completed = job.status === "COMPLETED";
   const failed = job.status === "FAILED";
+  const active = job.status === "QUEUED" || job.status === "PROCESSING";
 
   return (
     <div className="grid gap-4 rounded-lg border border-slate-200 bg-white p-4 lg:grid-cols-[1fr_auto] lg:items-center">
@@ -518,8 +531,22 @@ function JobRow({ job }: { job: VerificationJob }) {
           <Count label="Invalid" value={job.invalidCount} tone="bad" />
           <Count label="Risky" value={job.riskyCount + job.catchAllCount} tone="warn" />
           <Count label="Disposable" value={job.disposableCount} tone="warn" />
-          <Count label="Credits" value={job.creditsUsed || job.uniqueEmails} />
+          <Count label="Credits" value={job.creditsUsed || job.creditsReserved || job.uniqueEmails} />
         </div>
+        {active ? (
+          <div className="mt-3">
+            <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
+              <span>{job.status === "QUEUED" ? "Queued for processing" : "Processing in chunks"}</span>
+              <span>{Math.max(0, Math.min(100, job.progressPercent || 0))}%</span>
+            </div>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-full rounded-full bg-blue-600 transition-all"
+                style={{ width: `${Math.max(5, Math.min(100, job.progressPercent || 5))}%` }}
+              />
+            </div>
+          </div>
+        ) : null}
         {job.errorMessage ? (
           <p className="mt-3 inline-flex items-center text-sm font-semibold text-rose-700">
             <AlertCircle className="mr-2" size={15} />

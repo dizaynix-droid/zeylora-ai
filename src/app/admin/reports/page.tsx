@@ -3,14 +3,14 @@ import { AppShell } from "@/components/layout/app-shell";
 import { AdminMetricCard, AdminSection, AdminStatusPill, AdminTable, formatAdminDate } from "@/components/admin/admin-ui";
 import { requireAdmin } from "@/lib/admin/auth";
 import { deleteBusinessExpenseAction, upsertBusinessExpenseAction } from "@/lib/admin/actions";
-import { expenseCategoryLabels, getAdminReportsData } from "@/lib/admin/data";
+import { prisma } from "@/lib/db";
 import { adminPerfNow, logAdminPerf } from "@/lib/admin/perf";
+import type { ExpenseCategory } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
 type ReportsSearchParams = {
   range?: string;
-  group?: string;
   from?: string;
   to?: string;
   expenseCategory?: string;
@@ -29,11 +29,18 @@ const rangeOptions = [
   ["custom", "Özel aralık"]
 ] as const;
 
-const groupOptions = [
-  ["daily", "Günlük"],
-  ["weekly", "Haftalık"],
-  ["monthly", "Aylık"]
-] as const;
+const EXPENSE_CATEGORIES = ["ADS", "SEO", "PROVIDER", "SOFTWARE", "DESIGN", "DOMAIN", "HOSTING", "OTHER"] as const;
+
+const expenseCategoryLabels: Record<(typeof EXPENSE_CATEGORIES)[number], string> = {
+  ADS: "Reklam",
+  SEO: "SEO",
+  PROVIDER: "Sağlayıcı",
+  SOFTWARE: "Yazılım",
+  DESIGN: "Tasarım",
+  DOMAIN: "Domain",
+  HOSTING: "Hosting",
+  OTHER: "Diğer"
+};
 
 export default async function AdminReportsPage({
   searchParams
@@ -41,42 +48,37 @@ export default async function AdminReportsPage({
   searchParams?: Promise<ReportsSearchParams>;
 }) {
   const pageStartedAt = adminPerfNow();
-  const authStartedAt = adminPerfNow();
   await requireAdmin();
-  const authMs = adminPerfNow() - authStartedAt;
   const params = await searchParams;
-  const dataStartedAt = adminPerfNow();
-  const data = await getAdminReportsData({
-    range: params?.range,
-    group: params?.group,
-    from: params?.from,
-    to: params?.to,
-    expenseCategory: params?.expenseCategory
-  });
+  const data = await getVerificationReportsData(params);
+
   logAdminPerf("page./admin/reports", {
-    authMs: `${authMs}ms`,
-    dataMs: `${adminPerfNow() - dataStartedAt}ms`,
     totalMs: `${adminPerfNow() - pageStartedAt}ms`,
     range: data.range,
-    grouping: data.grouping,
-    expenses: data.expenses.length,
-    toolUsage: data.toolUsage.length
+    payments: data.summary.paymentCount,
+    providerRows: data.providerRows.length,
+    failedJobs: data.summary.failedJobCount,
+    safeMode: data.safeMode
   });
 
   return (
     <AppShell
       area="admin"
-      title="İş raporları"
-      description="Gelir, sağlayıcı maliyeti, reklam/SEO giderleri ve net kârı günlük, haftalık veya aylık takip et."
+      title="Email verification raporları"
+      description="Gelir, doğrulama hacmi, provider maliyeti, gider ve net kârı mail verification ürünü için takip et."
     >
+      {data.safeMode ? (
+        <Notice tone="warn">
+          Raporlar güvenli veri modunda açıldı. Bazı opsiyonel tablolar okunamadı; ana ödeme ve doğrulama metrikleri sıfır değerle korunuyor.
+        </Notice>
+      ) : null}
       {params?.saved ? <Notice tone="good">Kaydedildi: {decodeURIComponent(params.saved)}</Notice> : null}
       {params?.deleted ? <Notice tone="warn">Gider silindi: {decodeURIComponent(params.deleted)}</Notice> : null}
       {params?.error ? <Notice tone="bad">İşlem tamamlanamadı. Alanları kontrol edip tekrar deneyin.</Notice> : null}
 
       <AdminSection title="Filtreler" description={`${formatAdminDate(data.start)} - ${formatAdminDate(data.end)} aralığı gösteriliyor.`}>
-        <form className="grid gap-3 md:grid-cols-3 xl:grid-cols-7">
+        <form className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
           <Select name="range" defaultValue={data.range} options={rangeOptions} />
-          <Select name="group" defaultValue={data.grouping} options={groupOptions} />
           <input name="from" type="date" defaultValue={params?.from || ""} className={inputClass} />
           <input name="to" type="date" defaultValue={params?.to || ""} className={inputClass} />
           <select name="expenseCategory" defaultValue={data.expenseCategory || ""} className={inputClass}>
@@ -85,255 +87,148 @@ export default async function AdminReportsPage({
               <option key={value} value={value}>{label}</option>
             ))}
           </select>
-          <button className="h-11 rounded-full bg-cyan px-5 text-sm font-black text-ink transition hover:bg-cyan/90 xl:col-span-2">
+          <button className="h-11 rounded-md bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700 xl:col-span-2">
             Raporu güncelle
           </button>
         </form>
       </AdminSection>
 
-      {data.summary.missingActiveCostTargets.length ? (
-        <div className="mt-4 rounded-2xl border border-amber/30 bg-amber/10 px-4 py-3 text-sm font-bold text-amber">
-          Aktif email verification provider maliyeti eksik: {data.summary.missingActiveCostTargets.map((item) => `${item.name} (${item.providerName})`).join(", ")}.
-        </div>
-      ) : null}
-
       <div className="mt-4 grid gap-3 md:grid-cols-3 2xl:grid-cols-6">
         <AdminMetricCard label="Toplam gelir" value={formatCurrency(data.summary.revenue)} note={`${data.summary.paymentCount} başarılı ödeme`} />
-        <AdminMetricCard label="Satılan kredi" value={data.summary.creditsSold} note="Başarılı ödeme ile teslim edilen kredi" />
-        <AdminMetricCard label="Kullanılan kredi" value={data.summary.creditsUsed} note="Email verification harcamaları" />
-        <AdminMetricCard label="Sağlayıcı maliyeti" value={formatCurrency(data.summary.providerCost)} note="Tamamlanan verification job tahmini maliyeti" />
-        <AdminMetricCard label="Manuel gider" value={formatCurrency(data.summary.manualExpenses)} note="Reklam, SEO, domain, yazılım vb." />
-        <AdminMetricCard label="Net kâr" value={formatCurrency(data.summary.netProfit)} note={`Marj: ${data.summary.profitMargin === null ? "-" : `${data.summary.profitMargin.toFixed(1)}%`}`} />
-        <AdminMetricCard label="Brüt kâr" value={formatCurrency(data.summary.grossProfit)} note="Gelir - sağlayıcı maliyeti" />
-        <AdminMetricCard label="İade tutarı" value={formatCurrency(data.summary.refundAmount)} note={`${data.summary.refundCount} iade kaydı`} />
-        <AdminMetricCard label="Hatalı doğrulama" value={data.summary.failedJobCount} note="Provider/job hata takibi" />
-        <AdminMetricCard label="Ort. doğrulama maliyeti" value={data.summary.costPerCleanExport === null ? "-" : formatCurrency(data.summary.costPerCleanExport)} note="Tahmini maliyet / verification job" />
-        <AdminMetricCard label="Snapshot maliyet" value={formatCurrency(data.summary.snapshotProviderCost)} note="Job tamamlandığı andaki mühürlü maliyet" />
-        <AdminMetricCard label="Snapshot kâr" value={formatCurrency(data.summary.estimatedProfit)} note="Kredi değeri - snapshot maliyet" />
-        <AdminMetricCard label="Ort. kâr/job" value={data.summary.averageProfitPerExport === null ? "-" : formatCurrency(data.summary.averageProfitPerExport)} note="Tamamlanan verification job başına tahmini kâr" />
-        <AdminMetricCard label="Ort. gelir/job" value={data.summary.averageRevenuePerExport === null ? "-" : formatCurrency(data.summary.averageRevenuePerExport)} note="Kredi değeri üzerinden tahmini gelir" />
-        <AdminMetricCard label="Ort. provider/job" value={data.summary.averageProviderCostPerTool === null ? "-" : formatCurrency(data.summary.averageProviderCostPerTool)} note="Snapshot öncelikli ortalama maliyet" />
+        <AdminMetricCard label="Satılan doğrulama" value={data.summary.verificationsSold.toLocaleString()} note="Başarılı ödemeyle teslim edilen hak" />
+        <AdminMetricCard label="Kullanılan doğrulama" value={data.summary.verificationsUsed.toLocaleString()} note="Tamamlanan verification job kullanımı" />
+        <AdminMetricCard label="Sağlayıcı maliyeti" value={formatCurrency(data.summary.providerCost)} note="Verification job snapshot maliyeti" />
+        <AdminMetricCard label="Manuel gider" value={formatCurrency(data.summary.manualExpenses)} note="Reklam, SEO, yazılım, domain vb." />
+        <AdminMetricCard label="Net kâr" value={formatCurrency(data.summary.netProfit)} note={`Marj: ${data.summary.margin === null ? "-" : `${data.summary.margin.toFixed(1)}%`}`} />
+        <AdminMetricCard label="Tamamlanan işler" value={data.summary.completedJobCount.toLocaleString()} note="Başarılı verification job" />
+        <AdminMetricCard label="Hatalı işler" value={data.summary.failedJobCount.toLocaleString()} note="Provider veya sistem hatası" />
+        <AdminMetricCard label="Geçersiz/riskli ayrıldı" value={data.summary.riskRemoved.toLocaleString()} note="Invalid + risky + disposable + catch-all" />
+        <AdminMetricCard label="Ort. maliyet / 1K" value={formatCurrency(data.summary.costPerThousand)} note="Provider maliyeti / 1.000 doğrulama" />
+        <AdminMetricCard label="Gelir / 1K" value={formatCurrency(data.summary.revenuePerThousand)} note="Ödeme geliri / 1.000 satılan doğrulama" />
+        <AdminMetricCard label="İade" value={formatCurrency(data.summary.refundAmount)} note={`${data.summary.refundCount} iade/iptal kaydı`} />
       </div>
 
-      <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_0.9fr]">
-        <AdminSection title="Kâr/zarar akışı" description="Seçilen gruplamaya göre gelir, maliyet, gider ve net kâr.">
+      <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_.8fr]">
+        <AdminSection title="Email provider maliyetleri" description="Sadece mail verification provider kayıtları ve VerificationJob verileri kullanılır. Eski foto tool/provider kayıtları bu rapora girmez.">
           <AdminTable>
-            <table className="min-w-[820px] w-full divide-y divide-white/10 text-sm">
-              <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
+            <table className="min-w-[860px] w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.12em] text-slate-500">
                 <tr>
-                  <th className="px-4 py-3">Dönem</th>
-                  <th className="px-4 py-3">Gelir</th>
-                  <th className="px-4 py-3">Sağlayıcı</th>
-                  <th className="px-4 py-3">Gider</th>
-                  <th className="px-4 py-3">Net kâr</th>
+                  <th className="px-4 py-3">Provider</th>
+                  <th className="px-4 py-3">Tamamlanan</th>
+                  <th className="px-4 py-3">Hatalı</th>
+                  <th className="px-4 py-3">Doğrulama</th>
+                  <th className="px-4 py-3">Maliyet</th>
+                  <th className="px-4 py-3">Ort. / 1K</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/10">
-                {data.series.map((row) => (
-                  <tr key={row.period}>
-                    <td className="px-4 py-3 font-black text-white">{row.period}</td>
-                    <td className="px-4 py-3 text-emerald">{formatCurrency(row.revenue)}</td>
-                    <td className="px-4 py-3 text-amber">{formatCurrency(row.providerCost)}</td>
-                    <td className="px-4 py-3 text-rose-200">{formatCurrency(row.expenses)}</td>
-                    <td className="px-4 py-3 font-black text-white">{formatCurrency(row.netProfit)}</td>
+              <tbody className="divide-y divide-slate-200">
+                {data.providerRows.map((row) => (
+                  <tr key={row.providerKey}>
+                    <td className="px-4 py-3">
+                      <p className="font-semibold text-slate-950">{row.name}</p>
+                      <p className="text-xs text-slate-500">{row.providerKey}</p>
+                    </td>
+                    <td className="px-4 py-3 text-slate-700">{row.completedJobs}</td>
+                    <td className="px-4 py-3 text-rose-700">{row.failedJobs}</td>
+                    <td className="px-4 py-3 text-slate-700">{row.verifications.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-slate-950">{formatCurrency(row.providerCost)}</td>
+                    <td className="px-4 py-3 text-slate-700">{formatCurrency(row.costPerThousand)}</td>
                   </tr>
                 ))}
-                {data.series.length === 0 ? <EmptyRow colSpan={5} message="Bu aralıkta veri yok." /> : null}
+                {data.providerRows.length === 0 ? <EmptyRow colSpan={6} message="Bu aralıkta provider kullanımı yok." /> : null}
               </tbody>
             </table>
           </AdminTable>
         </AdminSection>
 
         <div id="expenses">
-        <AdminSection title="Manuel gider ekle" description="Reklam, SEO, sağlayıcı, yazılım, domain ve hosting giderlerini buradan işle.">
-          <form action={upsertBusinessExpenseAction} className="grid gap-3">
-            <input name="title" placeholder="Gider başlığı" className={inputClass} />
-            <div className="grid gap-3 sm:grid-cols-3">
-              <select name="category" defaultValue="ADS" className={inputClass}>
-                {Object.entries(expenseCategoryLabels).map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </select>
-              <input name="amount" type="number" min="0.01" step="0.01" placeholder="Tutar" className={inputClass} />
-              <input name="currency" defaultValue="usd" className={inputClass} />
-            </div>
-            <input name="expenseDate" type="date" defaultValue={new Date().toISOString().slice(0, 10)} className={inputClass} />
-            <textarea name="note" placeholder="Not (opsiyonel)" className="min-h-24 rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm font-bold text-white outline-none focus:border-cyan" />
-            <button className="h-11 rounded-full bg-zeylora-brand text-sm font-black text-white shadow-glow transition hover:brightness-110">
-              Gider ekle
-            </button>
-          </form>
-        </AdminSection>
+          <AdminSection title="Manuel gider ekle" description="Reklam, SEO, provider, yazılım, domain ve hosting giderlerini kârlılık hesabına ekle.">
+            <form action={upsertBusinessExpenseAction} className="grid gap-3">
+              <input name="title" placeholder="Gider başlığı" className={inputClass} />
+              <div className="grid gap-3 sm:grid-cols-3">
+                <select name="category" defaultValue="ADS" className={inputClass}>
+                  {Object.entries(expenseCategoryLabels).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+                <input name="amount" type="number" min="0.01" step="0.01" placeholder="Tutar" className={inputClass} />
+                <input name="currency" defaultValue="usd" className={inputClass} />
+              </div>
+              <input name="expenseDate" type="date" defaultValue={new Date().toISOString().slice(0, 10)} className={inputClass} />
+              <textarea name="note" placeholder="Not (opsiyonel)" className="min-h-24 rounded-md border border-slate-300 bg-white px-3 py-3 text-sm font-medium text-slate-950 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
+              <button className="h-11 rounded-md bg-blue-600 text-sm font-semibold text-white transition hover:bg-blue-700">
+                Gider ekle
+              </button>
+            </form>
+          </AdminSection>
         </div>
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
-        <AdminSection title="Verification job maliyeti" description="Tamamlanan email verification işlerine göre tahmini provider maliyeti. Eski tool kayıtları varsa sadece geçmiş uyumluluk için görünür.">
+        <AdminSection title="Paket geliri" description="Başarılı ödemelerin Stripe metadata ve ödeme kaydına göre paket performansı.">
           <AdminTable>
-            <table className="min-w-[820px] w-full divide-y divide-white/10 text-sm">
-              <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
-                <tr>
-                  <th className="px-4 py-3">İş tipi</th>
-                  <th className="px-4 py-3">Tier</th>
-                  <th className="px-4 py-3">Sağlayıcı</th>
-                  <th className="px-4 py-3">İşlem</th>
-                  <th className="px-4 py-3">Run maliyeti</th>
-                  <th className="px-4 py-3">Kredi</th>
-                  <th className="px-4 py-3">Maliyet</th>
-                  <th className="px-4 py-3">Tahmini gelir</th>
-                  <th className="px-4 py-3">Tahmini kâr</th>
-                  <th className="px-4 py-3">Marj</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/10">
-                {data.toolUsage.map((row) => (
-                  <tr key={row.slug}>
-                    <td className="px-4 py-3">
-                      <p className="font-black text-white">{row.name}</p>
-                      {row.missingCost ? <p className="text-xs font-bold text-amber">Maliyet girilmemiş</p> : null}
-                    </td>
-                    <td className="px-4 py-3 text-slate-300">{row.qualityTier}</td>
-                    <td className="px-4 py-3 text-slate-300">{row.provider}</td>
-                    <td className="px-4 py-3 text-slate-300">{row.runs}</td>
-                    <td className="px-4 py-3 text-slate-300">{formatCurrency(row.costPerRun)}</td>
-                    <td className="px-4 py-3 text-slate-300">{row.credits}</td>
-                    <td className="px-4 py-3 text-amber">{formatCurrency(row.estimatedCost)}</td>
-                    <td className="px-4 py-3 text-emerald">{formatCurrency(row.estimatedRevenue)}</td>
-                    <td className="px-4 py-3 font-black text-white">{formatCurrency(row.estimatedProfit)}</td>
-                    <td className="px-4 py-3 text-slate-300">{row.marginPercent === null ? "-" : `${row.marginPercent.toFixed(1)}%`}</td>
-                  </tr>
-                ))}
-                {data.toolUsage.length === 0 ? <EmptyRow colSpan={10} message="Tamamlanan işlem yok." /> : null}
-              </tbody>
-            </table>
-          </AdminTable>
-        </AdminSection>
-
-        <AdminSection title="Email provider maliyetleri" description="Provider bazında tamamlanan/hatalı verification işi, tahmini maliyet ve bütçe placeholder bilgisi.">
-          <AdminTable>
-            <table className="min-w-[860px] w-full divide-y divide-white/10 text-sm">
-              <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
-                <tr>
-                  <th className="px-4 py-3">Provider</th>
-                  <th className="px-4 py-3">Tamamlanan</th>
-                  <th className="px-4 py-3">Hatalı</th>
-                  <th className="px-4 py-3">Varsayılan maliyet</th>
-                  <th className="px-4 py-3">Tahmini maliyet</th>
-                  <th className="px-4 py-3">Bütçe</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/10">
-                {data.providerUsage.map((row) => (
-                  <tr key={row.provider}>
-                    <td className="px-4 py-3">
-                      <p className="font-black text-white">{row.provider}</p>
-                      {row.missingCost ? <p className="text-xs font-bold text-amber">Maliyet eksik</p> : null}
-                    </td>
-                    <td className="px-4 py-3 text-slate-300">{row.completedJobs}</td>
-                    <td className="px-4 py-3 text-rose-200">{row.failedJobs}</td>
-                    <td className="px-4 py-3 text-slate-300">{formatCurrency(row.defaultCostPerRun)}</td>
-                    <td className="px-4 py-3 text-amber">{formatCurrency(row.estimatedCost)}</td>
-                    <td className="px-4 py-3 text-slate-400">
-                      <p>Günlük {formatCurrency(row.dailyBudget)}</p>
-                      <p>Aylık {formatCurrency(row.monthlyBudget)}</p>
-                      <p className="text-xs">{row.budgetMode}</p>
-                    </td>
-                  </tr>
-                ))}
-                {data.providerUsage.length === 0 ? <EmptyRow colSpan={6} message="Provider kullanımı yok." /> : null}
-              </tbody>
-            </table>
-          </AdminTable>
-        </AdminSection>
-      </div>
-
-      <div className="mt-4 grid gap-4 xl:grid-cols-2">
-        <AdminSection title="En kârlı araçlar" description="Snapshot gelir/kâr alanlarına göre en iyi araçlar.">
-          <AdminTable>
-            <table className="min-w-[680px] w-full divide-y divide-white/10 text-sm">
-              <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
-                <tr>
-                  <th className="px-4 py-3">Araç</th>
-                  <th className="px-4 py-3">İşlem</th>
-                  <th className="px-4 py-3">Toplam kâr</th>
-                  <th className="px-4 py-3">Ort. kâr</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/10">
-                {[...data.toolUsage].sort((a, b) => b.estimatedProfit - a.estimatedProfit).slice(0, 5).map((row) => (
-                  <tr key={row.slug}>
-                    <td className="px-4 py-3 font-black text-white">{row.name}</td>
-                    <td className="px-4 py-3 text-slate-300">{row.runs}</td>
-                    <td className="px-4 py-3 text-emerald">{formatCurrency(row.estimatedProfit)}</td>
-                    <td className="px-4 py-3 text-white">{formatCurrency(row.averageProfit)}</td>
-                  </tr>
-                ))}
-                {data.toolUsage.length === 0 ? <EmptyRow colSpan={4} message="Kâr hesaplanacak işlem yok." /> : null}
-              </tbody>
-            </table>
-          </AdminTable>
-        </AdminSection>
-
-        <AdminSection title="En düşük kârlı araçlar" description="Maliyeti yüksek veya kredi değeri düşük kalan araçları hızlı yakala.">
-          <AdminTable>
-            <table className="min-w-[680px] w-full divide-y divide-white/10 text-sm">
-              <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
-                <tr>
-                  <th className="px-4 py-3">Araç</th>
-                  <th className="px-4 py-3">İşlem</th>
-                  <th className="px-4 py-3">Toplam kâr</th>
-                  <th className="px-4 py-3">Ort. kâr</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/10">
-                {[...data.toolUsage].sort((a, b) => a.estimatedProfit - b.estimatedProfit).slice(0, 5).map((row) => (
-                  <tr key={row.slug}>
-                    <td className="px-4 py-3 font-black text-white">{row.name}</td>
-                    <td className="px-4 py-3 text-slate-300">{row.runs}</td>
-                    <td className="px-4 py-3 text-rose-200">{formatCurrency(row.estimatedProfit)}</td>
-                    <td className="px-4 py-3 text-white">{formatCurrency(row.averageProfit)}</td>
-                  </tr>
-                ))}
-                {data.toolUsage.length === 0 ? <EmptyRow colSpan={4} message="Kâr hesaplanacak işlem yok." /> : null}
-              </tbody>
-            </table>
-          </AdminTable>
-        </AdminSection>
-      </div>
-
-      <div className="mt-4 grid gap-4 xl:grid-cols-2">
-        <AdminSection title="Paket geliri" description="Başarılı ödemelerdeki paket metadata bilgisine göre gelir.">
-          <AdminTable>
-            <table className="min-w-[680px] w-full divide-y divide-white/10 text-sm">
-              <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
+            <table className="min-w-[720px] w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.12em] text-slate-500">
                 <tr>
                   <th className="px-4 py-3">Paket</th>
                   <th className="px-4 py-3">Ödeme</th>
-                  <th className="px-4 py-3">Kredi</th>
+                  <th className="px-4 py-3">Doğrulama</th>
                   <th className="px-4 py-3">Gelir</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/10">
-                {data.packageRevenue.map((row) => (
+              <tbody className="divide-y divide-slate-200">
+                {data.packageRows.map((row) => (
                   <tr key={row.packageName}>
-                    <td className="px-4 py-3 font-black text-white">{row.packageName}</td>
-                    <td className="px-4 py-3 text-slate-300">{row.payments}</td>
-                    <td className="px-4 py-3 text-slate-300">{row.credits}</td>
-                    <td className="px-4 py-3 text-emerald">{formatCurrency(row.revenue)}</td>
+                    <td className="px-4 py-3 font-semibold text-slate-950">{row.packageName}</td>
+                    <td className="px-4 py-3 text-slate-700">{row.payments}</td>
+                    <td className="px-4 py-3 text-slate-700">{row.verifications.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-emerald-700">{formatCurrency(row.revenue)}</td>
                   </tr>
                 ))}
-                {data.packageRevenue.length === 0 ? <EmptyRow colSpan={4} message="Ödeme yok." /> : null}
+                {data.packageRows.length === 0 ? <EmptyRow colSpan={4} message="Bu aralıkta başarılı ödeme yok." /> : null}
+              </tbody>
+            </table>
+          </AdminTable>
+        </AdminSection>
+
+        <AdminSection title="Son doğrulama işleri" description="Mail verification job özetleri. Email sonuç satırları burada yüklenmez; detay sayfasında sayfalı açılır.">
+          <AdminTable>
+            <table className="min-w-[760px] w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.12em] text-slate-500">
+                <tr>
+                  <th className="px-4 py-3">İş</th>
+                  <th className="px-4 py-3">Durum</th>
+                  <th className="px-4 py-3">Email</th>
+                  <th className="px-4 py-3">Provider</th>
+                  <th className="px-4 py-3">Tarih</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {data.recentJobs.map((job) => (
+                  <tr key={job.id}>
+                    <td className="px-4 py-3">
+                      <p className="font-semibold text-slate-950">{job.originalFilename || job.id.slice(0, 8)}</p>
+                      {job.errorMessage ? <p className="mt-1 max-w-xs truncate text-xs text-rose-700">{job.errorMessage}</p> : null}
+                    </td>
+                    <td className="px-4 py-3"><JobStatus status={job.status} /></td>
+                    <td className="px-4 py-3 text-slate-700">{job.uniqueEmails.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-slate-700">{job.providerKey}</td>
+                    <td className="px-4 py-3 text-slate-500">{formatAdminDate(job.createdAt)}</td>
+                  </tr>
+                ))}
+                {data.recentJobs.length === 0 ? <EmptyRow colSpan={5} message="Bu aralıkta doğrulama işi yok." /> : null}
               </tbody>
             </table>
           </AdminTable>
         </AdminSection>
       </div>
 
-      <div className="mt-4 grid gap-4 xl:grid-cols-2">
-        <AdminSection title="Gider kayıtları" description="Son 100 gider kaydı. Düzenleme ve silme soft-delete mantığıyla yapılır.">
+      <div className="mt-4">
+        <AdminSection title="Gider kayıtları" description="Son 50 gider kaydı. Silme işlemi soft-delete olarak uygulanır.">
           <AdminTable>
-            <table className="min-w-[980px] w-full divide-y divide-white/10 text-sm">
-              <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
+            <table className="min-w-[920px] w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.12em] text-slate-500">
                 <tr>
                   <th className="px-4 py-3">Gider</th>
                   <th className="px-4 py-3">Kategori</th>
@@ -342,38 +237,20 @@ export default async function AdminReportsPage({
                   <th className="px-4 py-3">Kontrol</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/10">
+              <tbody className="divide-y divide-slate-200">
                 {data.expenses.map((expense) => (
                   <tr key={expense.id} className="align-top">
                     <td className="px-4 py-3">
-                      <p className="font-black text-white">{expense.title}</p>
-                      <p className="mt-1 max-w-xs text-xs leading-5 text-slate-400">{expense.note || "Not yok"}</p>
+                      <p className="font-semibold text-slate-950">{expense.title}</p>
+                      <p className="mt-1 max-w-xs text-xs leading-5 text-slate-500">{expense.note || "Not yok"}</p>
                     </td>
                     <td className="px-4 py-3"><AdminStatusPill>{expenseCategoryLabels[expense.category]}</AdminStatusPill></td>
-                    <td className="px-4 py-3 text-rose-200">{formatCurrency(Number(expense.amount), expense.currency)}</td>
-                    <td className="px-4 py-3 text-slate-400">{formatAdminDate(expense.expenseDate)}</td>
+                    <td className="px-4 py-3 text-rose-700">{formatCurrency(Number(expense.amount), expense.currency)}</td>
+                    <td className="px-4 py-3 text-slate-500">{formatAdminDate(expense.expenseDate)}</td>
                     <td className="px-4 py-3">
-                      <form action={upsertBusinessExpenseAction} className="grid min-w-[320px] gap-2">
+                      <form action={deleteBusinessExpenseAction}>
                         <input type="hidden" name="expenseId" value={expense.id} />
-                        <input name="title" defaultValue={expense.title} className={`${inputClass} h-9`} />
-                        <div className="grid gap-2 sm:grid-cols-3">
-                          <select name="category" defaultValue={expense.category} className={`${inputClass} h-9`}>
-                            {Object.entries(expenseCategoryLabels).map(([value, label]) => (
-                              <option key={value} value={value}>{label}</option>
-                            ))}
-                          </select>
-                          <input name="amount" type="number" min="0.01" step="0.01" defaultValue={Number(expense.amount)} className={`${inputClass} h-9`} />
-                          <input name="currency" defaultValue={expense.currency} className={`${inputClass} h-9`} />
-                        </div>
-                        <input name="expenseDate" type="date" defaultValue={new Date(expense.expenseDate).toISOString().slice(0, 10)} className={`${inputClass} h-9`} />
-                        <input name="note" defaultValue={expense.note || ""} placeholder="Not" className={`${inputClass} h-9`} />
-                        <div className="grid gap-2 sm:grid-cols-2">
-                          <button className="h-9 rounded-full bg-zeylora-brand text-xs font-black text-white">Kaydet</button>
-                        </div>
-                      </form>
-                      <form action={deleteBusinessExpenseAction} className="mt-2">
-                        <input type="hidden" name="expenseId" value={expense.id} />
-                        <button className="h-9 w-full rounded-full border border-rose-400/30 bg-rose-400/10 text-xs font-black text-rose-200">
+                        <button className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
                           Sil
                         </button>
                       </form>
@@ -385,72 +262,292 @@ export default async function AdminReportsPage({
             </table>
           </AdminTable>
         </AdminSection>
-
-        <div className="grid gap-4">
-          <AdminSection title="En yüksek ödeme yapan kullanıcılar" description="Başarılı ödeme toplamına göre ilk 5 kullanıcı.">
-            <AdminTable>
-              <table className="min-w-[620px] w-full divide-y divide-white/10 text-sm">
-                <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
-                  <tr>
-                    <th className="px-4 py-3">Kullanıcı</th>
-                    <th className="px-4 py-3">Ödeme</th>
-                    <th className="px-4 py-3">Tutar</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/10">
-                  {data.topUsers.map((user) => (
-                    <tr key={user.userId}>
-                      <td className="px-4 py-3 font-black text-white">{user.email}</td>
-                      <td className="px-4 py-3 text-slate-300">{user.paymentCount}</td>
-                      <td className="px-4 py-3 text-emerald">{formatCurrency(user.amount)}</td>
-                    </tr>
-                  ))}
-                  {data.topUsers.length === 0 ? <EmptyRow colSpan={3} message="Ödeme yapan kullanıcı yok." /> : null}
-                </tbody>
-              </table>
-            </AdminTable>
-          </AdminSection>
-
-          <AdminSection title="Hatalı işler" description="Provider/tool bazında hata yoğunluğu.">
-            <AdminTable>
-              <table className="min-w-[620px] w-full divide-y divide-white/10 text-sm">
-                <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
-                  <tr>
-                    <th className="px-4 py-3">Araç</th>
-                    <th className="px-4 py-3">Sağlayıcı</th>
-                    <th className="px-4 py-3">Hata</th>
-                    <th className="px-4 py-3">Son hata</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/10">
-                  {data.failedByTool.map((row) => (
-                    <tr key={`${row.tool}-${row.provider}`}>
-                      <td className="px-4 py-3 font-black text-white">{row.tool}</td>
-                      <td className="px-4 py-3 text-slate-300">{row.provider}</td>
-                      <td className="px-4 py-3 text-rose-200">{row.count}</td>
-                      <td className="max-w-xs truncate px-4 py-3 text-slate-400">{row.lastError || "-"}</td>
-                    </tr>
-                  ))}
-                  {data.failedByTool.length === 0 ? <EmptyRow colSpan={4} message="Hatalı işlem yok." /> : null}
-                </tbody>
-              </table>
-            </AdminTable>
-          </AdminSection>
-        </div>
       </div>
     </AppShell>
   );
 }
 
-function Select({
-  name,
-  defaultValue,
-  options
-}: {
-  name: string;
-  defaultValue: string;
-  options: readonly (readonly [string, string])[];
-}) {
+async function getVerificationReportsData(params?: ReportsSearchParams) {
+  const range = normalizeRange(params?.range);
+  const { start, end } = getDateRange(range, params?.from, params?.to);
+  const expenseCategory = normalizeExpenseCategory(params?.expenseCategory);
+  const expenseWhere = {
+    deletedAt: null,
+    expenseDate: { gte: start, lte: end },
+    ...(expenseCategory ? { category: expenseCategory } : {})
+  };
+
+  const results = await Promise.allSettled([
+    prisma.payment.aggregate({
+      where: { deletedAt: null, status: "PAID", createdAt: { gte: start, lte: end } },
+      _sum: { amount: true, creditsDelivered: true },
+      _count: { _all: true }
+    }),
+    prisma.payment.aggregate({
+      where: { deletedAt: null, status: { in: ["REFUNDED", "PARTIALLY_REFUNDED", "CANCELLED"] }, createdAt: { gte: start, lte: end } },
+      _sum: { amount: true },
+      _count: { _all: true }
+    }),
+    prisma.payment.findMany({
+      where: { deletedAt: null, status: "PAID", createdAt: { gte: start, lte: end } },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+      select: { amount: true, creditsDelivered: true, rawEventJson: true }
+    }),
+    prisma.verificationJob.groupBy({
+      by: ["providerKey", "status"],
+      where: { deletedAt: null, createdAt: { gte: start, lte: end } },
+      _sum: {
+        uniqueEmails: true,
+        creditsUsed: true,
+        invalidCount: true,
+        riskyCount: true,
+        catchAllCount: true,
+        disposableCount: true,
+        providerCostAtRun: true
+      },
+      _count: { _all: true }
+    }),
+    prisma.verificationJob.findMany({
+      where: { deletedAt: null, createdAt: { gte: start, lte: end } },
+      orderBy: { createdAt: "desc" },
+      take: 25,
+      select: {
+        id: true,
+        status: true,
+        originalFilename: true,
+        uniqueEmails: true,
+        providerKey: true,
+        errorMessage: true,
+        createdAt: true
+      }
+    }),
+    prisma.businessExpense.findMany({
+      where: expenseWhere,
+      orderBy: { expenseDate: "desc" },
+      take: 50,
+      select: { id: true, title: true, category: true, amount: true, currency: true, expenseDate: true, note: true }
+    }),
+    prisma.providerSetting.findMany({
+      where: {
+        OR: [
+          { providerType: { in: ["email-verification", "email_verification"] } },
+          { providerKey: { contains: "million", mode: "insensitive" } },
+          { name: { contains: "mail", mode: "insensitive" } }
+        ]
+      },
+      select: { providerKey: true, name: true, estimatedCostPerRun: true }
+    })
+  ]);
+
+  const paidAggregate = resultOr(results[0], { _sum: { amount: null, creditsDelivered: null }, _count: { _all: 0 } });
+  const refundAggregate = resultOr(results[1], { _sum: { amount: null }, _count: { _all: 0 } });
+  const paidPayments = resultOr(results[2], [] as Array<{ amount: unknown; creditsDelivered: number; rawEventJson: unknown }>);
+  const jobGroups = resultOr(results[3], [] as Array<{
+    providerKey: string;
+    status: string;
+    _sum: {
+      uniqueEmails: number | null;
+      creditsUsed: number | null;
+      invalidCount: number | null;
+      riskyCount: number | null;
+      catchAllCount: number | null;
+      disposableCount: number | null;
+      providerCostAtRun: unknown;
+    };
+    _count: { _all: number };
+  }>);
+  const recentJobs = resultOr(results[4], [] as Array<{
+    id: string;
+    status: string;
+    originalFilename: string | null;
+    uniqueEmails: number;
+    providerKey: string;
+    errorMessage: string | null;
+    createdAt: Date;
+  }>);
+  const expenses = resultOr(results[5], [] as Array<{
+    id: string;
+    title: string;
+    category: ExpenseCategory;
+    amount: unknown;
+    currency: string;
+    expenseDate: Date;
+    note: string | null;
+  }>);
+  const providers = resultOr(results[6], [] as Array<{ providerKey: string; name: string; estimatedCostPerRun: unknown }>);
+  const safeMode = results.some((result) => result.status === "rejected");
+  if (safeMode) {
+    console.error("[admin-reports-failed]", results.filter((item) => item.status === "rejected").map((item) => item.reason instanceof Error ? item.reason.message : String(item.reason)));
+  }
+
+  const providerRows = buildProviderRows(
+    jobGroups,
+    providers
+  );
+  const completedProviderRows = providerRows.filter((row) => row.completedJobs > 0);
+  const revenue = decimalToNumber(paidAggregate?._sum.amount);
+  const verificationsSold = paidAggregate?._sum.creditsDelivered ?? 0;
+  const refundAmount = decimalToNumber(refundAggregate?._sum.amount);
+  const manualExpenses = expenses.reduce((sum, expense) => sum + decimalToNumber(expense.amount), 0);
+  const providerCost = providerRows.reduce((sum, row) => sum + row.providerCost, 0);
+  const verificationsUsed = completedProviderRows.reduce((sum, row) => sum + row.verifications, 0);
+  const failedJobCount = providerRows.reduce((sum, row) => sum + row.failedJobs, 0);
+  const completedJobCount = completedProviderRows.reduce((sum, row) => sum + row.completedJobs, 0);
+  const riskRemoved = jobGroups.reduce((sum, row) => sum + (row.status === "COMPLETED" ? (row._sum.invalidCount ?? 0) + (row._sum.riskyCount ?? 0) + (row._sum.catchAllCount ?? 0) + (row._sum.disposableCount ?? 0) : 0), 0);
+  const netProfit = revenue - providerCost - manualExpenses;
+
+  return {
+    range,
+    start,
+    end,
+    expenseCategory,
+    safeMode,
+    summary: {
+      revenue,
+      paymentCount: paidAggregate?._count._all ?? 0,
+      verificationsSold,
+      verificationsUsed,
+      providerCost,
+      manualExpenses,
+      netProfit,
+      margin: revenue > 0 ? (netProfit / revenue) * 100 : null,
+      completedJobCount,
+      failedJobCount,
+      riskRemoved,
+      costPerThousand: verificationsUsed > 0 ? (providerCost / verificationsUsed) * 1000 : 0,
+      revenuePerThousand: verificationsSold > 0 ? (revenue / verificationsSold) * 1000 : 0,
+      refundAmount,
+      refundCount: refundAggregate?._count._all ?? 0
+    },
+    providerRows,
+    packageRows: buildPackageRows(paidPayments),
+    recentJobs,
+    expenses
+  };
+}
+
+function resultOr<T>(result: PromiseSettledResult<unknown> | undefined, fallback: T): T {
+  return result?.status === "fulfilled" ? (result.value as T) : fallback;
+}
+
+function buildProviderRows(
+  groups: Array<{
+    providerKey: string;
+    status: string;
+    _sum: { uniqueEmails: number | null; creditsUsed: number | null; providerCostAtRun: unknown };
+    _count: { _all: number };
+  }>,
+  settings: Array<{ providerKey: string; name: string; estimatedCostPerRun: unknown }>
+) {
+  const names = new Map(settings.map((provider) => [provider.providerKey, provider.name]));
+  const rows = new Map<string, { providerKey: string; name: string; completedJobs: number; failedJobs: number; verifications: number; providerCost: number }>();
+
+  for (const group of groups) {
+    const row = rows.get(group.providerKey) || {
+      providerKey: group.providerKey,
+      name: names.get(group.providerKey) || group.providerKey,
+      completedJobs: 0,
+      failedJobs: 0,
+      verifications: 0,
+      providerCost: 0
+    };
+
+    if (group.status === "COMPLETED") {
+      row.completedJobs += group._count._all;
+      row.verifications += group._sum.creditsUsed ?? group._sum.uniqueEmails ?? 0;
+      row.providerCost += decimalToNumber(group._sum.providerCostAtRun);
+    }
+    if (group.status === "FAILED") row.failedJobs += group._count._all;
+    rows.set(group.providerKey, row);
+  }
+
+  for (const setting of settings) {
+    if (!rows.has(setting.providerKey)) {
+      rows.set(setting.providerKey, {
+        providerKey: setting.providerKey,
+        name: setting.name,
+        completedJobs: 0,
+        failedJobs: 0,
+        verifications: 0,
+        providerCost: 0
+      });
+    }
+  }
+
+  return Array.from(rows.values()).map((row) => ({
+    ...row,
+    costPerThousand: row.verifications > 0 ? (row.providerCost / row.verifications) * 1000 : 0
+  })).sort((a, b) => b.verifications - a.verifications);
+}
+
+function buildPackageRows(payments: Array<{ amount: unknown; creditsDelivered: number; rawEventJson: unknown }>) {
+  const rows = new Map<string, { packageName: string; payments: number; verifications: number; revenue: number }>();
+  for (const payment of payments) {
+    const packageName = getPaymentPackageName(payment.rawEventJson);
+    const row = rows.get(packageName) || { packageName, payments: 0, verifications: 0, revenue: 0 };
+    row.payments += 1;
+    row.verifications += payment.creditsDelivered || 0;
+    row.revenue += decimalToNumber(payment.amount);
+    rows.set(packageName, row);
+  }
+  return Array.from(rows.values()).sort((a, b) => b.revenue - a.revenue);
+}
+
+function getPaymentPackageName(rawEventJson: unknown) {
+  if (!rawEventJson || typeof rawEventJson !== "object" || Array.isArray(rawEventJson)) return "Bilinmeyen paket";
+  const record = rawEventJson as { data?: { object?: { metadata?: Record<string, unknown> } }; metadata?: Record<string, unknown> };
+  const metadata = record.metadata || record.data?.object?.metadata || {};
+  const name = metadata.packageName || metadata.packageId;
+  return typeof name === "string" && name.trim() ? name : "Bilinmeyen paket";
+}
+
+function normalizeRange(value: string | undefined) {
+  return rangeOptions.some(([key]) => key === value) ? value! : "last30";
+}
+
+function getDateRange(range: string, from?: string, to?: string) {
+  const now = new Date();
+  const todayStart = startOfDay(now);
+  if (range === "today") return { start: todayStart, end: endOfDay(now) };
+  if (range === "yesterday") {
+    const yesterday = new Date(todayStart.getTime() - 86_400_000);
+    return { start: startOfDay(yesterday), end: endOfDay(yesterday) };
+  }
+  if (range === "last7") return { start: startOfDay(new Date(todayStart.getTime() - 6 * 86_400_000)), end: endOfDay(now) };
+  if (range === "thisMonth") return { start: new Date(now.getFullYear(), now.getMonth(), 1), end: endOfDay(now) };
+  if (range === "lastMonth") {
+    const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    return { start, end: endOfDay(new Date(now.getFullYear(), now.getMonth(), 0)) };
+  }
+  if (range === "custom" && from && to) return { start: startOfDay(new Date(from)), end: endOfDay(new Date(to)) };
+  return { start: startOfDay(new Date(todayStart.getTime() - 29 * 86_400_000)), end: endOfDay(now) };
+}
+
+function startOfDay(date: Date) {
+  const clone = new Date(date);
+  clone.setHours(0, 0, 0, 0);
+  return clone;
+}
+
+function endOfDay(date: Date) {
+  const clone = new Date(date);
+  clone.setHours(23, 59, 59, 999);
+  return clone;
+}
+
+function normalizeExpenseCategory(value: string | undefined): ExpenseCategory | undefined {
+  return EXPENSE_CATEGORIES.includes(value as ExpenseCategory) ? (value as ExpenseCategory) : undefined;
+}
+
+function JobStatus({ status }: { status: string }) {
+  if (status === "COMPLETED") return <AdminStatusPill tone="good">Tamamlandı</AdminStatusPill>;
+  if (status === "FAILED") return <AdminStatusPill tone="bad">Hatalı</AdminStatusPill>;
+  if (status === "PROCESSING") return <AdminStatusPill tone="warn">İşleniyor</AdminStatusPill>;
+  return <AdminStatusPill>Bekliyor</AdminStatusPill>;
+}
+
+function Select({ name, defaultValue, options }: { name: string; defaultValue: string; options: readonly (readonly [string, string])[] }) {
   return (
     <select name={name} defaultValue={defaultValue} className={inputClass}>
       {options.map(([value, label]) => (
@@ -463,27 +560,36 @@ function Select({
 function EmptyRow({ colSpan, message }: { colSpan: number; message: string }) {
   return (
     <tr>
-      <td colSpan={colSpan} className="px-4 py-8 text-center text-slate-400">{message}</td>
+      <td colSpan={colSpan} className="px-4 py-8 text-center text-sm font-semibold text-slate-500">
+        {message}
+      </td>
     </tr>
   );
 }
 
-function Notice({ tone, children }: { tone: "good" | "bad" | "warn"; children: ReactNode }) {
-  const styles = {
-    good: "border-emerald/30 bg-emerald/10 text-emerald",
-    bad: "border-rose-400/30 bg-rose-400/10 text-rose-200",
-    warn: "border-amber/30 bg-amber/10 text-amber"
+function Notice({ children, tone }: { children: ReactNode; tone: "good" | "warn" | "bad" }) {
+  const classes = {
+    good: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    warn: "border-amber-200 bg-amber-50 text-amber-700",
+    bad: "border-rose-200 bg-rose-50 text-rose-700"
   };
+  return <div className={`mb-4 rounded-lg border px-4 py-3 text-sm font-semibold ${classes[tone]}`}>{children}</div>;
+}
 
-  return <div className={`mb-4 rounded-2xl border px-4 py-3 text-sm font-black ${styles[tone]}`}>{children}</div>;
+function decimalToNumber(value: unknown) {
+  if (value === null || value === undefined) return 0;
+  if (typeof value === "number") return value;
+  if (typeof value === "string") return Number(value) || 0;
+  if (typeof value === "object" && "toString" in value) return Number(value.toString()) || 0;
+  return 0;
 }
 
 function formatCurrency(value: number, currency = "usd") {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: currency.toUpperCase(),
-    maximumFractionDigits: 2
+    maximumFractionDigits: value >= 100 ? 0 : 2
   }).format(value);
 }
 
-const inputClass = "h-11 rounded-xl border border-white/10 bg-white/5 px-3 text-sm font-bold text-white outline-none focus:border-cyan";
+const inputClass = "h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-950 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100";

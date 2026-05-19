@@ -50,14 +50,16 @@ export async function getCreditPackagesForDisplay(): Promise<PublicCreditPackage
     });
 
     if (dbPackages.length > 0) {
-      const mappedDbPackages = dbPackages.map((pack) => {
+      const mappedDbPackages = dbPackages
+        .filter((pack) => isEmailVerificationPackage(pack.name, pack.featureFlagKey))
+        .map((pack) => {
         const fallback = findPackageConfig(pack.name, pack.featureFlagKey);
         const bonusCredits = Math.max(0, pack.bonusCredits);
 
         return {
           id: pack.id,
           key: fallback?.key ?? slugify(pack.name),
-          name: fallback && isLegacyPackageName(pack.name, pack.featureFlagKey) ? fallback.name : pack.name,
+          name: fallback ? fallback.name : pack.name,
           credits: Math.max(0, pack.credits),
           bonusCredits,
           totalCredits: Math.max(0, pack.credits) + bonusCredits,
@@ -72,8 +74,12 @@ export async function getCreditPackagesForDisplay(): Promise<PublicCreditPackage
           sortOrder: pack.sortOrder
         };
       });
+      if (mappedDbPackages.length === creditPackages.length) {
+        return dedupePackages(mappedDbPackages);
+      }
       const dbConfigKeys = new Set(
         dbPackages
+          .filter((pack) => isEmailVerificationPackage(pack.name, pack.featureFlagKey))
           .map((pack) => findPackageConfig(pack.name, pack.featureFlagKey)?.key)
           .filter((key): key is (typeof creditPackages)[number]["key"] => Boolean(key))
       );
@@ -116,10 +122,10 @@ export async function ensureLaunchCreditPackageDefaults() {
   const activeFeatureFlagKeys = creditPackages.map((pack) => pack.featureFlagKey);
   const legacyFeatureFlagKeys = [
     "pricing_pack_starter_trial",
-    "pricing_pack_pro",
     "pricing_pack_creator",
     "pricing_pack_pro_seller",
-    "pricing_pack_studio"
+    "pricing_pack_studio",
+    "pricing_pack_trial"
   ];
   const legacyPackageNames = [
     "Starter Trial Pack",
@@ -130,7 +136,7 @@ export async function ensureLaunchCreditPackageDefaults() {
   ];
 
   for (const [index, pack] of creditPackages.entries()) {
-    const legacyNames = [pack.name];
+    const legacyNames = getPackageLegacyNames(pack.key, pack.name);
     const existing = await prisma.creditPackage.findFirst({
       where: {
         deletedAt: null,
@@ -240,10 +246,16 @@ function shouldRepairLaunchPackage(
   );
 }
 
-function isLegacyPackageName(name: string, featureFlagKey: string | null) {
-  if (featureFlagKey === "pricing_pack_starter" && name === "Starter") return true;
-  if (featureFlagKey === "pricing_pack_growth" && name === "Growth") return true;
-  return featureFlagKey === "pricing_pack_trial" && name !== "Starter";
+function isEmailVerificationPackage(name: string, featureFlagKey: string | null) {
+  return Boolean(findPackageConfig(name, featureFlagKey));
+}
+
+function getPackageLegacyNames(key: string, name: string) {
+  if (key === "starter") return [name, "Starter Trial Pack", "Trial Pack"];
+  if (key === "growth") return [name, "Starter"];
+  if (key === "scale") return [name, "Creator"];
+  if (key === "business") return [name, "Business"];
+  return [name];
 }
 
 function slugify(value: string) {

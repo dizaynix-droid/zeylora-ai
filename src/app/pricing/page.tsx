@@ -7,6 +7,17 @@ import { VerifyBadge, VerifyContainer, VerifyPageShell, VerifyPanel } from "@/co
 import { getCreditPackagesForDisplay } from "@/lib/pricing/packages";
 import { createMetadata } from "@/lib/seo";
 
+const pricingFeatures = [
+  "SMTP & MX Validation",
+  "Disposable Email Detection",
+  "Catch-All Detection",
+  "CSV Export",
+  "Real-Time Verification",
+  "Sender Reputation Protection",
+  "Usage Based Credits",
+  "No Subscription Required"
+];
+
 export const metadata: Metadata = createMetadata({
   title: "Pricing",
   description: "Buy Zeylora email verification credits. 1 credit verifies 1 email.",
@@ -51,6 +62,14 @@ export default async function PricingPage({
                 </VerifyPanel>
               ))}
             </div>
+
+            <div className="mt-5 flex flex-wrap gap-2">
+              {pricingFeatures.map((feature) => (
+                <span key={feature} className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm">
+                  {feature}
+                </span>
+              ))}
+            </div>
           </VerifyContainer>
         </section>
 
@@ -80,7 +99,7 @@ export default async function PricingPage({
                   <p className="mt-4 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">usage based, no subscription</p>
                   <CheckoutButton
                     packageId={pack.id}
-                    label={pack.key === "trial" ? "Start with 1,000" : "Buy verifications"}
+                    label={pack.key === "starter" ? "Start here" : "Buy verifications"}
                     className="mt-auto inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-blue-600 text-sm font-semibold text-white transition hover:bg-blue-700"
                   />
                 </VerifyPanel>
@@ -99,7 +118,7 @@ export default async function PricingPage({
                 <div>
                   <h2 className="text-xl font-semibold text-slate-950">Need higher volume?</h2>
                   <p className="mt-1 text-sm leading-6 text-slate-600">
-                    Contact support for bulk verification credits, agency usage, and larger sender operations.
+                    Need more volume? Contact sales for private verification capacity above 1,000,000 emails.
                   </p>
                 </div>
                 <a href="/contact" className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 hover:bg-slate-50">

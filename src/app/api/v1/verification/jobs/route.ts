@@ -1,20 +1,15 @@
 import { NextResponse } from "next/server";
-import type { Prisma } from "@prisma/client";
-import type { VerificationEmailStatus } from "@prisma/client";
 import { checkRateLimit, rateLimitResponse } from "@/lib/abuse/rate-limit";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db";
 import { uploadPrivateObject } from "@/lib/storage/s3-client";
-import { buildVerificationCsv, filterResultsForExport } from "@/lib/verification/csv";
 import { parseEmailList, looksLikeSupportedListFile } from "@/lib/verification/email-parser";
 import { getVerificationEconomicsSnapshot } from "@/lib/verification/economics";
-import { getVerificationProvider } from "@/lib/verification/providers";
-import type { VerificationProviderResult } from "@/lib/verification/types";
+import { refundVerificationCredits, reserveVerificationCredits } from "@/lib/verification/processor";
 
 export const runtime = "nodejs";
 
-const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
-const BATCH_SIZE = 50;
+const MAX_UPLOAD_BYTES = Number(process.env.MAX_VERIFICATION_UPLOAD_BYTES || 25 * 1024 * 1024);
 
 export async function GET(request: Request) {
   const startedAt = Date.now();
@@ -51,8 +46,10 @@ export async function GET(request: Request) {
         catchAllCount: true,
         disposableCount: true,
         unknownCount: true,
+        creditsReserved: true,
         creditsUsed: true,
         providerKey: true,
+        progressPercent: true,
         createdAt: true,
         completedAt: true,
         errorMessage: true
@@ -107,7 +104,13 @@ export async function POST(request: Request) {
 
   if (file instanceof File && file.size > 0) {
     if (file.size > MAX_UPLOAD_BYTES) {
-      return NextResponse.json({ ok: false, error: "Upload limit is 10MB." }, { status: 413 });
+      return NextResponse.json(
+        {
+          ok: false,
+          error: `Upload limit is ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)}MB. Split larger lists or contact support for bulk verification.`
+        },
+        { status: 413 }
+      );
     }
     if (!looksLikeSupportedListFile(file)) {
       return NextResponse.json({ ok: false, error: "Please upload a CSV or TXT file." }, { status: 400 });
@@ -139,8 +142,6 @@ export async function POST(request: Request) {
   const providerSettings = await prisma.providerSetting.findUnique({
     where: { providerKey: economics.providerKey },
     select: {
-      apiKeyEncrypted: true,
-      configJson: true,
       status: true
     }
   });
@@ -156,10 +157,6 @@ export async function POST(request: Request) {
     );
   }
 
-  const provider = getVerificationProvider(economics.providerKey, {
-    apiKey: providerSettings?.apiKeyEncrypted,
-    baseUrl: readProviderBaseUrl(providerSettings?.configJson)
-  });
   const inputKey = `verification/${user.id}/${crypto.randomUUID()}/input.txt`;
   const job = await prisma.verificationJob.create({
     data: {
@@ -168,7 +165,7 @@ export async function POST(request: Request) {
       sourceType: file instanceof File ? "upload" : "paste",
       originalFilename,
       inputStorageKey: inputKey,
-      providerKey: provider.key,
+      providerKey: economics.providerKey,
       totalEmails: parsed.totalRows,
       uniqueEmails: parsed.uniqueEmails.length,
       duplicateCount: parsed.duplicateEmails.length,
@@ -180,14 +177,21 @@ export async function POST(request: Request) {
       providerCostCurrency: economics.providerCostCurrency,
       estimatedRevenueAtRun: economics.estimatedRevenue,
       estimatedProfitAtRun: economics.estimatedProfit,
-      progressPercent: 5,
-      startedAt: new Date(),
+      progressPercent: 2,
       metadataJson: {
         parser: "regex_email_extractor",
-        duplicateEmails: parsed.duplicateEmails.slice(0, 100)
+        duplicateEmails: parsed.duplicateEmails.slice(0, 100),
+        queuedAt: new Date().toISOString(),
+        queueMode: "chunked_worker"
       }
     },
-    select: { id: true }
+    select: {
+      id: true,
+      status: true,
+      uniqueEmails: true,
+      creditsReserved: true,
+      progressPercent: true
+    }
   });
 
   const reservation = await reserveVerificationCredits({
@@ -216,244 +220,69 @@ export async function POST(request: Request) {
       cacheControl: "private, max-age=0"
     });
 
-    await prisma.verificationJob.update({
-      where: { id: job.id },
-      data: { status: "PROCESSING", progressPercent: 15 }
-    });
-
-    const providerResults = await verifyInBatches(provider.verifyBatch.bind(provider), parsed.uniqueEmails, async (progress) => {
-      await prisma.verificationJob.update({
-        where: { id: job.id },
-        data: { progressPercent: progress }
-      });
-    });
-    const dbResults = providerResults.map((result) => toDbResult(job.id, result));
-    await prisma.verificationEmailResult.createMany({
-      data: dbResults
-    });
-
-    const counts = countStatuses(providerResults.map((result) => result.status));
-    const csvResults = dbResults.map((result) => ({
-      email: result.email,
-      normalizedEmail: result.normalizedEmail,
-      status: result.status,
-      reason: result.reason,
-      domain: result.domain,
-      mxFound: result.mxFound,
-      disposable: result.disposable,
-      roleBased: result.roleBased,
-      freeProvider: result.freeProvider
-    }));
-    const exportBase = `verification/${user.id}/${job.id}`;
-    const fullReportKey = `${exportBase}/full-report.csv`;
-    const validExportKey = `${exportBase}/valid-emails.csv`;
-    const invalidExportKey = `${exportBase}/invalid-emails.csv`;
-    const riskyExportKey = `${exportBase}/risky-catch-all-disposable.csv`;
-
-    await Promise.all([
-      uploadCsv(fullReportKey, buildVerificationCsv(csvResults)),
-      uploadCsv(validExportKey, buildVerificationCsv(filterResultsForExport(csvResults, "valid"))),
-      uploadCsv(invalidExportKey, buildVerificationCsv(filterResultsForExport(csvResults, "invalid"))),
-      uploadCsv(riskyExportKey, buildVerificationCsv(filterResultsForExport(csvResults, "risky")))
-    ]);
-
-    const completed = await prisma.verificationJob.update({
+    const queuedJob = await prisma.verificationJob.update({
       where: { id: job.id },
       data: {
-        status: "COMPLETED",
-        progressPercent: 100,
-        providerBatchCount: Math.ceil(parsed.uniqueEmails.length / BATCH_SIZE),
-        validCount: counts.VALID,
-        invalidCount: counts.INVALID,
-        riskyCount: counts.RISKY,
-        catchAllCount: counts.CATCH_ALL,
-        disposableCount: counts.DISPOSABLE,
-        unknownCount: counts.UNKNOWN,
-        creditsUsed: parsed.uniqueEmails.length,
-        fullReportStorageKey: fullReportKey,
-        validExportStorageKey: validExportKey,
-        invalidExportStorageKey: invalidExportKey,
-        riskyExportStorageKey: riskyExportKey,
-        completedAt: new Date(),
-        metadataJson: {
-          processingTimeMs: Date.now() - startedAt,
-          duplicateEmails: parsed.duplicateEmails.slice(0, 100)
-        }
+        status: "QUEUED",
+        progressPercent: 5
       },
       select: {
         id: true,
         status: true,
         uniqueEmails: true,
-        validCount: true,
-        invalidCount: true,
-        riskyCount: true,
-        catchAllCount: true,
-        disposableCount: true,
-        unknownCount: true,
-        creditsUsed: true
+        creditsReserved: true,
+        progressPercent: true
       }
     });
 
-    return NextResponse.json({
-      ok: true,
-      job: completed
+    console.info("[verification-job-queued]", {
+      jobId: queuedJob.id,
+      provider: economics.providerKey,
+      emails: parsed.uniqueEmails.length,
+      totalMs: Date.now() - startedAt
     });
+
+    return NextResponse.json(
+      {
+        ok: true,
+        queued: true,
+        job: queuedJob,
+        message: "Verification job queued. Large lists are processed safely in chunks."
+      },
+      { status: 202 }
+    );
   } catch (error) {
     await refundVerificationCredits({
       userId: user.id,
       jobId: job.id,
       amount: parsed.uniqueEmails.length,
-      note: "Verification job failed refund"
+      note: "Verification job setup failed refund"
     });
     await prisma.verificationJob.update({
       where: { id: job.id },
       data: {
         status: "FAILED",
-        errorMessage: error instanceof Error ? error.message : "Verification failed.",
+        errorMessage: error instanceof Error ? error.message : "Verification setup failed.",
         completedAt: new Date()
       }
     });
 
-    console.error("[verification-job-failed]", {
+    console.error("[verification-job-queue-failed]", {
       jobId: job.id,
       provider: economics.providerKey,
       emails: parsed.uniqueEmails.length,
-      message: error instanceof Error ? error.message : "Verification failed."
+      message: error instanceof Error ? error.message : "Verification setup failed."
     });
 
     return NextResponse.json(
       {
         ok: false,
-        error: "We could not verify this list. Credits were refunded automatically.",
+        error: "We could not queue this verification job. Credits were refunded automatically.",
         jobId: job.id
       },
       { status: 500 }
     );
   }
-}
-
-async function verifyInBatches(
-  verifyBatch: (emails: string[]) => Promise<VerificationProviderResult[]>,
-  emails: string[],
-  onProgress: (progress: number) => Promise<void>
-) {
-  const results: VerificationProviderResult[] = [];
-  for (let index = 0; index < emails.length; index += BATCH_SIZE) {
-    const batch = emails.slice(index, index + BATCH_SIZE);
-    results.push(...(await verifyBatch(batch)));
-    const progress = Math.min(92, 15 + Math.round(((index + batch.length) / emails.length) * 75));
-    await onProgress(progress);
-  }
-  return results;
-}
-
-function toDbResult(verificationJobId: string, result: VerificationProviderResult) {
-  const normalizedEmail = result.email.toLowerCase();
-  const domain = normalizedEmail.split("@")[1] || null;
-  const raw = result.raw || {};
-  return {
-    verificationJobId,
-    email: result.email,
-    normalizedEmail,
-    status: result.status,
-    reason: result.reason || null,
-    domain,
-    mxFound: readBoolean(raw.mx),
-    disposable: result.status === "DISPOSABLE" || readBoolean(raw.disposable),
-    roleBased: readBoolean(raw.role),
-    freeProvider: readBoolean(raw.free),
-    rawJson: raw as Prisma.InputJsonValue
-  };
-}
-
-function readBoolean(value: unknown) {
-  return typeof value === "boolean" ? value : null;
-}
-
-function countStatuses(statuses: VerificationEmailStatus[]) {
-  return statuses.reduce<Record<VerificationEmailStatus, number>>(
-    (acc, status) => {
-      acc[status] += 1;
-      return acc;
-    },
-    {
-      VALID: 0,
-      INVALID: 0,
-      RISKY: 0,
-      CATCH_ALL: 0,
-      DISPOSABLE: 0,
-      UNKNOWN: 0,
-      DUPLICATE: 0
-    }
-  );
-}
-
-function readProviderBaseUrl(value: unknown) {
-  if (!value || typeof value !== "object") return null;
-  const candidate = (value as { apiBaseUrl?: unknown }).apiBaseUrl;
-  return typeof candidate === "string" && candidate.trim() ? candidate.trim() : null;
-}
-
-async function uploadCsv(key: string, csv: string) {
-  await uploadPrivateObject({
-    key,
-    body: Buffer.from(csv),
-    contentType: "text/csv; charset=utf-8",
-    cacheControl: "private, max-age=0"
-  });
-}
-
-async function reserveVerificationCredits(input: { userId: string; jobId: string; amount: number }) {
-  return prisma.$transaction(async (tx) => {
-    const user = await tx.user.findUnique({
-      where: { id: input.userId },
-      select: { creditBalance: true }
-    });
-    if (!user || user.creditBalance < input.amount) {
-      return { ok: false as const };
-    }
-    const balanceAfter = user.creditBalance - input.amount;
-    await tx.user.update({
-      where: { id: input.userId },
-      data: { creditBalance: balanceAfter }
-    });
-    await tx.creditTransaction.create({
-      data: {
-        userId: input.userId,
-        type: "USE",
-        amount: -input.amount,
-        balanceAfter,
-        verificationJobId: input.jobId,
-        note: "Email verification credits reserved"
-      }
-    });
-    return { ok: true as const, balanceAfter };
-  });
-}
-
-async function refundVerificationCredits(input: { userId: string; jobId: string; amount: number; note: string }) {
-  await prisma.$transaction(async (tx) => {
-    const user = await tx.user.findUnique({
-      where: { id: input.userId },
-      select: { creditBalance: true }
-    });
-    if (!user) return;
-    const balanceAfter = user.creditBalance + input.amount;
-    await tx.user.update({
-      where: { id: input.userId },
-      data: { creditBalance: balanceAfter }
-    });
-    await tx.creditTransaction.create({
-      data: {
-        userId: input.userId,
-        type: "REFUND",
-        amount: input.amount,
-        balanceAfter,
-        verificationJobId: input.jobId,
-        note: input.note
-      }
-    });
-  });
 }
 
 function createPagination(page: number, pageSize: number, total: number) {

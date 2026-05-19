@@ -14,10 +14,15 @@ export default async function AdminSystemPage({
 }) {
   await requireAdmin();
   const params = await searchParams;
-  const data = await getAdminSystemData();
+  const { data, safeModeMessage } = await getSafeAdminSystemData();
 
   return (
     <AppShell area="admin" title="Sistem ve acil durum" description="Canlı operasyon, environment, backup ve emergency kontrol merkezi.">
+      {safeModeMessage ? (
+        <div className="mb-4 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700">
+          {safeModeMessage}
+        </div>
+      ) : null}
       {params?.saved ? (
         <div className="mb-4 rounded-2xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm font-black text-emerald">
           İşlem tamamlandı: {params.saved}
@@ -205,6 +210,120 @@ export default async function AdminSystemPage({
       </div>
     </AppShell>
   );
+}
+
+async function getSafeAdminSystemData() {
+  try {
+    return { data: await getAdminSystemData(), safeModeMessage: null as string | null };
+  } catch (error) {
+    console.error("[admin-system-failed]", error instanceof Error ? error.message : error);
+    return {
+      data: createSystemFallbackData(),
+      safeModeMessage: "Sistem sağlığı güvenli modda açıldı. Opsiyonel diagnostic sorgularından biri çalışmadı; ana environment kontrolleri yine gösteriliyor."
+    };
+  }
+}
+
+function createSystemFallbackData(): Awaited<ReturnType<typeof getAdminSystemData>> {
+  return {
+    operations: {
+      brandName: "Zeylora AI",
+      maintenanceMode: false,
+      uploadsEnabled: true,
+      cleanExportsEnabled: true,
+      checkoutEnabled: true,
+      previewEnabled: true,
+      registrationEnabled: true,
+      emailsEnabled: false,
+      defaultCurrency: "USD",
+      supportEmail: process.env.SUPPORT_EMAIL || "support@zeylora.ai",
+      billingEmail: process.env.BILLING_EMAIL || process.env.SUPPORT_EMAIL || "support@zeylora.ai",
+      uploadMaxSizeMb: 10,
+      guestPreviewPerMinute: 3,
+      guestPreviewPerHour: 15,
+      userJobsPerMinute: 10,
+      userJobsPerDay: 100,
+      estimatedCreditUsdValue: 0.7
+    },
+    providers: [],
+    recentAdminActions: [],
+    recentSecurityEvents: [],
+    email: {
+      resendConfigured: Boolean(process.env.RESEND_API_KEY),
+      fromConfigured: Boolean(process.env.EMAIL_FROM),
+      supportEmail: process.env.SUPPORT_EMAIL || "support@zeylora.ai",
+      lastSuccessfulEmail: null,
+      lastFailedEmail: null,
+      failedEmailCount: 0
+    },
+    backup: {
+      statusItems: [
+        { label: "Database", value: process.env.DATABASE_URL ? "Bağlantı env var" : "DATABASE_URL eksik", note: "Canlı kontrol safe mode içinde çalışmadı.", status: process.env.DATABASE_URL ? "UYARI" : "KRITIK" },
+        { label: "R2 Storage", value: process.env.R2_BUCKET_NAME ? "Bucket env var" : "R2 env eksik", note: "Storage diagnostic safe mode içinde atlandı.", status: process.env.R2_BUCKET_NAME ? "UYARI" : "KRITIK" },
+        { label: "Stripe", value: process.env.STRIPE_SECRET_KEY ? "Secret env var" : "STRIPE_SECRET_KEY eksik", note: "Webhook diagnostic ödemeler sayfasından kontrol edilir.", status: process.env.STRIPE_SECRET_KEY ? "UYARI" : "KRITIK" },
+        { label: "Restore test", value: "Kontrol gerekli", note: "Recovery panelinden manuel kontrol et.", status: "UYARI" }
+      ],
+      backupEvents: [],
+      restoreTests: [],
+      audit: {
+        stripe: {
+          duplicateCredits: [],
+          paymentsWithoutTransaction: [],
+          transactionsWithoutPayment: [],
+          orphanPurchaseTransactions: [],
+          negativeBalances: [],
+          invalidSnapshots: [],
+          counts: {
+            duplicateCredits: 0,
+            paymentsWithoutTransaction: 0,
+            transactionsWithoutPayment: 0,
+            orphanPurchaseTransactions: 0,
+            negativeBalances: 0,
+            invalidSnapshots: 0
+          }
+        },
+        creditLedger: {
+          checkedUsers: 0,
+          mismatches: [],
+          mismatchCount: 0,
+          truncated: false
+        },
+        r2: {
+          configured: Boolean(process.env.R2_BUCKET_NAME && process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY),
+          completedMissingOutput: 0,
+          mediaWithoutKey: 0,
+          checkedSignedUrlSamples: 0,
+          brokenSignedUrlSamples: [],
+          orphanedObjectsNote: "Safe mode içinde R2 bütünlük kontrolü atlandı.",
+          counts: {
+            completedMissingOutput: 0,
+            mediaWithoutKey: 0,
+            brokenSignedUrls: 0
+          }
+        }
+      },
+      lastExport: undefined,
+      lastFailed: undefined,
+      criticalWarnings: ["Sistem diagnostic safe mode içinde açıldı; logları kontrol et."]
+    },
+    env: {
+      nodeEnv: process.env.NODE_ENV || "development",
+      siteUrl: process.env.NEXT_PUBLIC_SITE_URL || "",
+      database: Boolean(process.env.DATABASE_URL),
+      directUrl: Boolean(process.env.DIRECT_URL),
+      r2: Boolean(process.env.R2_BUCKET_NAME && process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY),
+      supabase: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
+      stripe: Boolean(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET),
+      resend: Boolean(process.env.RESEND_API_KEY),
+      postmark: Boolean(process.env.POSTMARK_SERVER_TOKEN),
+      smtp: Boolean(process.env.SMTP_HOST)
+    },
+    deployment: {
+      vercelEnv: process.env.VERCEL_ENV || "local",
+      vercelGitCommitSha: process.env.VERCEL_GIT_COMMIT_SHA || "",
+      deployTimestamp: process.env.NEXT_PUBLIC_DEPLOY_TIMESTAMP || ""
+    }
+  };
 }
 
 function StatusCard({ label, ready, note, invert = false }: { label: string; ready: boolean; note: string; invert?: boolean }) {
