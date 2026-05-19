@@ -57,7 +57,7 @@ export async function getCreditPackagesForDisplay(): Promise<PublicCreditPackage
         return {
           id: pack.id,
           key: fallback?.key ?? slugify(pack.name),
-          name: pack.name === "Studio" && fallback ? fallback.name : pack.name,
+          name: fallback && isLegacyPackageName(pack.name, pack.featureFlagKey) ? fallback.name : pack.name,
           credits: Math.max(0, pack.credits),
           bonusCredits,
           totalCredits: Math.max(0, pack.credits) + bonusCredits,
@@ -208,17 +208,10 @@ function shouldRepairLaunchPackage(
   expectedFeatureFlagKey: string
 ) {
   const price = Number(pack.price);
-  const legacyRecord =
-    (pack.name === "Starter Trial Pack" && pack.credits <= 100 && price <= 9) ||
-    (pack.name === "Starter" && pack.credits < 1000) ||
-    (pack.name === "Creator" && price <= 49) ||
-    (pack.name === "Pro" && price <= 99) ||
-    (pack.name === "Studio" && price <= 149) ||
-    (pack.name === "Pro Seller" && price <= 149);
   const missingFeatureFlag = !pack.featureFlagKey;
   const sameLaunchPackage = pack.name === expectedName || pack.featureFlagKey === expectedFeatureFlagKey;
 
-  if (legacyRecord || missingFeatureFlag) return true;
+  if (missingFeatureFlag) return true;
   if (!sameLaunchPackage) return false;
 
   return (
@@ -231,6 +224,12 @@ function shouldRepairLaunchPackage(
   );
 }
 
+function isLegacyPackageName(name: string, featureFlagKey: string | null) {
+  if (featureFlagKey === "pricing_pack_starter" && name === "Starter") return true;
+  if (featureFlagKey === "pricing_pack_growth" && name === "Growth") return true;
+  return featureFlagKey === "pricing_pack_trial" && name !== "Starter";
+}
+
 function slugify(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
@@ -239,10 +238,7 @@ function findPackageConfig(name: string, featureFlagKey: string | null) {
   return creditPackages.find(
     (item) =>
       item.name === name ||
-      item.featureFlagKey === featureFlagKey ||
-      (item.key === "growth" && name === "Creator") ||
-      (item.key === "business" && (name === "Pro" || name === "Pro Seller" || name === "Studio")) ||
-      (item.key === "trial" && name === "Starter Trial Pack")
+      item.featureFlagKey === featureFlagKey
   );
 }
 

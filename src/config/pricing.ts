@@ -20,7 +20,7 @@ export type CreditPackageConfig = {
 export const creditPackages: CreditPackageConfig[] = [
   {
     key: "trial",
-    name: "Trial",
+    name: "Starter",
     billingModel: "one_time_credits",
     credits: 1000,
     bonusCredits: 0,
@@ -28,28 +28,28 @@ export const creditPackages: CreditPackageConfig[] = [
     currency: "USD",
     highlight: true,
     badgeText: "Start here",
-    description: "Verify your first list, remove risky emails, and download clean campaign segments.",
-    audience: "First list quality test",
+    description: "Verify your first 1,000 emails, reduce bounce risk, and export clean CSV segments.",
+    audience: "First list quality check",
     featureFlagKey: "pricing_pack_trial",
     paymentProviderPriceIds: {}
   },
   {
     key: "starter",
-    name: "Starter",
+    name: "Growth",
     billingModel: "one_time_credits",
     credits: 5000,
     bonusCredits: 0,
     price: 29,
     currency: "USD",
     highlight: false,
-    description: "Clean regular newsletter, lead magnet, and ecommerce campaign lists before sending.",
-    audience: "Small campaigns and ecommerce teams",
+    description: "Clean recurring newsletter, lead magnet, and outbound lists before sending.",
+    audience: "Small campaigns and growth teams",
     featureFlagKey: "pricing_pack_starter",
     paymentProviderPriceIds: {}
   },
   {
     key: "growth",
-    name: "Growth",
+    name: "Scale",
     billingModel: "one_time_credits",
     credits: 20000,
     bonusCredits: 0,
@@ -57,7 +57,7 @@ export const creditPackages: CreditPackageConfig[] = [
     currency: "USD",
     highlight: false,
     badgeText: "Most Popular",
-    description: "Built for teams that verify recurring outbound, CRM, and campaign lists.",
+    description: "Built for teams verifying CRM exports, cold email lists, and higher-volume campaigns.",
     audience: "Agencies, SaaS, and growth teams",
     featureFlagKey: "pricing_pack_growth",
     paymentProviderPriceIds: {}

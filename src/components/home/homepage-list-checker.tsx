@@ -176,10 +176,13 @@ export function HomepageListChecker() {
             <p className="text-sm font-semibold text-slate-500">List checker</p>
             <h2 className="mt-1 text-xl font-semibold text-slate-950">Check list quality</h2>
           </div>
-          <VerifyBadge tone={ready ? "green" : "blue"}>
-            {parseState === "parsing" ? <Loader2 className="mr-1 animate-spin" size={13} /> : null}
-            {ready ? "Ready to verify" : "Upload or paste"}
-          </VerifyBadge>
+          <div className="text-right">
+            <VerifyBadge tone={ready ? "green" : "blue"}>
+              {parseState === "parsing" ? <Loader2 className="mr-1 animate-spin" size={13} /> : null}
+              {ready ? "Ready to verify" : "Upload or paste"}
+            </VerifyBadge>
+            <p className="mt-2 text-xs font-semibold text-slate-500">{uniqueCount.toLocaleString()} unique emails</p>
+          </div>
         </div>
       </div>
 
@@ -194,11 +197,11 @@ export function HomepageListChecker() {
           onDragOver={onDragOver}
           onDragLeave={onDragLeave}
           onDrop={onDrop}
-          className={`grid cursor-pointer place-items-center rounded-lg border border-dashed p-5 text-center transition ${
-            dragActive ? "border-blue-500 bg-blue-50 ring-4 ring-blue-100" : "border-slate-300 bg-slate-50 hover:border-blue-400 hover:bg-blue-50/70"
+          className={`grid cursor-pointer place-items-center rounded-lg border border-dashed p-5 text-center transition duration-300 ${
+            dragActive ? "scale-[1.01] border-blue-500 bg-blue-50 shadow-[0_16px_45px_rgba(37,99,235,.14)] ring-4 ring-blue-100" : "border-slate-300 bg-slate-50 hover:-translate-y-0.5 hover:border-blue-400 hover:bg-blue-50/70"
           }`}
         >
-          <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-md bg-white text-blue-700 shadow-sm">
+          <div className={`mx-auto flex h-11 w-11 items-center justify-center rounded-md bg-white text-blue-700 shadow-sm ${dragActive || parseState === "parsing" ? "animate-pulse" : ""}`}>
             <FileText size={22} />
           </div>
           <p className="mt-3 text-sm font-semibold text-slate-950">{fileName || "Drop CSV or TXT file"}</p>
@@ -230,6 +233,18 @@ export function HomepageListChecker() {
             <QualityBar label="Valid estimate" value={quality.valid} tone="green" />
             <QualityBar label="Risk estimate" value={quality.risk} tone="amber" />
             <QualityBar label="Duplicates removed" value={quality.duplicates} tone="red" />
+          </div>
+          <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3">
+            <div className="mb-2 flex items-center justify-between text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
+              <span>{parseState === "parsing" ? "Parsing list" : ready ? "Live estimate ready" : "Waiting for data"}</span>
+              <span>{ready ? `${score}/100` : "0/100"}</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-white">
+              <div
+                className={`h-full rounded-full bg-gradient-to-r from-blue-600 via-cyan-500 to-emerald-500 transition-all duration-700 ${parseState === "parsing" ? "animate-pulse" : ""}`}
+                style={{ width: `${ready ? score : parseState === "parsing" ? 42 : 8}%` }}
+              />
+            </div>
           </div>
         </div>
 
@@ -268,7 +283,7 @@ export function HomepageListChecker() {
 
         <VerifyAction type="button" disabled={!ready || parseState === "parsing"} onClick={() => void continueFlow()} className="h-12 w-full text-base">
           {parseState === "parsing" ? <Loader2 className="animate-spin" size={18} /> : <MailCheck size={18} />}
-          Check list quality
+          {ready ? "Continue with this list" : "Check list quality"}
           <ArrowRight size={18} />
         </VerifyAction>
 
@@ -397,9 +412,9 @@ function estimateQuality(uniqueCount: number, duplicateCount: number) {
 }
 
 function getRecommendedPackage(uniqueCount: number) {
-  if (uniqueCount <= 1000) return { key: "trial", name: "Trial" };
-  if (uniqueCount <= 5000) return { key: "starter", name: "Starter" };
-  if (uniqueCount <= 20000) return { key: "growth", name: "Growth" };
+  if (uniqueCount <= 1000) return { key: "trial", name: "Starter" };
+  if (uniqueCount <= 5000) return { key: "starter", name: "Growth" };
+  if (uniqueCount <= 20000) return { key: "growth", name: "Scale" };
   return { key: "business", name: "Business" };
 }
 

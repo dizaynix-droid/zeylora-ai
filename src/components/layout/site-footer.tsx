@@ -3,7 +3,7 @@ import Image from "next/image";
 import { appConfig } from "@/config/app";
 import { brandIdentity } from "@/config/brand";
 import { marketingNav } from "@/config/navigation";
-import { VerifyContainer } from "@/components/verify-ui/core";
+import { VerifyContainer, VerifyPanel } from "@/components/verify-ui/core";
 
 const footerLinks = [
   { label: "About", href: "/about" },
@@ -34,6 +34,10 @@ export function SiteFooter() {
             <p className="mt-4 max-w-md text-sm leading-6 text-slate-600">
               A fast email verification and list cleaning platform for reducing bounce rate, protecting sender reputation, and exporting clean segmented CSV reports.
             </p>
+            <div className="mt-5 grid gap-2 sm:grid-cols-2">
+              <FooterStatus label="Provider status" value="Verification ready" />
+              <FooterStatus label="Security" value="Private exports" />
+            </div>
           </div>
 
           <div className="grid gap-6 sm:grid-cols-2">
@@ -60,11 +64,28 @@ export function SiteFooter() {
           </div>
         </div>
 
-        <div className="mt-10 flex flex-col justify-between gap-3 border-t border-slate-200 pt-5 text-xs font-semibold text-slate-500 sm:flex-row">
-          <p>Copyright {new Date().getFullYear()} {appConfig.name}. All rights reserved.</p>
-          <p>Verify emails before sending. Keep uploads private and downloads signed.</p>
+        <div className="mt-10 grid gap-4 border-t border-slate-200 pt-5 md:grid-cols-[1fr_auto] md:items-center">
+          <div>
+            <p className="text-xs font-semibold text-slate-500">Copyright {new Date().getFullYear()} {appConfig.name}. All rights reserved.</p>
+            <p className="mt-1 text-xs text-slate-500">Verify emails before sending. Keep uploads private, downloads signed, and campaign lists under control.</p>
+          </div>
+          <Link href="/contact" className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 transition hover:bg-slate-50">
+            Contact support
+          </Link>
         </div>
       </VerifyContainer>
     </footer>
+  );
+}
+
+function FooterStatus({ label, value }: { label: string; value: string }) {
+  return (
+    <VerifyPanel className="p-3">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-500">{label}</p>
+      <p className="mt-1 flex items-center gap-2 text-xs font-semibold text-slate-950">
+        <span className="size-1.5 rounded-full bg-emerald-500" />
+        {value}
+      </p>
+    </VerifyPanel>
   );
 }

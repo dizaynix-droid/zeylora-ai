@@ -4,8 +4,12 @@ import {
   ArrowRight,
   BarChart3,
   Building2,
+  Calculator,
   DatabaseZap,
   Download,
+  FileCheck2,
+  Globe2,
+  KeyRound,
   LineChart,
   MailCheck,
   Radio,
@@ -46,10 +50,10 @@ export default async function HomePage() {
                 Email verification infrastructure
               </VerifyBadge>
               <h1 className="mt-5 text-5xl font-semibold tracking-[-0.06em] text-slate-950 sm:text-6xl lg:text-7xl">
-                Verify every list before it touches your sender reputation.
+                Bad email lists silently destroy campaign ROI.
               </h1>
               <p className="mx-auto mt-5 max-w-3xl text-base leading-7 text-slate-600 sm:text-lg">
-                Upload CSV/TXT lists, remove invalid and risky addresses, and export clean campaign segments before bounces damage inbox placement.
+                Verify every address before it damages inbox placement, burns campaign budget, or lowers sender reputation.
               </p>
               <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
                 <VerifyAction href="#verify-list" className="h-12 px-6 text-base shadow-lg shadow-blue-600/20">
@@ -67,6 +71,8 @@ export default async function HomePage() {
                 <AudiencePill icon={MailCheck} label="SaaS GTM teams" />
               </div>
             </div>
+
+            <HeroActivityStrip />
 
             <div className="mt-9 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <HeroMetric label="Emails checked" value="12.8M" note="High-volume hygiene" icon={DatabaseZap} tone="blue" />
@@ -134,6 +140,23 @@ export default async function HomePage() {
           </VerifyContainer>
         </section>
 
+        <section className="border-b border-slate-200 bg-white">
+          <VerifyContainer className="py-12 lg:py-16">
+            <div className="grid gap-8 lg:grid-cols-[.82fr_1.18fr] lg:items-center">
+              <div>
+                <VerifyBadge tone="amber">ROI protection</VerifyBadge>
+                <h2 className="mt-4 text-3xl font-semibold tracking-[-0.035em] text-slate-950 sm:text-4xl">
+                  How much list cleaning can save before you send.
+                </h2>
+                <p className="mt-4 text-base leading-7 text-slate-600">
+                  Every invalid address spends sending capacity, weakens domain trust, and hides the real campaign result. Zeylora turns that risk into a clear pre-send decision.
+                </p>
+              </div>
+              <MoneySavingCalculator />
+            </div>
+          </VerifyContainer>
+        </section>
+
         <section id="how-it-works" className="border-b border-slate-200 bg-white">
           <VerifyContainer className="py-12 lg:py-16">
             <div className="mx-auto max-w-3xl text-center">
@@ -161,6 +184,28 @@ export default async function HomePage() {
                 title="Download clean results"
                 copy="Export valid-only, invalid-only, risky/catch-all, disposable, or a full report with status columns."
               />
+            </div>
+          </VerifyContainer>
+        </section>
+
+        <section className="border-b border-slate-200 bg-[#f7f8fb]">
+          <VerifyContainer className="py-12 lg:py-16">
+            <div className="mx-auto max-w-3xl text-center">
+              <VerifyBadge tone="green">Trust and control</VerifyBadge>
+              <h2 className="mt-4 text-3xl font-semibold tracking-[-0.035em] text-slate-950 sm:text-4xl">
+                Built for teams that protect sender reputation seriously.
+              </h2>
+              <p className="mt-4 text-base leading-7 text-slate-600">
+                Verification should feel operationally safe: private uploads, controlled exports, signed downloads, and provider-backed checks without subscription pressure.
+              </p>
+            </div>
+            <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <TrustBlock icon={ShieldCheck} title="Private uploads" copy="Lists stay scoped to your account and verification workspace." />
+              <TrustBlock icon={KeyRound} title="Signed download links" copy="CSV exports are delivered through controlled private links." />
+              <TrustBlock icon={Globe2} title="GDPR-friendly workflow" copy="Designed around list hygiene, export control, and minimal operational exposure." />
+              <TrustBlock icon={FileCheck2} title="Export control" copy="Download valid, invalid, risky, disposable, duplicate, and full report segments." />
+              <TrustBlock icon={DatabaseZap} title="Provider-backed checks" copy="MillionVerifier-first architecture with future provider fallback support." />
+              <TrustBlock icon={Calculator} title="No subscription required" copy="Buy verification volume once and use it when your lists are ready." />
             </div>
           </VerifyContainer>
         </section>
@@ -201,7 +246,7 @@ export default async function HomePage() {
                   </div>
                   <CheckoutButton
                     packageId={pack.id}
-                    label={pack.key === "trial" ? "Start verification trial" : "Buy verifications"}
+                    label={pack.key === "trial" ? "Start with 1,000" : "Buy verifications"}
                     className="mt-auto inline-flex h-10 w-full items-center justify-center rounded-md bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700"
                   />
                 </VerifyPanel>
@@ -252,6 +297,33 @@ function AudiencePill({ icon: Icon, label }: { icon: LucideIcon; label: string }
       <Icon size={15} className="text-blue-700" />
       {label}
     </span>
+  );
+}
+
+function HeroActivityStrip() {
+  const items = [
+    ["Emails verified", "28,450"],
+    ["Duplicates removed", "1,204"],
+    ["Catch-all isolated", "842"],
+    ["Disposable blocked", "319"],
+    ["Bounce risk reduced", "74%"]
+  ];
+
+  return (
+    <div className="mt-8 overflow-hidden rounded-2xl border border-white/70 bg-white/70 p-2 shadow-[0_18px_60px_rgba(15,23,42,.09)] backdrop-blur-xl">
+      <div className="flex min-w-max animate-[pulse_3.4s_ease-in-out_infinite] items-center gap-2">
+        {items.map(([label, value]) => (
+          <div key={label} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+            <span className="relative flex size-2">
+              <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-300 opacity-75" />
+              <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+            </span>
+            <span className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">{label}</span>
+            <span className="text-sm font-semibold text-slate-950">{value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -370,6 +442,64 @@ function EngineStat({ label, value, tone }: { label: string; value: string; tone
   );
 }
 
+function MoneySavingCalculator() {
+  const rows = [
+    ["Uploaded emails", "25,000", "List volume before verification"],
+    ["Estimated bounce risk", "18%", "Risk hidden inside the raw list"],
+    ["Wasted sends avoided", "4,500", "Invalid and risky addresses isolated"],
+    ["Sender risk reduced", "-74%", "Cleaner list before campaign launch"],
+    ["Recommended volume", "Scale", "20,000 verification package fit"]
+  ];
+
+  return (
+    <VerifyPanel className="overflow-hidden p-5 shadow-[0_22px_70px_rgba(15,23,42,.08)]">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Savings model</p>
+          <h3 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-slate-950">Pre-send ROI calculator</h3>
+        </div>
+        <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-700">Live estimate</span>
+      </div>
+
+      <div className="mt-5 grid gap-3">
+        {rows.map(([label, value, note], index) => (
+          <div key={label} className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-[1fr_auto] sm:items-center">
+            <div>
+              <p className="text-sm font-semibold text-slate-950">{label}</p>
+              <p className="mt-1 text-sm text-slate-500">{note}</p>
+            </div>
+            <p className={index === 3 ? "text-3xl font-semibold tracking-[-0.04em] text-emerald-700" : "text-3xl font-semibold tracking-[-0.04em] text-slate-950"}>
+              {value}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-5 rounded-2xl border border-blue-100 bg-blue-50 p-4">
+        <div className="mb-2 flex items-center justify-between text-sm font-semibold text-slate-700">
+          <span>Budget protected before send</span>
+          <span>74%</span>
+        </div>
+        <div className="h-3 overflow-hidden rounded-full bg-white">
+          <div className="h-full w-[74%] rounded-full bg-gradient-to-r from-blue-600 via-cyan-500 to-emerald-500 shadow-[0_0_18px_rgba(37,99,235,.25)]" />
+        </div>
+      </div>
+    </VerifyPanel>
+  );
+}
+
+function TrustBlock({ icon: Icon, title, copy }: { icon: LucideIcon; title: string; copy: string }) {
+  return (
+    <VerifyPanel className="p-5 transition hover:-translate-y-0.5 hover:shadow-[0_18px_55px_rgba(15,23,42,.08)]">
+      <div className="flex size-11 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
+        <Icon size={21} />
+      </div>
+      <h3 className="mt-5 text-lg font-semibold text-slate-950">{title}</h3>
+      <p className="mt-2 text-sm leading-6 text-slate-600">{copy}</p>
+    </VerifyPanel>
+  );
+}
+
 function WorkflowStep({ icon: Icon, title, copy }: { icon: LucideIcon; title: string; copy: string }) {
   return (
     <VerifyPanel className="p-5 transition hover:-translate-y-0.5 hover:shadow-[0_16px_48px_rgba(15,23,42,.08)]">
@@ -412,37 +542,65 @@ function DashboardPreview() {
           <VerifyMetric label="Risky isolated" value="1,248" note="Catch-all / unknown" tone="amber" />
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-[1fr_.85fr]">
+        <div className="grid gap-4 lg:grid-cols-[1.05fr_.95fr]">
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Before / after list quality</p>
             <div className="mt-4 grid gap-4">
               <BeforeAfterRow label="Before cleaning" valid={58} invalid={24} risky={18} />
               <BeforeAfterRow label="After cleaning" valid={86} invalid={3} risky={11} />
             </div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <SegmentCard label="Valid export" value="18,642" tone="green" />
+              <SegmentCard label="Risk review" value="2,184" tone="amber" />
+              <SegmentCard label="Blocked" value="5,209" tone="red" />
+            </div>
           </div>
 
-          <div className="rounded-lg border border-slate-200 bg-white p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Live activity</p>
-            <div className="mt-4 grid gap-2">
-              {[
-                ["Scanning MX records", "done"],
-                ["Duplicates removed", "312"],
-                ["Catch-all detected", "624"],
-                ["Disposable domains blocked", "189"]
-              ].map(([label, value]) => (
-                <div key={label} className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
-                  <span className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-                    <span className="size-1.5 animate-pulse rounded-full bg-emerald-300" />
-                    {label}
-                  </span>
-                  <span className="text-sm font-semibold text-blue-700">{value}</span>
-                </div>
-              ))}
+          <div className="grid gap-4">
+            <div className="rounded-lg border border-slate-200 bg-white p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Live activity</p>
+              <div className="mt-4 grid gap-2">
+                {[
+                  ["Scanning MX records", "done"],
+                  ["Duplicates removed", "312"],
+                  ["Catch-all detected", "624"],
+                  ["Disposable domains blocked", "189"]
+                ].map(([label, value]) => (
+                  <div key={label} className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+                    <span className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                      <span className="size-1.5 animate-pulse rounded-full bg-emerald-300" />
+                      {label}
+                    </span>
+                    <span className="text-sm font-semibold text-blue-700">{value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Bounce risk curve</p>
+                <span className="text-sm font-semibold text-emerald-700">Down 74%</span>
+              </div>
+              <div className="mt-4 flex h-24 items-end gap-2">
+                {[78, 72, 65, 55, 43, 31, 22, 16].map((height) => (
+                  <div key={height} className="flex-1 rounded-t-md bg-gradient-to-t from-blue-600 to-cyan-400" style={{ height: `${height}%` }} />
+                ))}
+              </div>
             </div>
           </div>
         </div>
       </div>
     </VerifyPanel>
+  );
+}
+
+function SegmentCard({ label, value, tone }: { label: string; value: string; tone: "green" | "amber" | "red" }) {
+  const color = tone === "green" ? "text-emerald-700" : tone === "amber" ? "text-amber-700" : "text-rose-700";
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-3">
+      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">{label}</p>
+      <p className={`mt-2 text-xl font-semibold tracking-[-0.02em] ${color}`}>{value}</p>
+    </div>
   );
 }
 

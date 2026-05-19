@@ -80,7 +80,7 @@ export default async function PricingPage({
                   <p className="mt-4 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">usage based, no subscription</p>
                   <CheckoutButton
                     packageId={pack.id}
-                    label={pack.key === "trial" ? "Start trial pack" : "Buy credits"}
+                    label={pack.key === "trial" ? "Start with 1,000" : "Buy verifications"}
                     className="mt-auto inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-blue-600 text-sm font-semibold text-white transition hover:bg-blue-700"
                   />
                 </VerifyPanel>
@@ -90,7 +90,7 @@ export default async function PricingPage({
             <VerifyPanel className="mt-6 p-5">
               <h2 className="text-xl font-semibold text-slate-950">Recommended package calculator</h2>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                Example: a 10,000-email list needs 10,000 verification credits, so Growth is the recommended package. Zeylora calculates this automatically when you upload or paste a list.
+                Example: a 10,000-email list needs 10,000 verification credits, so Scale is the recommended package. Zeylora calculates this automatically when you upload or paste a list.
               </p>
             </VerifyPanel>
 
