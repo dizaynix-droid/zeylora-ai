@@ -136,7 +136,30 @@ export async function POST(request: Request) {
   }
 
   const economics = await getVerificationEconomicsSnapshot(parsed.uniqueEmails.length);
-  const provider = getVerificationProvider(economics.providerKey);
+  const providerSettings = await prisma.providerSetting.findUnique({
+    where: { providerKey: economics.providerKey },
+    select: {
+      apiKeyEncrypted: true,
+      configJson: true,
+      status: true
+    }
+  });
+
+  if (providerSettings?.status === "SUSPENDED" || providerSettings?.status === "INACTIVE") {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "Verification provider is temporarily unavailable. Please try again later.",
+        code: "provider_unavailable"
+      },
+      { status: 503 }
+    );
+  }
+
+  const provider = getVerificationProvider(economics.providerKey, {
+    apiKey: providerSettings?.apiKeyEncrypted,
+    baseUrl: readProviderBaseUrl(providerSettings?.configJson)
+  });
   const inputKey = `verification/${user.id}/${crypto.randomUUID()}/input.txt`;
   const job = await prisma.verificationJob.create({
     data: {
@@ -363,6 +386,12 @@ function countStatuses(statuses: VerificationEmailStatus[]) {
       DUPLICATE: 0
     }
   );
+}
+
+function readProviderBaseUrl(value: unknown) {
+  if (!value || typeof value !== "object") return null;
+  const candidate = (value as { apiBaseUrl?: unknown }).apiBaseUrl;
+  return typeof candidate === "string" && candidate.trim() ? candidate.trim() : null;
 }
 
 async function uploadCsv(key: string, csv: string) {

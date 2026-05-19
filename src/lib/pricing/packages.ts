@@ -114,6 +114,20 @@ function getFallbackCreditPackages(): PublicCreditPackage[] {
 
 export async function ensureLaunchCreditPackageDefaults() {
   const activeFeatureFlagKeys = creditPackages.map((pack) => pack.featureFlagKey);
+  const legacyFeatureFlagKeys = [
+    "pricing_pack_starter_trial",
+    "pricing_pack_pro",
+    "pricing_pack_creator",
+    "pricing_pack_pro_seller",
+    "pricing_pack_studio"
+  ];
+  const legacyPackageNames = [
+    "Starter Trial Pack",
+    "Creator",
+    "Pro Seller",
+    "Studio",
+    "Trial Pack"
+  ];
 
   for (const [index, pack] of creditPackages.entries()) {
     const legacyNames = [pack.name];
@@ -177,14 +191,16 @@ export async function ensureLaunchCreditPackageDefaults() {
     where: {
       deletedAt: null,
       status: "ACTIVE",
-      featureFlagKey: {
-        in: ["pricing_pack_pro", "pricing_pack_creator", "pricing_pack_pro_seller", "pricing_pack_studio"]
-      },
-      NOT: {
-        featureFlagKey: {
-          in: activeFeatureFlagKeys
+      OR: [
+        { featureFlagKey: { in: legacyFeatureFlagKeys } },
+        { name: { in: legacyPackageNames } },
+        {
+          AND: [
+            { featureFlagKey: { not: null } },
+            { NOT: { featureFlagKey: { in: activeFeatureFlagKeys } } }
+          ]
         }
-      }
+      ]
     },
     data: {
       status: "INACTIVE"

@@ -121,8 +121,8 @@ const JOB_FILTERS: Array<[DashboardFilter, string]> = [
   ["all", "All"],
   ["completed", "Completed"],
   ["failed", "Failed"],
-  ["clean-export", "Clean export unlocked"],
-  ["preview-only", "Preview only"]
+  ["clean-export", "Exports ready"],
+  ["preview-only", "Verification only"]
 ];
 
 export function DashboardClient({
@@ -316,13 +316,13 @@ export function DashboardClient({
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-xs font-black uppercase text-cyan">Quick actions</p>
-              <h2 className="mt-1 text-xl font-black text-white">Keep production moving.</h2>
+              <h2 className="mt-1 text-xl font-black text-white">Keep verification moving.</h2>
             </div>
             <div className="flex flex-wrap gap-2">
-              <ActionLink href="/tools/hd-upscale" label="New edit" primary />
-              <ActionLink href="/pricing" label="Buy credits" />
+              <ActionLink href="/dashboard#verify" label="Verify list" primary />
+              <ActionLink href="/pricing" label="Buy verifications" />
               <ActionLink href="/dashboard/support" label="Open support ticket" />
-              <ActionLink href="/dashboard?filter=clean-export#jobs" label="View clean exports" />
+              <ActionLink href="/dashboard?filter=clean-export#jobs" label="View exports" />
             </div>
           </div>
         </Card>
@@ -334,20 +334,20 @@ export function DashboardClient({
             <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
               <div>
                 <p className="text-xs font-black uppercase text-cyan">Credits</p>
-                <h2 className="mt-2 text-2xl font-black text-white">Credit balance and activity</h2>
+                <h2 className="mt-2 text-2xl font-black text-white">Verification balance and activity</h2>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
-                  Credits power real processing and clean exports. Re-downloading an unlocked clean file does not charge again.
+                  1 verification credit checks 1 unique email address. Completed exports can be downloaded again without spending credits.
                 </p>
               </div>
               <div className="rounded-2xl border border-cyan/25 bg-black/25 px-5 py-4 text-left shadow-glow md:text-right">
-                <p className="text-xs font-black uppercase text-cyan">Available credits</p>
+                <p className="text-xs font-black uppercase text-cyan">Available verifications</p>
                 <p className="mt-1 text-4xl font-black text-white">{overviewStatus === "ready" ? creditBalance : "..."}</p>
               </div>
             </div>
           </div>
           <div className="grid gap-5 p-6 xl:grid-cols-[1fr_1.15fr]">
             <div>
-              <h3 className="text-sm font-black text-white">Get credits</h3>
+              <h3 className="text-sm font-black text-white">Buy verification volume</h3>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 {packages.length ? packages.map((pack) => (
                   <Link key={pack.id} href="/pricing" className="rounded-2xl border border-white/10 bg-white/[0.045] p-4 transition hover:border-cyan/35 hover:bg-white/[0.07]">
@@ -356,18 +356,18 @@ export function DashboardClient({
                       {pack.badgeText ? <span className="rounded-full bg-cyan px-2 py-1 text-[10px] font-black uppercase text-ink">{pack.badgeText}</span> : null}
                     </div>
                     <p className="mt-2 text-2xl font-black text-white">${pack.price}</p>
-                    <p className="mt-1 text-sm font-bold text-cyan">{pack.totalCredits} credits{pack.bonusCredits ? ` (${pack.bonusCredits} bonus)` : ""}</p>
+                    <p className="mt-1 text-sm font-bold text-cyan">{pack.totalCredits.toLocaleString("en-US")} verifications{pack.bonusCredits ? ` (${pack.bonusCredits.toLocaleString("en-US")} bonus)` : ""}</p>
                   </Link>
                 )) : (
                   <div className="rounded-2xl border border-white/10 bg-white/[0.045] p-4 text-sm text-slate-400">
-                    Credit packs will appear here when pricing is configured.
+                    Verification packages will appear here when pricing is configured.
                   </div>
                 )}
               </div>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
               <div className="flex items-center justify-between gap-3">
-                <h3 className="text-sm font-black text-white">Credit transaction history</h3>
+                <h3 className="text-sm font-black text-white">Verification ledger</h3>
                 {transactionsPayload?.pagination ? <PaginationLabel pagination={transactionsPayload.pagination} /> : null}
               </div>
               {transactionsStatus === "loading" ? <CreditActivitySkeleton /> : null}
@@ -383,7 +383,7 @@ export function DashboardClient({
                         <p className={`text-sm font-black ${transaction.amount >= 0 ? "text-emerald" : "text-warning"}`}>
                           {transaction.amount >= 0 ? "+" : ""}{transaction.amount}
                         </p>
-                        <p className="text-[10px] font-bold text-slate-500">Balance {transaction.balanceAfter}</p>
+                        <p className="text-[10px] font-bold text-slate-500">Balance {transaction.balanceAfter.toLocaleString("en-US")}</p>
                       </div>
                     </div>
                   ))}
@@ -392,7 +392,7 @@ export function DashboardClient({
               ) : null}
               {transactionsStatus === "ready" && creditTransactions.length === 0 ? (
                 <p className="mt-3 text-sm leading-6 text-slate-400">
-                  No credit transactions yet. Buy the Starter Trial Pack when you are ready to process your first product photos.
+                  No verification ledger activity yet. Buy a package when you are ready to clean your first email list.
                 </p>
               ) : null}
               {transactionsStatus === "error" ? <ErrorBox message={transactionsPayload?.error || "Credit activity could not be loaded."} /> : null}
@@ -405,10 +405,10 @@ export function DashboardClient({
         <Card className="mt-5 p-6">
           <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
             <div>
-              <p className="text-xs font-black uppercase text-cyan">Jobs</p>
-              <h2 className="mt-2 text-xl font-black text-white">Edit history</h2>
+              <p className="text-xs font-black uppercase text-cyan">Verification jobs</p>
+              <h2 className="mt-2 text-xl font-black text-white">List cleaning history</h2>
               <p className="mt-2 text-sm leading-6 text-slate-300">
-                Newest first. Filter completed previews, failed jobs, clean exports, and tool-specific work without loading your full history.
+                Newest first. Filter completed jobs, failed jobs, exports, and provider-specific work without loading your full history.
               </p>
             </div>
             <p className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-xs font-bold text-slate-400">{email}</p>
@@ -450,11 +450,11 @@ export function DashboardClient({
                 }}
                 className="h-11 rounded-xl border border-white/10 bg-[#080d1f] px-3 text-sm font-bold text-white outline-none focus:border-cyan"
               >
-                <option value="all">All tools</option>
+                <option value="all">All verification sources</option>
                 {tools.map((tool) => <option key={tool.slug} value={tool.slug}>{tool.name}</option>)}
               </select>
-              <Link href="/tools/hd-upscale" className="inline-flex h-11 items-center justify-center rounded-full bg-zeylora-brand px-5 text-sm font-black text-white shadow-glow">
-                New edit
+              <Link href="/dashboard#verify" className="inline-flex h-11 items-center justify-center rounded-full bg-zeylora-brand px-5 text-sm font-black text-white shadow-glow">
+                Verify list
               </Link>
             </div>
           </div>
@@ -485,12 +485,12 @@ export function DashboardClient({
               <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-cyan/10 text-cyan"><CreditCard size={18} /></span>
               <div>
                 <p className="text-xs font-black uppercase text-cyan">Payments</p>
-                <h2 className="mt-1 text-xl font-black text-white">Buy credits for clean exports</h2>
+                <h2 className="mt-1 text-xl font-black text-white">Buy verification credits</h2>
                 <p className="mt-2 text-sm leading-6 text-slate-300">
-                  Clean exports unlock watermark-free files. Re-downloading an already unlocked job does not charge credits again.
+                  Credits are spent only when a verification job starts. Failed jobs are refunded automatically.
                 </p>
                 <Link href="/pricing" className="mt-4 inline-flex h-10 items-center justify-center rounded-full bg-zeylora-brand px-4 text-sm font-black text-white shadow-glow">
-                  Buy credits
+                  Buy verifications
                 </Link>
               </div>
             </div>
@@ -509,7 +509,7 @@ export function DashboardClient({
                   <InfoRow label="Login method" value="Email/password + Google" />
                   <InfoRow label="Last login" value="Tracked by Supabase Auth" />
                   <InfoRow label="Created" value={overview?.user?.createdAt ? formatDate(overview.user.createdAt) : "Loading..."} />
-                  <InfoRow label="Credit balance" value={`${creditBalance} credits`} />
+                  <InfoRow label="Verification balance" value={`${creditBalance.toLocaleString("en-US")} verifications`} />
                   <InfoRow label="Support" value="support@zeylora.ai" />
                 </div>
                 <form onSubmit={saveDisplayName} className="mt-4 grid gap-2">
@@ -613,7 +613,7 @@ function JobCard({ job, creditBalance }: { job: DashboardJob; creditBalance: num
         {job.downloadUrl && !isFailed ? (
           <DownloadResultButton
             href={job.downloadUrl}
-            label="Download preview"
+            label="Download report"
             className="inline-flex h-10 w-full items-center justify-center rounded-full border border-white/15 px-4 text-sm font-black text-white transition hover:bg-white/10"
           />
         ) : null}
@@ -634,7 +634,7 @@ function PreviewImage({ url, label, alt }: { url: string | null; label: string; 
         // eslint-disable-next-line @next/next/no-img-element
         <img src={url} alt={alt} className="h-full w-full object-contain" loading="lazy" decoding="async" />
       ) : (
-        <div className="grid h-full place-items-center text-xs font-bold text-slate-500">No preview</div>
+        <div className="grid h-full place-items-center text-xs font-bold text-slate-500">No result</div>
       )}
       <span className="absolute left-2 top-2 rounded-full bg-black/55 px-2 py-1 text-[10px] font-black uppercase text-white backdrop-blur">{label}</span>
     </div>
@@ -709,10 +709,10 @@ function JobsEmptyState() {
     <div className="mt-5 grid min-h-56 place-items-center rounded-2xl border border-dashed border-white/15 bg-white/[0.035] p-6 text-center">
       <div>
         <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-cyan/10 text-cyan"><Wand2 size={20} /></span>
-        <h3 className="mt-4 text-lg font-black text-white">No matching edits</h3>
-        <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-400">Try another filter or upload a product photo to create a new edit.</p>
-        <Link href="/tools/hd-upscale" className="mt-4 inline-flex h-10 items-center justify-center rounded-full bg-zeylora-brand px-4 text-sm font-black text-white shadow-glow">
-          Start an edit
+        <h3 className="mt-4 text-lg font-black text-white">No matching verification jobs</h3>
+        <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-400">Try another filter or upload a CSV/TXT list to start cleaning emails.</p>
+        <Link href="/dashboard#verify" className="mt-4 inline-flex h-10 items-center justify-center rounded-full bg-zeylora-brand px-4 text-sm font-black text-white shadow-glow">
+          Verify a list
         </Link>
       </div>
     </div>
@@ -760,10 +760,10 @@ function formatDate(date: string) {
 }
 
 function formatTransactionType(type: string) {
-  if (type === "FREE_TRIAL") return "legacy credit grant";
-  if (type === "USE") return "clean export";
-  if (type === "PURCHASE") return "credit purchase";
-  if (type === "REFUND") return "credit refund";
+  if (type === "FREE_TRIAL") return "verification grant";
+  if (type === "USE") return "verification used";
+  if (type === "PURCHASE") return "verification purchase";
+  if (type === "REFUND") return "verification refund";
   return type.replaceAll("_", " ").toLowerCase();
 }
 

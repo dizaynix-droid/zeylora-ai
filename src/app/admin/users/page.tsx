@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/admin/auth";
 import { getAdminUsersData, normalizeAdminPage } from "@/lib/admin/data";
 import { adjustUserCreditsAction } from "@/lib/admin/actions";
 import { adminPerfNow, logAdminPerf } from "@/lib/admin/perf";
+import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -186,18 +187,65 @@ async function getSafeAdminUsersData(input: Parameters<typeof getAdminUsersData>
       widget: "users.table",
       error: error instanceof Error ? error.message : "Unknown admin users error"
     });
+    const page = normalizeAdminPage(input?.page);
+    const pageSize = 25;
+    const query = input?.query?.trim();
+    const where = {
+      deletedAt: null,
+      ...(query
+        ? {
+            OR: [
+              { email: { contains: query, mode: "insensitive" as const } },
+              { name: { contains: query, mode: "insensitive" as const } }
+            ]
+          }
+        : {})
+    };
+    const [users, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          status: true,
+          creditBalance: true,
+          createdAt: true
+        }
+      }),
+      prisma.user.count({ where })
+    ]).catch((fallbackError) => {
+      console.error("[admin-page-failed]", {
+        page: "/admin/users",
+        widget: "users.minimal-table",
+        error: fallbackError instanceof Error ? fallbackError.message : "Unknown minimal users error"
+      });
+      return [[], 0] as const;
+    });
     return {
       data: {
-        items: [],
+        items: users.map((user) => ({
+          ...user,
+          _count: { verificationJobs: 0, creditTransactions: 0, payments: 0 },
+          payments: [],
+          verificationJobs: [],
+          totalSpend: 0,
+          lastPayment: null,
+          lastVerificationJob: null
+        })),
         pagination: {
-          page: 1,
-          pageSize: 25,
-          total: 0,
-          totalPages: 1,
-          from: 0,
-          to: 0,
-          hasPrevious: false,
-          hasNext: false
+          page,
+          pageSize,
+          total,
+          totalPages: Math.max(1, Math.ceil(total / pageSize)),
+          from: total === 0 ? 0 : (page - 1) * pageSize + 1,
+          to: Math.min(total, page * pageSize),
+          hasPrevious: page > 1,
+          hasNext: page < Math.max(1, Math.ceil(total / pageSize))
         }
       },
       error

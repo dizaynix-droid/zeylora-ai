@@ -18,12 +18,17 @@ type MillionVerifierResponse = {
   [key: string]: unknown;
 };
 
-export function createMillionVerifierProvider(): VerificationProvider {
+export type MillionVerifierProviderOptions = {
+  apiKey?: string | null;
+  baseUrl?: string | null;
+};
+
+export function createMillionVerifierProvider(options: MillionVerifierProviderOptions = {}): VerificationProvider {
   return {
     key: "millionverifier",
     async verifyBatch(emails: string[]) {
-      const apiKey = process.env.MILLIONVERIFIER_API_KEY;
-      const baseUrl = (process.env.MILLIONVERIFIER_API_BASE_URL || DEFAULT_BASE_URL).replace(/\/$/, "");
+      const apiKey = options.apiKey || process.env.MILLIONVERIFIER_API_KEY;
+      const baseUrl = (options.baseUrl || process.env.MILLIONVERIFIER_API_BASE_URL || DEFAULT_BASE_URL).replace(/\/$/, "");
 
       if (!apiKey) {
         throw new Error("MillionVerifier API key is not configured.");

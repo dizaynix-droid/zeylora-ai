@@ -138,10 +138,28 @@ export function HomepageListChecker() {
         event: "homepage_verification_resume",
         properties: { uniqueEmails: uniqueCount, creditBalance: balance }
       });
-      router.push("/dashboard?resumeVerification=1");
+      setMessage("Credits are available. Starting verification now.");
+      const formData = new FormData();
+      formData.set("emails", parsed.uniqueEmails.join("\n"));
+      const jobResponse = await fetch("/api/v1/verification/jobs", {
+        method: "POST",
+        body: formData
+      });
+      const jobPayload = await jobResponse.json().catch(() => null) as { ok?: boolean; job?: { id?: string }; error?: string; code?: string } | null;
+      if (jobResponse.status === 402 || jobPayload?.code === "insufficient_credits") {
+        setMessage(`You need ${uniqueCount.toLocaleString()} verification credits. ${recommendedPackage.name} is the best fit for this list; taking you to pricing.`);
+        router.push(`/pricing?checkoutPackage=${recommendedPackage.key}&resumeVerification=1`);
+        return;
+      }
+      if (!jobResponse.ok || !jobPayload?.ok) {
+        throw new Error(jobPayload?.error || "Verification could not be started.");
+      }
+      sessionStorage.removeItem(DRAFT_STORAGE_KEY);
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+      router.push(jobPayload.job?.id ? `/dashboard/jobs/${jobPayload.job.id}` : "/dashboard#jobs");
     } catch {
       setParseState("error");
-      setMessage("We could not prepare this list. Please try again.");
+      setMessage("We could not start verification from this page. Your pasted list is saved; open the dashboard and try again.");
     }
   }
 

@@ -2,7 +2,7 @@
 
 import { ChangeEvent, FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AlertCircle, Bell, CheckCircle2, CreditCard, Download, Loader2, MailCheck, ReceiptText, Settings, Shield, ShieldCheck, UploadCloud, UserCircle, XCircle } from "lucide-react";
 import { CheckoutButton } from "@/components/billing/checkout-button";
 import { trackEvent } from "@/lib/analytics/events";
@@ -56,6 +56,7 @@ export function VerificationDashboardClient({
   creditBalance: number;
   packages: Package[];
 }) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [jobs, setJobs] = useState<VerificationJob[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
@@ -162,15 +163,18 @@ export function VerificationDashboardClient({
         throw new Error(payload?.error || "Verification failed.");
       }
       setSubmitStatus("success");
-      setMessage("List verified. Your segmented CSV exports are ready in history.");
+      setMessage("List verified. Opening your segmented report.");
       sessionStorage.removeItem(DRAFT_STORAGE_KEY);
       localStorage.removeItem(DRAFT_STORAGE_KEY);
       setFile(null);
       setEmails("");
       setJobsPage(1);
+      if (payload?.job?.id) {
+        router.push(`/dashboard/jobs/${payload.job.id}`);
+      }
     } catch (error) {
       setSubmitStatus("error");
-      setMessage(error instanceof Error ? error.message : "Verification failed.");
+      setMessage(getFriendlyVerificationError(error));
     }
   }
 
@@ -459,6 +463,17 @@ export function VerificationDashboardClient({
       </section>
     </div>
   );
+}
+
+function getFriendlyVerificationError(error: unknown) {
+  const message = error instanceof Error ? error.message : "";
+  if (message.toLowerCase().includes("expected pattern")) {
+    return "We could not start verification from this browser session. Refresh the page and try again; if it repeats, contact support.";
+  }
+  if (message.toLowerCase().includes("failed to fetch")) {
+    return "Network connection dropped before verification started. Please try again.";
+  }
+  return message || "Verification could not be started. Please try again.";
 }
 
 function SettingRow({ icon, label, value }: { icon?: ReactNode; label: string; value: string }) {

@@ -13,11 +13,11 @@ export default async function AdminQaPage() {
   const qaSections = [
     {
       title: "Mobil QA",
-      items: ["Homepage 390px", "Upload akışı", "Result workspace", "Dashboard jobs pagination", "Credits page", "Tickets/support", "Settings"]
+      items: ["Homepage 390px", "Liste yükleme akışı", "Doğrulama sonucu", "Dashboard jobs pagination", "Verification credits page", "Tickets/support", "Settings"]
     },
     {
       title: "Ürün akışları",
-      items: ["6 tool smoke test", "Preview watermark", "Clean export unlock", "Re-download no double charge", "Failed job support ticket", "Dashboard history"]
+      items: ["CSV/TXT upload smoke test", "Paste email smoke test", "Provider doğrulama", "Segment export", "Failed job support ticket", "Dashboard history"]
     },
     {
       title: "Ödeme ve kredi",
@@ -29,11 +29,11 @@ export default async function AdminQaPage() {
     },
     {
       title: "Tracking",
-      items: ["GA4 PageView", "Meta Pixel PageView", "Checkout started", "Preview generated", "Clean export", "Purchase only webhook sonrası"]
+      items: ["GA4 PageView", "Meta Pixel PageView", "Checkout started", "List parsed", "Verification completed", "Purchase only webhook sonrası"]
     },
     {
       title: "Provider",
-      items: ["Replicate env", "PhotoRoom env", "Local Sharp", "Failure rate", "Cost snapshot", "Budget uyarıları"]
+      items: ["MillionVerifier key", "Fallback provider placeholder", "Failure rate", "Cost per verification", "Budget uyarıları"]
     }
   ];
 
@@ -45,8 +45,8 @@ export default async function AdminQaPage() {
         <Status label="TikTok" ok={Boolean(tracking.tiktokPixelId)} />
         <Status label="Pinterest" ok={Boolean(tracking.pinterestTagId)} />
         <Status label="Upload" ok={data.operations.uploadsEnabled} />
-        <Status label="Preview" ok={data.operations.previewEnabled} />
-        <Status label="Clean export" ok={data.operations.cleanExportsEnabled} />
+        <Status label="Verification" ok={data.operations.previewEnabled} />
+        <Status label="CSV export" ok={data.operations.cleanExportsEnabled} />
         <Status label="Checkout" ok={data.operations.checkoutEnabled} />
       </div>
 

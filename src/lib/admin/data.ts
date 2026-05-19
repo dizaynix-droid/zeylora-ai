@@ -1283,6 +1283,8 @@ export async function getAdminProvidersData() {
         name: true,
         providerType: true,
         envKeyName: true,
+        apiKeyEncrypted: true,
+        configJson: true,
         status: true,
         dailyBudgetLimit: true,
         monthlyBudgetLimit: true,
@@ -1301,13 +1303,17 @@ export async function getAdminProvidersData() {
   const providers = [
     ...PROVIDER_RUNTIME_DEFAULTS.map((runtime) => {
       const db = byKey.get(runtime.providerKey);
+      const config = asRecord(db?.configJson ?? null);
+      const apiBaseUrl = typeof config.apiBaseUrl === "string" ? config.apiBaseUrl : "";
       return {
         id: db?.id || "",
         providerKey: runtime.providerKey,
         name: db?.name || runtime.name,
         providerType: db?.providerType || runtime.providerType,
         envKeyName: db?.envKeyName ?? runtime.envKeyName,
-        configured: runtime.envKeyName ? Boolean(process.env[runtime.envKeyName]) : true,
+        apiBaseUrl,
+        configured: runtime.envKeyName ? Boolean(process.env[runtime.envKeyName]) || Boolean(db?.apiKeyEncrypted) : true,
+        apiKeyStored: Boolean(db?.apiKeyEncrypted),
         status: db?.status || runtime.defaultStatus,
         dbBacked: Boolean(db),
         dailyBudgetLimit: db?.dailyBudgetLimit || null,
@@ -1324,12 +1330,17 @@ export async function getAdminProvidersData() {
     }),
     ...emailDbProviders
       .filter((provider) => !PROVIDER_RUNTIME_DEFAULTS.some((runtime) => runtime.providerKey === provider.providerKey))
-      .map((provider) => ({
-        ...provider,
-        configured: provider.envKeyName ? Boolean(process.env[provider.envKeyName]) : false,
-        dbBacked: true,
-        source: "db" as const
-      }))
+      .map((provider) => {
+        const config = asRecord(provider.configJson ?? null);
+        return {
+          ...provider,
+          apiBaseUrl: typeof config.apiBaseUrl === "string" ? config.apiBaseUrl : "",
+          configured: provider.envKeyName ? Boolean(process.env[provider.envKeyName]) || Boolean(provider.apiKeyEncrypted) : Boolean(provider.apiKeyEncrypted),
+          apiKeyStored: Boolean(provider.apiKeyEncrypted),
+          dbBacked: true,
+          source: "db" as const
+        };
+      })
   ].sort((a, b) => a.priority - b.priority || a.providerKey.localeCompare(b.providerKey));
 
   logAdminPerf("admin.providers.data", {

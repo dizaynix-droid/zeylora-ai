@@ -159,7 +159,7 @@ export default async function AdminRecoveryPage({
 
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
         <Playbook title="Kurtarma playbook" items={[
-          "1. Yeni işlem kabulünü kapat: Ayarlar > upload, preview, clean export ve checkout kapat.",
+          "1. Yeni işlem kabulünü kapat: Ayarlar > liste yükleme, doğrulama motoru, sonuç export ve checkout kapat.",
           "2. Vercel Deployments ekranından son sağlıklı deployment'a rollback yap.",
           "3. Supabase dashboard üzerinden PITR/daily backup restore seçeneğini staging ortamında doğrula.",
           "4. R2 bucket içinde backup key ve result/upload objelerini kontrol et.",
@@ -170,7 +170,7 @@ export default async function AdminRecoveryPage({
         <Playbook title="Stripe ve bakiye mutabakatı" items={[
           "Başarılı Payment status=PAID ama PURCHASE transaction yoksa kullanıcıya kredi teslim edilmemiş olabilir.",
           "Aynı paymentId için birden fazla PURCHASE transaction varsa çift kredi riski vardır.",
-          "User.creditBalance negatifse clean export veya admin adjustment akışı incelenmeli.",
+          "User.creditBalance negatifse doğrulama kullanımı, iade veya admin adjustment akışı incelenmeli.",
           "Stripe event/session idempotency logları WebhookLog ekranından kontrol edilmeli.",
           "Manuel düzeltme gerekiyorsa admin credit adjustment notuna ödeme/ticket id ekle."
         ]} />

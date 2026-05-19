@@ -18,7 +18,7 @@ export default async function AdminCreditsPage({
   const params = await searchParams;
   const page = normalizeAdminPage(params?.page);
   const dataStartedAt = adminPerfNow();
-  const data = await getAdminCreditsData({ page });
+  const { data, error } = await getSafeCreditsData(page);
   logAdminPerf("page./admin/credits [admin-perf]", {
     authMs: `${authMs}ms`,
     dataMs: `${adminPerfNow() - dataStartedAt}ms`,
@@ -30,12 +30,17 @@ export default async function AdminCreditsPage({
   return (
     <AppShell
       area="admin"
-      title="Doğrulama kredi defteri"
-      description="Email verification kredisi satın alma, kullanım, iade ve admin düzenleme kayıtları."
+      title="Doğrulama hakkı defteri"
+      description="Satın alınan, kullanılan, iade edilen ve admin tarafından düzenlenen email doğrulama hakları."
     >
+      {error ? (
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+          Defter güvenli modda açıldı. Credit ledger migration eksik olabilir; Sistem Sağlığı ve Kayıtlar ekranından kontrol et.
+        </div>
+      ) : null}
       <div className="grid gap-3 md:grid-cols-4">
-        <AdminMetricCard label="Verilen kredi" value={data.summary.issued} note="Satın alma, iade, pozitif admin işlemi" />
-        <AdminMetricCard label="Kullanılan kredi" value={data.summary.used} note="Email verification kullanımları" />
+        <AdminMetricCard label="Verilen hak" value={data.summary.issued} note="Satın alma, iade, pozitif admin işlemi" />
+        <AdminMetricCard label="Kullanılan hak" value={data.summary.used} note="Email verification kullanımları" />
         <AdminMetricCard label="Manuel düzenleme" value={data.summary.manualAdjustments} note="Admin kredi değişiklikleri" />
         <AdminMetricCard label="Satın alma" value={data.summary.purchases} note="Ödeme ile gelen kredi" />
       </div>
@@ -64,7 +69,7 @@ export default async function AdminCreditsPage({
                 {data.transactions.map((tx) => (
                   <tr key={tx.id}>
                     <td className="px-4 py-3 font-bold text-white">{tx.user.email}</td>
-                    <td className="px-4 py-3 text-cyan">{tx.type}</td>
+                    <td className="px-4 py-3 text-cyan">{transactionLabel(tx.type)}</td>
                     <td className={tx.amount >= 0 ? "px-4 py-3 font-black text-emerald-200" : "px-4 py-3 font-black text-rose-200"}>{tx.amount}</td>
                     <td className="px-4 py-3 text-slate-300">{tx.balanceAfter}</td>
                     <td className="px-4 py-3 text-slate-400">
@@ -97,4 +102,49 @@ export default async function AdminCreditsPage({
       </div>
     </AppShell>
   );
+}
+
+async function getSafeCreditsData(page: number) {
+  try {
+    return { data: await getAdminCreditsData({ page }), error: null };
+  } catch (error) {
+    console.error("[admin-page-failed]", {
+      page: "/admin/credits",
+      widget: "credits.ledger",
+      error: error instanceof Error ? error.message : "Unknown credits error"
+    });
+    return {
+      data: {
+        transactions: [],
+        pagination: {
+          page: 1,
+          pageSize: 25,
+          total: 0,
+          totalPages: 1,
+          from: 0,
+          to: 0,
+          hasPrevious: false,
+          hasNext: false
+        },
+        totals: [],
+        summary: {
+          issued: 0,
+          used: 0,
+          manualAdjustments: 0,
+          purchases: 0
+        }
+      },
+      error
+    };
+  }
+}
+
+function transactionLabel(type: string) {
+  if (type === "PURCHASE") return "Satın alma";
+  if (type === "USE") return "Doğrulama kullanımı";
+  if (type === "REFUND") return "İade";
+  if (type === "ADMIN_ADJUSTMENT") return "Admin düzenleme";
+  if (type === "REFERRAL_REWARD") return "Partner ödülü";
+  if (type === "FREE_TRIAL") return "Deneme";
+  return type;
 }

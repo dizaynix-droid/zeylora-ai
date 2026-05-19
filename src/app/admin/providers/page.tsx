@@ -1,7 +1,7 @@
-import type { InputHTMLAttributes } from "react";
+import type { InputHTMLAttributes, ReactNode } from "react";
 import { AppShell } from "@/components/layout/app-shell";
-import { AdminSection, AdminStatusPill, AdminTable, formatAdminDate } from "@/components/admin/admin-ui";
-import { upsertProviderSettingAction } from "@/lib/admin/actions";
+import { AdminSection, AdminStatusPill, formatAdminDate } from "@/components/admin/admin-ui";
+import { deactivateProviderSettingAction, upsertProviderSettingAction } from "@/lib/admin/actions";
 import { requireAdmin } from "@/lib/admin/auth";
 import { getAdminProviderMonitoringData } from "@/lib/admin/data";
 import { adminPerfNow, logAdminPerf } from "@/lib/admin/perf";
@@ -10,10 +10,9 @@ export const dynamic = "force-dynamic";
 
 type ProviderSearchParams = {
   saved?: string;
+  deleted?: string;
   error?: string;
 };
-
-const providerTypes = ["email-verification", "other"] as const;
 
 export default async function AdminProvidersPage({
   searchParams
@@ -26,7 +25,7 @@ export default async function AdminProvidersPage({
   const authMs = adminPerfNow() - authStartedAt;
   const params = await searchParams;
   const dataStartedAt = adminPerfNow();
-  const providers = await getAdminProviderMonitoringData();
+  const providers = await getSafeProviders();
 
   logAdminPerf("page./admin/providers [admin-perf]", {
     authMs: `${authMs}ms`,
@@ -36,175 +35,142 @@ export default async function AdminProvidersPage({
   });
 
   return (
-    <AppShell area="admin" title="Email verification sağlayıcıları" description="MillionVerifier, fallback provider, env durumu, kullanım ve doğrulama başı maliyet takibi.">
-      {params?.saved ? (
-        <div className="mb-4 rounded-2xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm font-black text-emerald">
-          Sağlayıcı kaydedildi: {decodeURIComponent(params.saved)}
-        </div>
-      ) : null}
-      {params?.error ? (
-        <div className="mb-4 rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-sm font-black text-rose-200">
-          Sağlayıcı kaydedilemedi. Zorunlu alanları kontrol edin.
-        </div>
-      ) : null}
+    <AppShell
+      area="admin"
+      title="Provider yönetimi"
+      description="Email verification sağlayıcılarını yönet. 1 müşteri doğrulaması = 1 provider email doğrulaması mantığıyla maliyet ve kapasite takip edilir."
+    >
+      {params?.saved ? <Notice tone="good">Provider kaydedildi: {decodeURIComponent(params.saved)}</Notice> : null}
+      {params?.deleted ? <Notice tone="warn">Provider pasife alındı: {decodeURIComponent(params.deleted)}</Notice> : null}
+      {params?.error ? <Notice tone="bad">Provider kaydedilemedi. Zorunlu alanları kontrol edin.</Notice> : null}
 
-      <div className="mb-4 rounded-2xl border border-cyan/20 bg-cyan/10 px-4 py-3 text-sm font-semibold leading-6 text-cyan">
-        API anahtarları Vercel Environment Variables içinde saklanır. Bu sayfada yalnızca email verification provider kayıtları görünür; secret değerleri gösterilmez.
-      </div>
-
-      <div className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {providers.map((provider) => (
-          <div key={provider.providerKey} className="rounded-2xl border border-white/10 bg-white/5 p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="font-black text-white">{provider.name}</p>
-                <p className="mt-1 text-xs text-slate-500">{provider.providerKey}</p>
-              </div>
-              <Health status={provider.health} />
-            </div>
-            <div className="mt-3 grid grid-cols-3 gap-2 text-xs font-bold text-slate-400">
-              <span>İş: <b className="text-white">{provider.jobsToday}</b></span>
-              <span>Hata: <b className="text-rose-200">{provider.failedToday}</b></span>
-              <span>Maliyet: <b className="text-amber">${provider.estimatedCostToday.toFixed(4)}</b></span>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <AdminSection title="Yeni email provider ekle" description="Fallback veya alternatif email verification sağlayıcısı için operasyon kaydı oluştur.">
-        <form action={upsertProviderSettingAction} className="grid gap-3 lg:grid-cols-6">
-          <AdminInput name="name" placeholder="Sağlayıcı adı" defaultValue="Email Provider" />
-          <AdminInput name="providerKey" placeholder="slug, örn. millionverifier" defaultValue="email-provider" />
-          <select name="providerType" defaultValue="other" className={inputClass}>
-            {providerTypes.map((type) => <option key={type} value={type}>{type}</option>)}
-          </select>
-          <AdminInput name="envKeyName" placeholder="ENV_KEY_NAME" />
-          <AdminInput name="priority" type="number" step="1" defaultValue="100" placeholder="Öncelik" />
-          <select name="status" defaultValue="DISABLED" className={inputClass}>
+      <AdminSection
+        title="Yeni provider ekle"
+        description="MillionVerifier veya alternatif email doğrulama sağlayıcısını ekle. API key gösterilmez; kaydedilirse sadece bağlantı durumu takip edilir."
+      >
+        <form action={upsertProviderSettingAction} className="grid gap-3 lg:grid-cols-12">
+          <AdminInput className="lg:col-span-2" name="name" placeholder="MillionVerifier" />
+          <AdminInput className="lg:col-span-2" name="providerKey" placeholder="millionverifier" />
+          <AdminInput className="lg:col-span-2" name="apiBaseUrl" placeholder="API URL" />
+          <AdminInput className="lg:col-span-2" name="apiKey" type="password" placeholder="API key" />
+          <AdminInput className="lg:col-span-2" name="envKeyName" placeholder="ENV key opsiyonel" />
+          <select name="status" defaultValue="ACTIVE" className={`${inputClass} lg:col-span-2`}>
             <option value="ACTIVE">Aktif</option>
             <option value="PAUSED">Duraklatıldı</option>
             <option value="DISABLED">Devre dışı</option>
           </select>
-          <AdminInput name="estimatedCostPerRun" type="number" min="0" step="0.0001" placeholder="Doğrulama başı maliyet" />
-          <AdminInput name="estimatedCostCurrency" defaultValue="usd" placeholder="usd" />
-          <AdminInput name="dailyBudgetLimit" type="number" min="0" step="0.01" placeholder="Günlük bütçe" />
-          <AdminInput name="monthlyBudgetLimit" type="number" min="0" step="0.01" placeholder="Aylık bütçe" />
-          <select name="budgetEnforcementMode" defaultValue="NOTIFY_ONLY" className={inputClass}>
+          <input type="hidden" name="providerType" value="email-verification" />
+          <AdminInput className="lg:col-span-2" name="estimatedCostPerRun" type="number" min="0" step="0.000001" placeholder="Email başı maliyet" />
+          <AdminInput className="lg:col-span-1" name="estimatedCostCurrency" defaultValue="usd" />
+          <AdminInput className="lg:col-span-2" name="dailyBudgetLimit" type="number" min="0" step="0.01" placeholder="Günlük bütçe" />
+          <AdminInput className="lg:col-span-2" name="monthlyBudgetLimit" type="number" min="0" step="0.01" placeholder="Aylık bütçe" />
+          <AdminInput className="lg:col-span-1" name="priority" type="number" step="1" defaultValue="10" placeholder="Öncelik" />
+          <select name="budgetEnforcementMode" defaultValue="NOTIFY_ONLY" className={`${inputClass} lg:col-span-2`}>
             <option value="NOTIFY_ONLY">Sadece bildir</option>
             <option value="PAUSE_PROVIDER">Provider duraklat</option>
-            <option value="PAUSE_TOOLS">Araçları duraklat</option>
-            <option value="BLOCK_JOBS">Job engelle</option>
+            <option value="BLOCK_JOBS">İşleri engelle</option>
           </select>
-          <input name="notes" placeholder="Not" className={`${inputClass} lg:col-span-2`} />
-          <button className="h-11 rounded-full bg-zeylora-brand text-sm font-black text-white shadow-glow transition hover:brightness-110 lg:col-span-6">
-            Email provider ekle
+          <AdminInput className="lg:col-span-2" name="notes" placeholder="Not" />
+          <button className="h-10 rounded-md bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700 lg:col-span-12">
+            Provider ekle
           </button>
         </form>
       </AdminSection>
 
-      <div className="mt-4">
-        <AdminSection title="Provider operasyon tablosu" description="Env durumu, health, bütçe, failure rate ve doğrulama başı maliyetler.">
-          <AdminTable>
-            <table className="min-w-[1500px] w-full divide-y divide-white/10 text-sm">
-              <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
-                <tr>
-                  <th className="px-4 py-3">Sağlayıcı</th>
-                  <th className="px-4 py-3">Env durumu</th>
-                  <th className="px-4 py-3">Durum</th>
-                  <th className="px-4 py-3">Bütçe</th>
-                  <th className="px-4 py-3">Doğrulama maliyeti</th>
-                  <th className="px-4 py-3">Son güncelleme</th>
-                  <th className="px-4 py-3">Kontrol</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/10">
-                {providers.map((provider) => (
-                  <tr key={provider.providerKey} className="align-top">
-                    <td className="px-4 py-4">
-                      <p className="font-black text-white">{provider.name}</p>
-                      <p className="mt-1 text-xs text-slate-500">{provider.providerKey} • {provider.providerType}</p>
-                      <p className="mt-2 text-xs font-bold text-slate-500">{provider.dbBacked ? "DB kaydı var" : "Runtime varsayılanı; kaydetmeden DB’ye yazılmaz"}</p>
-                      <p className="mt-2 text-xs text-slate-400">Bugün: {provider.completedToday} tamamlandı · failure rate {(provider.failureRate * 100).toFixed(1)}%</p>
-                      <p className="mt-2 text-xs leading-5 text-slate-400">{provider.notes || "Not yok"}</p>
-                    </td>
-                    <td className="px-4 py-4">
-                      <EnvStatus configured={provider.configured} />
-                      <p className="mt-2 font-mono text-xs text-slate-500">{provider.envKeyName || "local/env gerekmez"}</p>
-                    </td>
-                    <td className="px-4 py-4">
-                      <ProviderStatus status={provider.status} />
-                      <p className="mt-2 text-xs text-slate-500">Öncelik: {provider.priority}</p>
-                    </td>
-                    <td className="px-4 py-4 text-slate-300">
-                      <p>Günlük: {formatMoney(provider.dailyBudgetLimit)}</p>
-                      <p>Aylık: {formatMoney(provider.monthlyBudgetLimit)}</p>
-                      <p className="text-xs text-slate-500">Kullanım: {formatMoney(provider.monthlyBudgetUsed)}</p>
-                      <p className="mt-1 text-xs font-bold uppercase tracking-[0.14em] text-slate-500">{budgetModeLabel(provider.budgetEnforcementMode)}</p>
-                    </td>
-                    <td className="px-4 py-4 text-slate-300">
-                      {formatMoney(provider.estimatedCostPerRun, provider.estimatedCostCurrency)}
-                      <p className="mt-1 text-xs text-slate-500">Provider cost snapshot için kullanılır.</p>
-                    </td>
-                    <td className="px-4 py-4 text-slate-400">{provider.updatedAt ? formatAdminDate(provider.updatedAt) : "Henüz kaydedilmedi"}</td>
-                    <td className="px-4 py-4">
-                      <form action={upsertProviderSettingAction} className="grid min-w-[460px] gap-2">
-                        <input type="hidden" name="providerId" value={provider.id} />
-                        <div className="grid gap-2 sm:grid-cols-2">
-                          <AdminInput name="name" defaultValue={provider.name} placeholder="Ad" />
-                          <AdminInput name="providerKey" defaultValue={provider.providerKey} placeholder="slug" />
-                        </div>
-                        <div className="grid gap-2 sm:grid-cols-3">
-                          <select name="providerType" defaultValue={provider.providerType} className={inputClass}>
-                            {providerTypes.map((type) => <option key={type} value={type}>{type}</option>)}
-                          </select>
-                          <AdminInput name="envKeyName" defaultValue={provider.envKeyName || ""} placeholder="ENV_KEY" />
-                          <AdminInput name="priority" type="number" step="1" defaultValue={provider.priority} placeholder="Öncelik" />
-                        </div>
-                        <div className="grid gap-2 sm:grid-cols-3">
-                          <AdminInput name="estimatedCostPerRun" type="number" min="0" step="0.0001" defaultValue={toInputNumber(provider.estimatedCostPerRun)} placeholder="Doğrulama maliyeti" />
-                          <AdminInput name="estimatedCostCurrency" defaultValue={provider.estimatedCostCurrency || "usd"} placeholder="usd" />
-                          <select name="status" defaultValue={recordStatusToForm(provider.status)} className={inputClass}>
-                            <option value="ACTIVE">Aktif</option>
-                            <option value="PAUSED">Duraklatıldı</option>
-                            <option value="DISABLED">Devre dışı</option>
-                          </select>
-                        </div>
-                        <div className="grid gap-2 sm:grid-cols-3">
-                          <AdminInput name="dailyBudgetLimit" type="number" min="0" step="0.01" defaultValue={toInputNumber(provider.dailyBudgetLimit)} placeholder="Günlük bütçe" />
-                          <AdminInput name="monthlyBudgetLimit" type="number" min="0" step="0.01" defaultValue={toInputNumber(provider.monthlyBudgetLimit)} placeholder="Aylık bütçe" />
-                          <select name="budgetEnforcementMode" defaultValue={provider.budgetEnforcementMode} className={inputClass}>
-                            <option value="NOTIFY_ONLY">Sadece bildir</option>
-                            <option value="PAUSE_PROVIDER">Provider duraklat</option>
-                            <option value="PAUSE_TOOLS">Araçları duraklat</option>
-                            <option value="BLOCK_JOBS">Job engelle</option>
-                          </select>
-                        </div>
-                        <input name="notes" defaultValue={provider.notes || ""} placeholder="Not" className={inputClass} />
-                        <button className="h-10 rounded-full bg-zeylora-brand text-sm font-black text-white shadow-glow transition hover:brightness-110">
-                          Kaydet
-                        </button>
-                      </form>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </AdminTable>
-        </AdminSection>
+      <div className="mt-5 grid gap-4">
+        {providers.map((provider) => (
+          <AdminSection
+            key={provider.providerKey}
+            title={provider.name}
+            description={`${provider.providerKey} · Bugün ${provider.jobsToday.toLocaleString()} iş · ${provider.completedToday.toLocaleString()} tamamlandı · ${provider.failedToday.toLocaleString()} hata`}
+            action={
+              <div className="flex flex-wrap gap-2">
+                <EnvStatus configured={provider.configured} stored={provider.apiKeyStored} />
+                <ProviderStatus status={provider.status} />
+                <Health status={provider.health} />
+              </div>
+            }
+          >
+            <form action={upsertProviderSettingAction} className="grid gap-3 lg:grid-cols-12">
+              <input type="hidden" name="providerId" value={provider.id} />
+              <input type="hidden" name="providerType" value="email-verification" />
+              <AdminInput className="lg:col-span-2" name="name" defaultValue={provider.name} placeholder="Ad" />
+              <AdminInput className="lg:col-span-2" name="providerKey" defaultValue={provider.providerKey} placeholder="slug" />
+              <AdminInput className="lg:col-span-2" name="apiBaseUrl" defaultValue={provider.apiBaseUrl || ""} placeholder="API URL" />
+              <AdminInput className="lg:col-span-2" name="apiKey" type="password" placeholder={provider.apiKeyStored ? "Yeni key girersen değişir" : "API key"} />
+              <AdminInput className="lg:col-span-2" name="envKeyName" defaultValue={provider.envKeyName || ""} placeholder="ENV key" />
+              <select name="status" defaultValue={recordStatusToForm(provider.status)} className={`${inputClass} lg:col-span-2`}>
+                <option value="ACTIVE">Aktif</option>
+                <option value="PAUSED">Duraklatıldı</option>
+                <option value="DISABLED">Devre dışı</option>
+              </select>
+              <AdminInput className="lg:col-span-2" name="estimatedCostPerRun" type="number" min="0" step="0.000001" defaultValue={toInputNumber(provider.estimatedCostPerRun)} placeholder="Email başı maliyet" />
+              <AdminInput className="lg:col-span-1" name="estimatedCostCurrency" defaultValue={provider.estimatedCostCurrency || "usd"} />
+              <AdminInput className="lg:col-span-2" name="dailyBudgetLimit" type="number" min="0" step="0.01" defaultValue={toInputNumber(provider.dailyBudgetLimit)} placeholder="Günlük bütçe" />
+              <AdminInput className="lg:col-span-2" name="monthlyBudgetLimit" type="number" min="0" step="0.01" defaultValue={toInputNumber(provider.monthlyBudgetLimit)} placeholder="Aylık bütçe" />
+              <AdminInput className="lg:col-span-1" name="priority" type="number" step="1" defaultValue={provider.priority} placeholder="Öncelik" />
+              <select name="budgetEnforcementMode" defaultValue={provider.budgetEnforcementMode} className={`${inputClass} lg:col-span-2`}>
+                <option value="NOTIFY_ONLY">Sadece bildir</option>
+                <option value="PAUSE_PROVIDER">Provider duraklat</option>
+                <option value="BLOCK_JOBS">İşleri engelle</option>
+              </select>
+              <AdminInput className="lg:col-span-2" name="notes" defaultValue={provider.notes || ""} placeholder="Not" />
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-600 lg:col-span-8">
+                Email başı maliyet raporlarda provider maliyeti olarak kullanılır. Örn. API paketinde 5.000.000 doğrulama hakkını $500 aldıysan email başı maliyet $0.0001 gir.
+              </div>
+              <button className="h-10 rounded-md bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700 lg:col-span-4">
+                Kaydet
+              </button>
+            </form>
+            {provider.id ? (
+              <form action={deactivateProviderSettingAction} className="mt-3">
+                <input type="hidden" name="providerId" value={provider.id} />
+                <button className="h-10 rounded-md border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-700 transition hover:bg-rose-100">
+                  Providerı pasife al
+                </button>
+              </form>
+            ) : null}
+            <div className="mt-4 grid gap-3 text-sm md:grid-cols-4">
+              <Info label="Bugünkü tahmini maliyet" value={formatMoney(provider.estimatedCostToday)} />
+              <Info label="Failure rate" value={`${(provider.failureRate * 100).toFixed(1)}%`} />
+              <Info label="Email başı maliyet" value={formatMoney(provider.estimatedCostPerRun, provider.estimatedCostCurrency)} />
+              <Info label="Son güncelleme" value={provider.updatedAt ? formatAdminDate(provider.updatedAt) : "DB kaydı yok"} />
+            </div>
+          </AdminSection>
+        ))}
       </div>
     </AppShell>
   );
 }
 
-function AdminInput({
-  className = "",
-  ...props
-}: InputHTMLAttributes<HTMLInputElement>) {
+async function getSafeProviders() {
+  try {
+    return await getAdminProviderMonitoringData();
+  } catch (error) {
+    console.error("[admin-page-failed]", {
+      page: "/admin/providers",
+      widget: "providers.list",
+      error: error instanceof Error ? error.message : "Unknown provider error"
+    });
+    return [];
+  }
+}
+
+function AdminInput({ className = "", ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={`${inputClass} ${className}`} />;
 }
 
-function EnvStatus({ configured }: { configured: boolean }) {
-  return <AdminStatusPill tone={configured ? "good" : "warn"}>{configured ? "Hazır" : "Eksik"}</AdminStatusPill>;
+function Notice({ tone, children }: { tone: "good" | "bad" | "warn"; children: ReactNode }) {
+  const styles = {
+    good: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    bad: "border-rose-200 bg-rose-50 text-rose-700",
+    warn: "border-amber-200 bg-amber-50 text-amber-700"
+  };
+  return <div className={`mb-4 rounded-lg border px-4 py-3 text-sm font-semibold ${styles[tone]}`}>{children}</div>;
+}
+
+function EnvStatus({ configured, stored }: { configured: boolean; stored?: boolean }) {
+  return <AdminStatusPill tone={configured ? "good" : "warn"}>{configured ? (stored ? "Key kayıtlı" : "ENV hazır") : "Key eksik"}</AdminStatusPill>;
 }
 
 function ProviderStatus({ status }: { status: string }) {
@@ -219,17 +185,19 @@ function Health({ status }: { status: string }) {
   return <AdminStatusPill tone="bad">Kapalı</AdminStatusPill>;
 }
 
+function Info({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">{label}</p>
+      <p className="mt-1 font-semibold text-slate-950">{value}</p>
+    </div>
+  );
+}
+
 function recordStatusToForm(status: string) {
   if (status === "ACTIVE") return "ACTIVE";
   if (status === "SUSPENDED") return "PAUSED";
   return "DISABLED";
-}
-
-function budgetModeLabel(value: string) {
-  if (value === "PAUSE_PROVIDER") return "Provider duraklat";
-  if (value === "PAUSE_TOOLS") return "Araçları duraklat";
-  if (value === "BLOCK_JOBS") return "Job engelle";
-  return "Sadece bildir";
 }
 
 function toInputNumber(value: unknown) {
@@ -242,8 +210,8 @@ function formatMoney(value: unknown, currency = "usd") {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: currency.toUpperCase(),
-    maximumFractionDigits: 4
+    maximumFractionDigits: 6
   }).format(amount);
 }
 
-const inputClass = "h-10 rounded-xl border border-white/10 bg-white/5 px-3 text-sm font-bold text-white outline-none transition placeholder:text-slate-600 focus:border-cyan";
+const inputClass = "h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500";

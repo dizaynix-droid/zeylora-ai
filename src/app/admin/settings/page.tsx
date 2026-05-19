@@ -1,7 +1,5 @@
 import { AppShell } from "@/components/layout/app-shell";
 import { AdminSection, AdminStatusPill } from "@/components/admin/admin-ui";
-import { businessFoundation } from "@/config/business";
-import { previewProtectionStrategy } from "@/config/preview-protection";
 import { updateMarketingTrackingSettingsAction, updateOperationalSettingsAction } from "@/lib/admin/actions";
 import { requireAdmin } from "@/lib/admin/auth";
 import { getMarketingTrackingSettings } from "@/lib/settings/marketing";
@@ -22,111 +20,121 @@ export default async function AdminSettingsPage({
   ]);
 
   return (
-    <AppShell area="admin" title="Operasyon ayarları" description="Verification, checkout, kayıt, abuse protection ve launch configuration görünümü.">
+    <AppShell
+      area="admin"
+      title="Ayarlar"
+      description="Email doğrulama operasyonu, checkout, kayıt, limitler, tracking ve destek bilgilerini buradan yönet."
+    >
       {params?.saved ? (
-        <div className="mb-4 rounded-2xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm font-black text-emerald">
-          Kaydedildi: {params.saved === "tracking" ? "tracking ayarları" : "operasyon ayarları"}.
+        <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+          Kaydedildi: {params.saved === "tracking" ? "pazarlama ve tracking ayarları" : "operasyon ayarları"}.
         </div>
       ) : null}
-      <AdminSection title="Operasyon ayarları" description="Owner'ın sık değişen site ayarları. Public metadata/env fallback hâlâ korunur.">
-        <form action={updateOperationalSettingsAction} className="grid gap-4">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            <TrackingInput label="Marka adı" name="brandName" defaultValue={operations.brandName} placeholder="Zeylora AI" note="Admin kontrollü marka gösterim değeri." />
-            <TrackingInput label="Destek email" name="supportEmail" defaultValue={operations.supportEmail} placeholder="support@zeylora.ai" note="Legal/contact ve toplu kredi destek adresi." />
-            <TrackingInput label="Fatura email" name="billingEmail" defaultValue={operations.billingEmail} placeholder="billing@zeylora.ai" note="Ödeme, fatura ve kredi bildirimleri için operasyon adresi." />
-            <TrackingInput label="Varsayılan para birimi" name="defaultCurrency" defaultValue={operations.defaultCurrency} placeholder="USD" note="Public fiyatlama varsayılan para birimi." />
+
+      <AdminSection
+        title="Email doğrulama operasyonu"
+        description="Bu ayarlar canlı verification akışını kontrol eder. 1 email = 1 doğrulama hakkı mantığına göre çalışır."
+      >
+        <form action={updateOperationalSettingsAction} className="grid gap-5">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <TextSetting label="Marka adı" name="brandName" defaultValue={operations.brandName} placeholder="Zeylora" note="Public site ve email şablonlarında kullanılan marka adı." />
+            <TextSetting label="Destek email" name="supportEmail" defaultValue={operations.supportEmail} placeholder="support@zeylora.ai" note="Contact, ticket ve footer destek adresi." />
+            <TextSetting label="Fatura email" name="billingEmail" defaultValue={operations.billingEmail} placeholder="billing@zeylora.ai" note="Ödeme ve fatura bildirimleri için operasyon adresi." />
+            <TextSetting label="Para birimi" name="defaultCurrency" defaultValue={operations.defaultCurrency} placeholder="USD" note="Paket fiyatlarında varsayılan para birimi." />
           </div>
-          <div className="grid gap-3 md:grid-cols-3">
-            <ToggleSetting label="Bakım modu" name="maintenanceMode" defaultChecked={operations.maintenanceMode} note="Global bakım modu anahtarı." />
-            <ToggleSetting label="Upload" name="uploadsEnabled" defaultChecked={operations.uploadsEnabled} note="Acil durumda yükleme akışını kapatır." />
-            <ToggleSetting label="Verification" name="previewEnabled" defaultChecked={operations.previewEnabled} note="Liste doğrulama akışına izin ver." />
-            <ToggleSetting label="CSV export" name="cleanExportsEnabled" defaultChecked={operations.cleanExportsEnabled} note="Doğrulama sonucu CSV indirme erişimini kontrol eder." />
-            <ToggleSetting label="Checkout" name="checkoutEnabled" defaultChecked={operations.checkoutEnabled} note="Paid checkout görünürlüğünü kontrol eder." />
-            <ToggleSetting label="Kayıt" name="registrationEnabled" defaultChecked={operations.registrationEnabled} note="Yeni hesap kaydına izin ver." />
-            <ToggleSetting label="Email bildirimleri" name="emailsEnabled" defaultChecked={operations.emailsEnabled} note="Resend/Postmark/SMTP hazır olana kadar kapalı tutulabilir." />
+
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <ToggleSetting label="Bakım modu" name="maintenanceMode" defaultChecked={operations.maintenanceMode} note="Acil durumda public akışı durdurmak için." />
+            <ToggleSetting label="Liste yükleme" name="uploadsEnabled" defaultChecked={operations.uploadsEnabled} note="CSV/TXT ve paste doğrulama girişini aç/kapat." />
+            <ToggleSetting label="Doğrulama motoru" name="previewEnabled" defaultChecked={operations.previewEnabled} note="MillionVerifier/provider doğrulama işlerini aç/kapat." />
+            <ToggleSetting label="Sonuç export" name="cleanExportsEnabled" defaultChecked={operations.cleanExportsEnabled} note="Valid/invalid/risky CSV indirme erişimi." />
+            <ToggleSetting label="Checkout" name="checkoutEnabled" defaultChecked={operations.checkoutEnabled} note="Stripe kredi paketi satın alma akışını aç/kapat." />
+            <ToggleSetting label="Yeni kayıt" name="registrationEnabled" defaultChecked={operations.registrationEnabled} note="Yeni kullanıcı kayıtlarını aç/kapat." />
+            <ToggleSetting label="Email bildirimleri" name="emailsEnabled" defaultChecked={operations.emailsEnabled} note="Resend transactional email gönderimini aç/kapat." />
           </div>
+
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-            <NumberSetting label="Max dosya MB" name="uploadMaxSizeMb" defaultValue={operations.uploadMaxSizeMb} />
-            <NumberSetting label="Misafir/dk" name="guestPreviewPerMinute" defaultValue={operations.guestPreviewPerMinute} />
-            <NumberSetting label="Misafir/saat" name="guestPreviewPerHour" defaultValue={operations.guestPreviewPerHour} />
-            <NumberSetting label="Kullanıcı iş/dk" name="userJobsPerMinute" defaultValue={operations.userJobsPerMinute} />
-            <NumberSetting label="Kullanıcı iş/gün" name="userJobsPerDay" defaultValue={operations.userJobsPerDay} />
+            <NumberSetting label="Max dosya MB" name="uploadMaxSizeMb" defaultValue={operations.uploadMaxSizeMb} note="Tek CSV/TXT dosyası için üst limit." />
+            <NumberSetting label="Misafir/dk" name="guestPreviewPerMinute" defaultValue={operations.guestPreviewPerMinute} note="Login öncesi pre-check limiti." />
+            <NumberSetting label="Misafir/saat" name="guestPreviewPerHour" defaultValue={operations.guestPreviewPerHour} note="Login öncesi saatlik pre-check limiti." />
+            <NumberSetting label="Kullanıcı iş/dk" name="userJobsPerMinute" defaultValue={operations.userJobsPerMinute} note="Doğrulama job başlatma dakika limiti." />
+            <NumberSetting label="Kullanıcı iş/gün" name="userJobsPerDay" defaultValue={operations.userJobsPerDay} note="Doğrulama job başlatma günlük limiti." />
           </div>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+
+          <div className="grid gap-3 md:grid-cols-3">
             <NumberSetting
-              label="1 kredi tahmini USD"
+              label="1 doğrulama tahmini USD"
               name="estimatedCreditUsdValue"
               defaultValue={operations.estimatedCreditUsdValue}
-              step="0.01"
-              note="Bu değer tahmini gelir/kâr hesaplamaları için kullanılır. Job tamamlanınca snapshot alınır; eski işler sonradan değişmez."
+              step="0.0001"
+              note="Raporlarda gelir/kâr tahmini için kullanılır. Provider maliyeti ayrı olarak provider sayfasından girilir."
             />
+            <InfoCard title="Büyük liste notu" value="Queue gerekli" note="100K+ listeler request içinde değil, chunk/background worker ile işlenmeli." tone="warn" />
+            <InfoCard title="Ekonomi kuralı" value="1 email = 1 hak" note="Müşteri tarafında 1 doğrulama hakkı, provider tarafında 1 email sorgusu demektir." />
           </div>
-          <button className="h-11 w-fit rounded-full bg-zeylora-brand px-5 text-sm font-black text-white shadow-glow transition hover:brightness-110">
+
+          <button className="h-11 w-fit rounded-md bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700">
             Operasyon ayarlarını kaydet
           </button>
         </form>
       </AdminSection>
-      <div className="mt-5">
-      <AdminSection title="Pazarlama ve tracking" description="Reklam, analytics ve domain doğrulama kodlarını kod değiştirmeden yönet. Sadece public tracking ID/meta content değerleri gir.">
-        <form action={updateMarketingTrackingSettingsAction} className="grid gap-4">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            <TrackingInput label="GA4 Measurement ID" name="ga4MeasurementId" defaultValue={tracking.ga4MeasurementId} placeholder="G-XXXXXXXXXX" note="Google Analytics page_view ve event takibi." />
-            <TrackingInput label="Google Ads Conversion ID" name="googleAdsConversionId" defaultValue={tracking.googleAdsConversionId} placeholder="AW-XXXXXXXXXX" note="Google Ads base tag için." />
-            <TrackingInput label="Google Ads Conversion Label" name="googleAdsConversionLabel" defaultValue={tracking.googleAdsConversionLabel} placeholder="abc123..." note="Purchase conversion helper için saklanır." />
-            <TrackingInput label="Meta Pixel ID" name="metaPixelId" defaultValue={tracking.metaPixelId} placeholder="1234567890" note="PageView, InitiateCheckout ve custom eventler." />
-            <TrackingInput label="TikTok Pixel ID" name="tiktokPixelId" defaultValue={tracking.tiktokPixelId} placeholder="CXXXXXXXXXXXX" note="Opsiyonel TikTok pixel." />
-            <TrackingInput label="Pinterest Tag ID" name="pinterestTagId" defaultValue={tracking.pinterestTagId} placeholder="261xxxxxxxxxx" note="Opsiyonel Pinterest tag." />
-            <TrackingInput label="Google Search Console" name="googleSearchConsoleVerification" defaultValue={tracking.googleSearchConsoleVerification} placeholder="meta content value" note="google-site-verification content değeri." />
-            <TrackingInput label="Bing Webmaster" name="bingWebmasterVerification" defaultValue={tracking.bingWebmasterVerification} placeholder="meta content value" note="msvalidate.01 content değeri." />
-            <TrackingInput label="Facebook Domain Verification" name="facebookDomainVerification" defaultValue={tracking.facebookDomainVerification} placeholder="meta content value" note="facebook-domain-verification content değeri." />
-          </div>
 
-          <div className="rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4">
-            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-              <div>
-                <p className="text-sm font-black text-amber-100">Özel scriptler</p>
-                <p className="mt-1 text-sm leading-6 text-amber-100/75">
-                  Yanlış script siteyi bozabilir. Sadece güvenilir platformlardan alınan public tracking kodlarını kullan.
-                </p>
+      <div className="mt-5">
+        <AdminSection
+          title="Reklam, analytics ve domain doğrulama"
+          description="Sadece public tracking ID ve meta doğrulama değerleri saklanır. Secret/API key bu alana girilmemeli."
+        >
+          <form action={updateMarketingTrackingSettingsAction} className="grid gap-5">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              <TextSetting label="GA4 Measurement ID" name="ga4MeasurementId" defaultValue={tracking.ga4MeasurementId} placeholder="G-XXXXXXXXXX" note="Google Analytics page_view ve funnel event takibi." />
+              <TextSetting label="Google Ads Conversion ID" name="googleAdsConversionId" defaultValue={tracking.googleAdsConversionId} placeholder="AW-XXXXXXXXXX" note="Google Ads base tag için." />
+              <TextSetting label="Google Ads Conversion Label" name="googleAdsConversionLabel" defaultValue={tracking.googleAdsConversionLabel} placeholder="abc123..." note="Purchase conversion helper için." />
+              <TextSetting label="Meta Pixel ID" name="metaPixelId" defaultValue={tracking.metaPixelId} placeholder="1234567890" note="PageView ve checkout eventleri için." />
+              <TextSetting label="TikTok Pixel ID" name="tiktokPixelId" defaultValue={tracking.tiktokPixelId} placeholder="CXXXXXXXXXXXX" note="Opsiyonel TikTok pixel." />
+              <TextSetting label="Pinterest Tag ID" name="pinterestTagId" defaultValue={tracking.pinterestTagId} placeholder="261xxxxxxxxxx" note="Opsiyonel Pinterest tag." />
+              <TextSetting label="Google Search Console" name="googleSearchConsoleVerification" defaultValue={tracking.googleSearchConsoleVerification} placeholder="meta content value" note="google-site-verification content değeri." />
+              <TextSetting label="Bing Webmaster" name="bingWebmasterVerification" defaultValue={tracking.bingWebmasterVerification} placeholder="meta content value" note="msvalidate.01 content değeri." />
+              <TextSetting label="Facebook domain verification" name="facebookDomainVerification" defaultValue={tracking.facebookDomainVerification} placeholder="meta content value" note="facebook-domain-verification content değeri." />
+            </div>
+
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-amber-900">Özel script alanı</p>
+                  <p className="mt-1 text-sm leading-6 text-amber-800">
+                    Yanlış script siteyi bozabilir. Sadece güvenilir reklam/analytics platformlarından gelen public scriptleri kullan.
+                  </p>
+                </div>
+                <label className="inline-flex items-center gap-2 text-sm font-semibold text-amber-900">
+                  <input type="checkbox" name="customScriptsEnabled" defaultChecked={tracking.customScriptsEnabled} className="size-4 accent-blue-600" />
+                  Özel scriptleri aktif et
+                </label>
               </div>
-              <label className="inline-flex items-center gap-2 text-sm font-black text-white">
-                <input type="checkbox" name="customScriptsEnabled" defaultChecked={tracking.customScriptsEnabled} className="size-4 accent-cyan" />
-                Özel scriptleri aktif et
-              </label>
+              <div className="mt-4 grid gap-3 xl:grid-cols-2">
+                <TextAreaSetting label="Özel head script" name="customHeadScript" defaultValue={tracking.customHeadScript} />
+                <TextAreaSetting label="Özel body/footer script" name="customBodyScript" defaultValue={tracking.customBodyScript} />
+              </div>
             </div>
-            <div className="mt-4 grid gap-3 xl:grid-cols-2">
-              <TrackingTextarea label="Özel head script" name="customHeadScript" defaultValue={tracking.customHeadScript} />
-              <TrackingTextarea label="Özel body/footer script" name="customBodyScript" defaultValue={tracking.customBodyScript} />
-            </div>
-          </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <button className="h-11 rounded-full bg-zeylora-brand px-5 text-sm font-black text-white shadow-glow transition hover:brightness-110">
-              Tracking ayarlarını kaydet
-            </button>
-            <TrackingStatus label="GA4" configured={Boolean(tracking.ga4MeasurementId)} />
-            <TrackingStatus label="Meta" configured={Boolean(tracking.metaPixelId)} />
-            <TrackingStatus label="Google verification" configured={Boolean(tracking.googleSearchConsoleVerification)} />
-          </div>
-        </form>
-      </AdminSection>
+            <div className="flex flex-wrap items-center gap-3">
+              <button className="h-11 rounded-md bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700">
+                Tracking ayarlarını kaydet
+              </button>
+              <TrackingStatus label="GA4" configured={Boolean(tracking.ga4MeasurementId)} />
+              <TrackingStatus label="Meta" configured={Boolean(tracking.metaPixelId)} />
+              <TrackingStatus label="Search Console" configured={Boolean(tracking.googleSearchConsoleVerification)} />
+            </div>
+          </form>
+        </AdminSection>
       </div>
+
       <div className="mt-5">
-      <AdminSection title="Verification export ayarları" description="Email verification sonucu export ve kredi ekonomisi için operasyon görünümü.">
-        <div className="grid gap-3 md:grid-cols-2">
-          <Setting label="Branded preview legacy flag" value={businessFoundation.exports.freeWatermarkEnabled ? "Aktif" : "Pasif"} />
-          <Setting label="CSV export mode" value={businessFoundation.exports.paidExportMode} />
-          <Setting label="Kredi zorunluluğu" value={businessFoundation.credits.enforcementEnabled ? "Aktif" : "Pasif"} />
-          <Setting label="Preview protection" value={previewProtectionStrategy.mode} />
-        </div>
-      </AdminSection>
-      </div>
-      <div className="mt-5">
-        <AdminSection title="Abuse koruması" description="In-memory guard launch için geçici; public traffic için Redis/Upstash önerilir.">
-          <div className="grid gap-3 md:grid-cols-3">
-            <Setting label="Upload limiti" value={`${businessFoundation.abuseProtection.uploadMaxRequests}/dk`} />
-            <Setting label="Job limiti" value={`${businessFoundation.abuseProtection.jobMaxRequests}/dk`} />
-            <Setting label="Cooldown" value={`${businessFoundation.abuseProtection.cooldownMs}ms`} />
+        <AdminSection title="Canlı operasyon kontrolü" description="Reklama çıkmadan önce hızlı kontrol listesi.">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <InfoCard title="Provider" value="MillionVerifier" note="API durumu Provider Yönetimi sayfasından kontrol edilir." />
+            <InfoCard title="Paket mantığı" value="Doğrulama hakkı" note="Paketlerde kredi yerine doğrulama adedi gösterilir." />
+            <InfoCard title="Raporlama" value="Email başı maliyet" note="Provider maliyeti / satın alınan API kotası ile girilmeli." />
+            <InfoCard title="Büyük listeler" value="Chunk işlem" note="1M liste için background queue zorunlu; senkron request yeterli değil." tone="warn" />
           </div>
         </AdminSection>
       </div>
@@ -134,7 +142,7 @@ export default async function AdminSettingsPage({
   );
 }
 
-function TrackingInput({
+function TextSetting({
   label,
   name,
   defaultValue,
@@ -148,28 +156,28 @@ function TrackingInput({
   note: string;
 }) {
   return (
-    <label className="rounded-2xl border border-white/10 bg-white/5 p-4">
-      <span className="text-xs font-black uppercase tracking-[0.16em] text-cyan">{label}</span>
+    <label className="rounded-lg border border-slate-200 bg-white p-4">
+      <span className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">{label}</span>
       <input
         name={name}
         defaultValue={defaultValue}
         placeholder={placeholder}
-        className="mt-3 h-10 w-full rounded-xl border border-white/10 bg-[#080d1f] px-3 text-sm font-bold text-white outline-none transition placeholder:text-slate-600 focus:border-cyan"
+        className="mt-3 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
       />
       <span className="mt-2 block text-xs leading-5 text-slate-500">{note}</span>
     </label>
   );
 }
 
-function TrackingTextarea({ label, name, defaultValue }: { label: string; name: string; defaultValue: string }) {
+function TextAreaSetting({ label, name, defaultValue }: { label: string; name: string; defaultValue: string }) {
   return (
     <label>
-      <span className="text-xs font-black uppercase tracking-[0.16em] text-amber-100">{label}</span>
+      <span className="text-xs font-semibold uppercase tracking-[0.08em] text-amber-900">{label}</span>
       <textarea
         name={name}
         defaultValue={defaultValue}
         rows={6}
-        className="mt-2 w-full rounded-2xl border border-white/10 bg-[#080d1f] p-3 font-mono text-xs text-white outline-none transition placeholder:text-slate-600 focus:border-amber-200/50"
+        className="mt-2 w-full rounded-md border border-amber-200 bg-white p-3 font-mono text-xs text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-amber-400 focus:ring-4 focus:ring-amber-100"
         placeholder="<script>...</script>"
       />
     </label>
@@ -192,10 +200,10 @@ function ToggleSetting({
   note: string;
 }) {
   return (
-    <label className="rounded-2xl border border-white/10 bg-white/5 p-4">
+    <label className="rounded-lg border border-slate-200 bg-white p-4">
       <span className="flex items-center justify-between gap-3">
-        <span className="text-xs font-black uppercase tracking-[0.16em] text-cyan">{label}</span>
-        <input name={name} type="checkbox" defaultChecked={defaultChecked} className="size-4 accent-cyan" />
+        <span className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">{label}</span>
+        <input name={name} type="checkbox" defaultChecked={defaultChecked} className="size-4 accent-blue-600" />
       </span>
       <span className="mt-2 block text-xs leading-5 text-slate-500">{note}</span>
     </label>
@@ -216,26 +224,37 @@ function NumberSetting({
   note?: string;
 }) {
   return (
-    <label className="rounded-2xl border border-white/10 bg-white/5 p-4">
-      <span className="text-xs font-black uppercase tracking-[0.16em] text-cyan">{label}</span>
+    <label className="rounded-lg border border-slate-200 bg-white p-4">
+      <span className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">{label}</span>
       <input
         name={name}
         type="number"
         min="0"
         step={step}
         defaultValue={defaultValue}
-        className="mt-3 h-10 w-full rounded-xl border border-white/10 bg-[#080d1f] px-3 text-sm font-bold text-white outline-none focus:border-cyan"
+        className="mt-3 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
       />
       {note ? <span className="mt-2 block text-xs leading-5 text-slate-500">{note}</span> : null}
     </label>
   );
 }
 
-function Setting({ label, value }: { label: string; value: string }) {
+function InfoCard({
+  title,
+  value,
+  note,
+  tone = "neutral"
+}: {
+  title: string;
+  value: string;
+  note: string;
+  tone?: "neutral" | "warn";
+}) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-      <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{label}</p>
-      <div className="mt-3"><AdminStatusPill tone="neutral">{value}</AdminStatusPill></div>
+    <div className={tone === "warn" ? "rounded-lg border border-amber-200 bg-amber-50 p-4" : "rounded-lg border border-slate-200 bg-slate-50 p-4"}>
+      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">{title}</p>
+      <p className="mt-2 text-lg font-semibold text-slate-950">{value}</p>
+      <p className="mt-1 text-xs leading-5 text-slate-500">{note}</p>
     </div>
   );
 }

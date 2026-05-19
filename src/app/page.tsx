@@ -294,16 +294,18 @@ function HeroActivityStrip() {
   ];
 
   return (
-    <div className="mt-8 overflow-hidden rounded-2xl border border-white/70 bg-white/70 p-2 shadow-[0_18px_60px_rgba(15,23,42,.09)] backdrop-blur-xl">
-      <div className="flex min-w-max items-center gap-2">
+    <div className="mt-8 rounded-2xl border border-white/70 bg-white/70 p-2 shadow-[0_18px_60px_rgba(15,23,42,.09)] backdrop-blur-xl">
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
         {items.map(([label, value]) => (
-          <div key={label} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+          <div key={label} className="min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-3">
+            <div className="flex items-center gap-2">
             <span className="relative flex size-2">
               <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-300 opacity-75" />
               <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
             </span>
-            <span className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">{label}</span>
-            <span className="text-sm font-semibold text-slate-950">{value}</span>
+              <span className="truncate text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500">{label}</span>
+            </div>
+            <span className="mt-1 block truncate text-sm font-semibold text-slate-950">{value}</span>
           </div>
         ))}
       </div>

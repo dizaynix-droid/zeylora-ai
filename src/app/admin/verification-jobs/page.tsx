@@ -32,42 +32,16 @@ export default async function AdminVerificationJobsPage({
         }
       : {})
   };
-  const [jobs, total] = await Promise.all([
-    prisma.verificationJob.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-      select: {
-        id: true,
-        status: true,
-        providerKey: true,
-        originalFilename: true,
-        uniqueEmails: true,
-        validCount: true,
-        invalidCount: true,
-        riskyCount: true,
-        catchAllCount: true,
-        disposableCount: true,
-        creditsUsed: true,
-        providerCostAtRun: true,
-        estimatedRevenueAtRun: true,
-        estimatedProfitAtRun: true,
-        errorMessage: true,
-        createdAt: true,
-        user: {
-          select: {
-            email: true
-          }
-        }
-      }
-    }),
-    prisma.verificationJob.count({ where })
-  ]);
+  const { jobs, total, error } = await getSafeVerificationJobs(where, page);
   const pagination = createPagination(page, PAGE_SIZE, total);
 
   return (
     <AppShell area="admin" title="Doğrulama işleri" description="Email list cleaning job, provider, maliyet ve hata kayıtlarını izle.">
+      {error ? (
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+          Doğrulama işleri güvenli modda açıldı. Verification migration veya provider alanları eksik olabilir; Sistem Sağlığı ve Kayıtlar ekranından kontrol et.
+        </div>
+      ) : null}
       <AdminSection title="Verification job kayıtları" description="Varsayılan olarak son 25 kayıt gelir; filtreler server-side çalışır.">
         <form className="mb-4 grid gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 md:grid-cols-[180px_1fr_auto]">
           <select name="status" defaultValue={status} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-900 outline-none focus:border-blue-500">
@@ -126,6 +100,48 @@ export default async function AdminVerificationJobsPage({
       </AdminSection>
     </AppShell>
   );
+}
+
+async function getSafeVerificationJobs(where: Record<string, unknown>, page: number) {
+  try {
+    const [jobs, total] = await Promise.all([
+      prisma.verificationJob.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * PAGE_SIZE,
+        take: PAGE_SIZE,
+        select: {
+          id: true,
+          status: true,
+          providerKey: true,
+          originalFilename: true,
+          uniqueEmails: true,
+          validCount: true,
+          invalidCount: true,
+          riskyCount: true,
+          catchAllCount: true,
+          disposableCount: true,
+          creditsUsed: true,
+          providerCostAtRun: true,
+          estimatedRevenueAtRun: true,
+          estimatedProfitAtRun: true,
+          errorMessage: true,
+          createdAt: true,
+          user: { select: { email: true } }
+        }
+      }),
+      prisma.verificationJob.count({ where })
+    ]);
+
+    return { jobs, total, error: null };
+  } catch (error) {
+    console.error("[admin-page-failed]", {
+      page: "/admin/verification-jobs",
+      widget: "verification-jobs.table",
+      error: error instanceof Error ? error.message : "Unknown verification jobs error"
+    });
+    return { jobs: [], total: 0, error };
+  }
 }
 
 function Status({ status }: { status: string }) {

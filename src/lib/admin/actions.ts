@@ -209,6 +209,8 @@ export async function upsertProviderSettingAction(formData: FormData) {
   const name = getFormString(formData, "name", 120);
   const providerType = getFormString(formData, "providerType", 40) || "other";
   const envKeyName = getEnvKeyName(getFormString(formData, "envKeyName", 120));
+  const apiBaseUrl = getFormString(formData, "apiBaseUrl", 500);
+  const apiKey = getFormString(formData, "apiKey", 1000);
   const status = getProviderRecordStatus(getFormString(formData, "status", 40));
   const dailyBudgetLimit = Number(formData.get("dailyBudgetLimit") || 0);
   const monthlyBudgetLimit = Number(formData.get("monthlyBudgetLimit") || 0);
@@ -234,12 +236,18 @@ export async function upsertProviderSettingAction(formData: FormData) {
     redirect("/admin/providers?error=invalid");
   }
 
+  const configJson = {
+    ...(apiBaseUrl ? { apiBaseUrl } : {}),
+    ...(apiKey ? { apiKeyStoredAt: new Date().toISOString() } : {})
+  };
+
   const data = {
     providerKey,
     name,
     providerType,
     envKeyName: envKeyName || null,
     status,
+    ...(apiKey ? { apiKeyEncrypted: apiKey } : {}),
     dailyBudgetLimit: dailyBudgetLimit > 0 ? dailyBudgetLimit : null,
     monthlyBudgetLimit: monthlyBudgetLimit > 0 ? monthlyBudgetLimit : null,
     estimatedCostPerRun: estimatedCostPerRun > 0 ? estimatedCostPerRun : null,
@@ -247,7 +255,7 @@ export async function upsertProviderSettingAction(formData: FormData) {
     budgetEnforcementMode,
     priority,
     notes: notes || null,
-    configJson: {}
+    configJson
   };
 
   const provider = providerId
@@ -273,6 +281,8 @@ export async function upsertProviderSettingAction(formData: FormData) {
       name: provider.name,
       providerType,
       envKeyName,
+      apiBaseUrl: Boolean(apiBaseUrl),
+      apiKeyStored: Boolean(apiKey),
       status,
       dailyBudgetLimit,
       monthlyBudgetLimit,
@@ -286,6 +296,33 @@ export async function upsertProviderSettingAction(formData: FormData) {
   revalidatePath("/admin/providers");
   revalidatePath("/admin/reports");
   redirect(`/admin/providers?saved=${encodeURIComponent(provider.providerKey)}`);
+}
+
+export async function deactivateProviderSettingAction(formData: FormData) {
+  const admin = await requireAdmin();
+  const providerId = getFormString(formData, "providerId", 120);
+
+  if (!providerId) {
+    redirect("/admin/providers?error=invalid");
+  }
+
+  const provider = await prisma.providerSetting.update({
+    where: { id: providerId },
+    data: { status: "INACTIVE" },
+    select: { id: true, providerKey: true, name: true }
+  });
+
+  await logAdminAction({
+    admin,
+    action: "provider.deactivate",
+    entityType: "ProviderSetting",
+    entityId: provider.id,
+    metadata: { providerKey: provider.providerKey, name: provider.name }
+  });
+
+  revalidatePath("/admin/providers");
+  revalidatePath("/admin/reports");
+  redirect(`/admin/providers?deleted=${encodeURIComponent(provider.providerKey)}`);
 }
 
 export async function updateCreditPackageAction(formData: FormData) {

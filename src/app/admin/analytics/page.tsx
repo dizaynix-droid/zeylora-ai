@@ -26,11 +26,11 @@ export default async function AdminAnalyticsPage() {
   });
 
   return (
-    <AppShell area="admin" title="Davranış funnel analizi" description="Landing, upload, preview, pricing, checkout ve payment yolculuğunu takip et.">
+    <AppShell area="admin" title="Davranış funnel analizi" description="Landing, liste yükleme, pre-check, pricing, checkout ve payment yolculuğunu takip et.">
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         <AdminMetricCard label="Günlük ziyaretçi" value={data.behavior.dailyVisitors} />
         <AdminMetricCard label="Upload" value={data.behavior.uploads} note={`${data.behavior.landingToUploadRate}% landing → upload`} />
-        <AdminMetricCard label="Preview" value={data.behavior.previews} note={`${data.behavior.uploadToPreviewRate}% upload → preview`} />
+        <AdminMetricCard label="Pre-check" value={data.behavior.previews} note={`${data.behavior.uploadToPreviewRate}% upload → pre-check`} />
         <AdminMetricCard label="Checkout start" value={data.behavior.checkoutStarts} />
         <AdminMetricCard label="Payment" value={data.behavior.payments} note={`${data.behavior.checkoutToPaymentRate}% checkout → payment`} />
       </div>
@@ -58,7 +58,7 @@ export default async function AdminAnalyticsPage() {
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-[1.1fr_.9fr]">
-        <AdminSection title="Günlük trend" description="Ziyaretçi, upload, preview, checkout ve payment trendleri.">
+        <AdminSection title="Günlük trend" description="Ziyaretçi, upload, pre-check, checkout ve payment trendleri.">
           <AdminTable>
             <table className="min-w-[760px] w-full divide-y divide-white/10 text-sm">
               <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
@@ -66,7 +66,7 @@ export default async function AdminAnalyticsPage() {
                   <th className="px-4 py-3">Gün</th>
                   <th className="px-4 py-3">Ziyaretçi</th>
                   <th className="px-4 py-3">Upload</th>
-                  <th className="px-4 py-3">Preview</th>
+                  <th className="px-4 py-3">Pre-check</th>
                   <th className="px-4 py-3">Checkout</th>
                   <th className="px-4 py-3">Payment</th>
                 </tr>
@@ -92,13 +92,13 @@ export default async function AdminAnalyticsPage() {
           </AdminTable>
         </AdminSection>
 
-        <AdminSection title="Tool ve teknik sağlık" description="Mevcut job tabanlı kullanım analizi korunur.">
+        <AdminSection title="Doğrulama ve teknik sağlık" description="Verification job tabanlı kullanım analizi korunur.">
           <div className="grid gap-3">
             <div className="grid gap-3 sm:grid-cols-2">
               <AdminMetricCard label="Tamamlanan işlem" value={data.completedJobs} />
               <AdminMetricCard label="Hatalı işlem" value={data.failedJobs} note={`Hata oranı %${data.failureRate}`} />
             </div>
-            <Breakdown title="Funnel tool kullanımı" rows={data.behavior.topTools} compact />
+            <Breakdown title="Funnel doğrulama kullanımı" rows={data.behavior.topTools} compact />
           </div>
         </AdminSection>
       </div>
@@ -121,7 +121,7 @@ export default async function AdminAnalyticsPage() {
           </div>
         </AdminSection>
 
-        <AdminSection title="Kullanıcı yolculuğu" description="Son sessionlar: sayfa, tool, preview ve checkout adımları.">
+        <AdminSection title="Kullanıcı yolculuğu" description="Son sessionlar: sayfa, liste yükleme, pre-check ve checkout adımları.">
           <div className="grid gap-3">
             {data.behavior.recentSessions.map((session) => (
               <div key={session.id} className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">

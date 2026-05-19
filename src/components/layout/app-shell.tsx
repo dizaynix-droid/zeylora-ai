@@ -56,7 +56,7 @@ export function AppShell({ title, description, area, children }: AppShellProps) 
         <aside className="min-w-0">
           <div className="sticky top-5 rounded-lg border border-slate-200 bg-white p-2 shadow-[0_1px_2px_rgba(15,23,42,.04)]">
             <p className="px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
-              {area === "admin" ? "Admin" : "Workspace"}
+              {area === "admin" ? "Yönetim" : "Workspace"}
             </p>
             <nav className="grid gap-1">
               {nav.map((item) => (

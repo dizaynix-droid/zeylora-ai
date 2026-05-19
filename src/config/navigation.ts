@@ -17,18 +17,17 @@ export const dashboardNav = [
 ] as const;
 
 export const adminNav = [
-  { label: "Overview", href: "/admin" },
-  { label: "Users", href: "/admin/users" },
-  { label: "Verification Jobs", href: "/admin/verification-jobs" },
-  { label: "Email Results", href: "/admin/email-results" },
-  { label: "Payments", href: "/admin/payments" },
-  { label: "Credit Packages", href: "/admin/pricing" },
-  { label: "Credits Ledger", href: "/admin/credits" },
-  { label: "Providers", href: "/admin/providers" },
-  { label: "Reports", href: "/admin/reports" },
-  { label: "Analytics", href: "/admin/analytics" },
-  { label: "Support", href: "/admin/tickets" },
-  { label: "Settings", href: "/admin/settings" },
-  { label: "System Health", href: "/admin/system" },
-  { label: "Logs", href: "/admin/logs" }
+  { label: "Genel Bakış", href: "/admin" },
+  { label: "Kullanıcılar", href: "/admin/users" },
+  { label: "Doğrulama İşleri", href: "/admin/verification-jobs" },
+  { label: "Email Sonuçları", href: "/admin/email-results" },
+  { label: "Ödemeler", href: "/admin/payments" },
+  { label: "Paket Yönetimi", href: "/admin/pricing" },
+  { label: "Provider Yönetimi", href: "/admin/providers" },
+  { label: "Raporlar", href: "/admin/reports" },
+  { label: "Analizler", href: "/admin/analytics" },
+  { label: "Destek", href: "/admin/tickets" },
+  { label: "Ayarlar", href: "/admin/settings" },
+  { label: "Sistem Sağlığı", href: "/admin/system" },
+  { label: "Kayıtlar", href: "/admin/logs" }
 ] as const;
