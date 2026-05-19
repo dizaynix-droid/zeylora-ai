@@ -82,7 +82,14 @@ export async function POST(request: Request) {
 
     if (!selectedPackage) {
       checkoutLog("package_not_found", { requestId, userId: user.id, packageId, ms: Date.now() - startedAt });
-      return NextResponse.json({ ok: false, error: "Active credit package not found." }, { status: 404 });
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "No verification credits available. Choose a package to continue.",
+          code: "package_not_found"
+        },
+        { status: 404 }
+      );
     }
 
     const checkoutUrls = getCheckoutUrls({ resumeVerification });

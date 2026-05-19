@@ -25,8 +25,10 @@ export function HomepageListChecker() {
   const duplicateCount = parsed.duplicateEmails.length;
   const totalCount = parsed.totalRows;
   const quality = useMemo(() => estimateQuality(uniqueCount, duplicateCount), [duplicateCount, uniqueCount]);
+  const recommendedPackage = useMemo(() => getRecommendedPackage(uniqueCount), [uniqueCount]);
   const ready = uniqueCount > 0;
   const score = ready ? Math.max(54, Math.min(98, quality.valid - Math.round(quality.risk / 3))) : 0;
+  const workflowSteps = getWorkflowSteps(parseState, ready);
 
   async function handleFile(file: File | null) {
     if (!file) return;
@@ -127,7 +129,8 @@ export function HomepageListChecker() {
           event: "homepage_pricing_required",
           properties: { uniqueEmails: uniqueCount, creditBalance: balance }
         });
-        router.push("/pricing?checkoutPackage=starter_trial&resumeVerification=1");
+        setMessage(`You need ${uniqueCount.toLocaleString()} verification credits. ${recommendedPackage.name} is the best fit for this list; taking you to pricing.`);
+        router.push(`/pricing?checkoutPackage=${recommendedPackage.key}&resumeVerification=1`);
         return;
       }
 
@@ -181,6 +184,12 @@ export function HomepageListChecker() {
       </div>
 
       <div className="grid gap-4 p-5">
+        <div className="grid gap-2 sm:grid-cols-5">
+          {workflowSteps.map((step) => (
+            <ProgressStep key={step.label} {...step} />
+          ))}
+        </div>
+
         <label
           onDragOver={onDragOver}
           onDragLeave={onDragLeave}
@@ -224,10 +233,10 @@ export function HomepageListChecker() {
           </div>
         </div>
 
-        <div className="grid gap-3 rounded-lg border border-slate-200 bg-slate-950 p-4 text-white">
+        <div className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-blue-200">Live verification flow</p>
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/15 px-2 py-1 text-xs font-semibold text-emerald-200">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Live verification flow</p>
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">
               <span className="size-1.5 animate-pulse rounded-full bg-emerald-300" />
               {ready ? "Scanning ready" : "Waiting for list"}
             </span>
@@ -248,7 +257,9 @@ export function HomepageListChecker() {
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.08em] text-blue-700">Ready workflow</p>
               <p className="mt-1 text-sm text-slate-700">
-                {ready ? `${uniqueCount.toLocaleString()} unique emails will use ${uniqueCount.toLocaleString()} credits.` : "Upload or paste a list to estimate credits."}
+                {ready
+                  ? `${uniqueCount.toLocaleString()} unique emails will use ${uniqueCount.toLocaleString()} verification credits. Recommended package: ${recommendedPackage.name}.`
+                  : "Upload or paste a list to estimate credits."}
               </p>
             </div>
             <ClipboardList className="text-blue-700" size={22} />
@@ -308,21 +319,40 @@ function DeliverabilityScore({ score, ready }: { score: number; ready: boolean }
 
 function ActivityItem({ active, label }: { active: boolean; label: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-md border border-white/10 bg-white/5 px-3 py-2">
-      <span className={`size-2 rounded-full ${active ? "animate-pulse bg-emerald-300" : "bg-slate-600"}`} />
-      <span className={active ? "text-sm font-semibold text-white" : "text-sm font-medium text-slate-400"}>{label}</span>
+    <div className="flex items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+      <span className={`size-2 rounded-full ${active ? "animate-pulse bg-emerald-500" : "bg-slate-300"}`} />
+      <span className={active ? "text-sm font-semibold text-slate-900" : "text-sm font-medium text-slate-500"}>{label}</span>
     </div>
   );
 }
 
 function ComparisonCard({ label, value, tone }: { label: string; value: string; tone: "good" | "bad" }) {
   return (
-    <div className="rounded-md border border-white/10 bg-white/5 p-3">
-      <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-400">{label}</p>
-      <p className={`mt-1 flex items-center gap-2 text-xl font-semibold ${tone === "good" ? "text-emerald-200" : "text-rose-200"}`}>
+    <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+      <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">{label}</p>
+      <p className={`mt-1 flex items-center gap-2 text-xl font-semibold ${tone === "good" ? "text-emerald-700" : "text-rose-700"}`}>
         {tone === "good" ? <TrendingDown size={18} /> : <XCircle size={18} />}
         {value}
       </p>
+    </div>
+  );
+}
+
+function ProgressStep({ label, state }: { label: string; state: "done" | "active" | "pending" }) {
+  return (
+    <div
+      className={`rounded-lg border px-3 py-2 ${
+        state === "done"
+          ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+          : state === "active"
+            ? "border-blue-200 bg-blue-50 text-blue-800"
+            : "border-slate-200 bg-white text-slate-500"
+      }`}
+    >
+      <div className="flex items-center gap-2">
+        {state === "active" ? <Loader2 className="animate-spin" size={14} /> : state === "done" ? <CheckCircle2 size={14} /> : <span className="size-3 rounded-full border border-current opacity-40" />}
+        <span className="text-xs font-semibold">{label}</span>
+      </div>
     </div>
   );
 }
@@ -364,4 +394,24 @@ function estimateQuality(uniqueCount: number, duplicateCount: number) {
     risk,
     duplicates: duplicateRate
   };
+}
+
+function getRecommendedPackage(uniqueCount: number) {
+  if (uniqueCount <= 1000) return { key: "trial", name: "Trial" };
+  if (uniqueCount <= 5000) return { key: "starter", name: "Starter" };
+  if (uniqueCount <= 20000) return { key: "growth", name: "Growth" };
+  return { key: "business", name: "Business" };
+}
+
+function getWorkflowSteps(parseState: ParseState, ready: boolean) {
+  const labels = ["Uploading file", "Parsing emails", "Removing duplicates", "Estimating credits", "Ready for verification"];
+  if (parseState === "idle") return labels.map((label) => ({ label, state: "pending" as const }));
+  if (parseState === "parsing") {
+    return labels.map((label, index) => ({
+      label,
+      state: index <= 0 ? "done" as const : index === 1 ? "active" as const : "pending" as const
+    }));
+  }
+  if (ready) return labels.map((label) => ({ label, state: "done" as const }));
+  return labels.map((label) => ({ label, state: parseState === "error" && label === "Parsing emails" ? "active" as const : "pending" as const }));
 }

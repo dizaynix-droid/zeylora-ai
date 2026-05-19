@@ -19,7 +19,7 @@ export default async function AdminCreditsPage({
   const page = normalizeAdminPage(params?.page);
   const dataStartedAt = adminPerfNow();
   const data = await getAdminCreditsData({ page });
-  logAdminPerf("page./admin/credits", {
+  logAdminPerf("page./admin/credits [admin-perf]", {
     authMs: `${authMs}ms`,
     dataMs: `${adminPerfNow() - dataStartedAt}ms`,
     totalMs: `${adminPerfNow() - pageStartedAt}ms`,
@@ -30,12 +30,12 @@ export default async function AdminCreditsPage({
   return (
     <AppShell
       area="admin"
-      title="Kredi ekonomisi"
-      description="Kredi hareketleri, manuel düzenlemeler, kullanım ve iade kayıtları."
+      title="Doğrulama kredi defteri"
+      description="Email verification kredisi satın alma, kullanım, iade ve admin düzenleme kayıtları."
     >
       <div className="grid gap-3 md:grid-cols-4">
         <AdminMetricCard label="Verilen kredi" value={data.summary.issued} note="Satın alma, iade, pozitif admin işlemi" />
-        <AdminMetricCard label="Kullanılan kredi" value={data.summary.used} note="Paid clean export kesintileri" />
+        <AdminMetricCard label="Kullanılan kredi" value={data.summary.used} note="Email verification kullanımları" />
         <AdminMetricCard label="Manuel düzenleme" value={data.summary.manualAdjustments} note="Admin kredi değişiklikleri" />
         <AdminMetricCard label="Satın alma" value={data.summary.purchases} note="Ödeme ile gelen kredi" />
       </div>
@@ -43,7 +43,7 @@ export default async function AdminCreditsPage({
       <div className="mt-4">
         <AdminSection
           title="Son kredi hareketleri"
-          description="Admin ayarları, paid clean export kesintileri, refund ve purchase kayıtları burada görünür."
+          description="Satın alma, doğrulama kullanımı, refund ve admin adjustment kayıtları burada görünür."
         >
           <div className="mb-3">
             <AdminPaginationControls basePath="/admin/credits" pagination={data.pagination} />
@@ -67,7 +67,13 @@ export default async function AdminCreditsPage({
                     <td className="px-4 py-3 text-cyan">{tx.type}</td>
                     <td className={tx.amount >= 0 ? "px-4 py-3 font-black text-emerald-200" : "px-4 py-3 font-black text-rose-200"}>{tx.amount}</td>
                     <td className="px-4 py-3 text-slate-300">{tx.balanceAfter}</td>
-                    <td className="px-4 py-3 text-slate-400">{tx.note || tx.aiJob?.tool.name || "-"}</td>
+                    <td className="px-4 py-3 text-slate-400">
+                      {tx.note ||
+                        tx.verificationJob?.originalFilename ||
+                        (tx.verificationJob ? `${tx.verificationJob.uniqueEmails.toLocaleString()} email verification` : "") ||
+                        (tx.payment ? `Payment ${Number(tx.payment.amount).toFixed(2)} ${tx.payment.currency.toUpperCase()}` : "") ||
+                        "-"}
+                    </td>
                     <td className="px-4 py-3 text-slate-400">{formatAdminDate(tx.createdAt)}</td>
                   </tr>
                 ))}
@@ -76,7 +82,7 @@ export default async function AdminCreditsPage({
                     <td colSpan={6} className="px-4 py-10 text-center">
                       <p className="font-black text-white">Henüz kredi hareketi yok.</p>
                       <p className="mt-2 text-sm text-slate-400">
-                        Kullanıcılara admin panelinden kredi ekleyince, paid clean export kesintileri veya refund/purchase işlemleri burada görünecek.
+                        Kullanıcılara admin panelinden kredi ekleyince, verification kullanımı veya refund/purchase işlemleri burada görünecek.
                       </p>
                     </td>
                   </tr>

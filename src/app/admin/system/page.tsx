@@ -32,7 +32,7 @@ export default async function AdminSystemPage({
         <StatusCard label="Email" ready={data.env.resend || data.env.postmark || data.env.smtp} note="Resend/Postmark/SMTP" />
         <StatusCard label="Maintenance" ready={!data.operations.maintenanceMode} note={data.operations.maintenanceMode ? "Bakım modu açık" : "Site açık"} invert />
         <StatusCard label="Upload" ready={data.operations.uploadsEnabled} note="Acil kapatma anahtarı" />
-        <StatusCard label="Clean export" ready={data.operations.cleanExportsEnabled} note="Kredili temiz export" />
+        <StatusCard label="CSV export" ready={data.operations.cleanExportsEnabled} note="Doğrulama sonucu indirme" />
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_0.8fr]">
@@ -45,7 +45,7 @@ export default async function AdminSystemPage({
           </div>
         </AdminSection>
 
-        <AdminSection title="Acil kontroller" description="Kriz anında önce ayarlardan upload/preview/export kapat; gerekiyorsa providerları duraklat.">
+        <AdminSection title="Acil kontroller" description="Kriz anında önce ayarlardan upload/verification/export kapat; gerekiyorsa providerları duraklat.">
           <div className="grid gap-3">
             <a href="/admin/settings" className="rounded-2xl border border-cyan/30 bg-cyan/10 px-4 py-3 text-sm font-black text-cyan">
               Emergency toggles aç

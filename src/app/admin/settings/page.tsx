@@ -22,7 +22,7 @@ export default async function AdminSettingsPage({
   ]);
 
   return (
-    <AppShell area="admin" title="Lansman ayarları" description="Preview, export, abuse protection ve launch configuration görünümü.">
+    <AppShell area="admin" title="Operasyon ayarları" description="Verification, checkout, kayıt, abuse protection ve launch configuration görünümü.">
       {params?.saved ? (
         <div className="mb-4 rounded-2xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm font-black text-emerald">
           Kaydedildi: {params.saved === "tracking" ? "tracking ayarları" : "operasyon ayarları"}.
@@ -39,14 +39,14 @@ export default async function AdminSettingsPage({
           <div className="grid gap-3 md:grid-cols-3">
             <ToggleSetting label="Bakım modu" name="maintenanceMode" defaultChecked={operations.maintenanceMode} note="Global bakım modu anahtarı." />
             <ToggleSetting label="Upload" name="uploadsEnabled" defaultChecked={operations.uploadsEnabled} note="Acil durumda yükleme akışını kapatır." />
-            <ToggleSetting label="Preview" name="previewEnabled" defaultChecked={operations.previewEnabled} note="Preview üretimine izin ver." />
-            <ToggleSetting label="Clean export" name="cleanExportsEnabled" defaultChecked={operations.cleanExportsEnabled} note="Clean export erişimini kontrol eder." />
+            <ToggleSetting label="Verification" name="previewEnabled" defaultChecked={operations.previewEnabled} note="Liste doğrulama akışına izin ver." />
+            <ToggleSetting label="CSV export" name="cleanExportsEnabled" defaultChecked={operations.cleanExportsEnabled} note="Doğrulama sonucu CSV indirme erişimini kontrol eder." />
             <ToggleSetting label="Checkout" name="checkoutEnabled" defaultChecked={operations.checkoutEnabled} note="Paid checkout görünürlüğünü kontrol eder." />
             <ToggleSetting label="Kayıt" name="registrationEnabled" defaultChecked={operations.registrationEnabled} note="Yeni hesap kaydına izin ver." />
             <ToggleSetting label="Email bildirimleri" name="emailsEnabled" defaultChecked={operations.emailsEnabled} note="Resend/Postmark/SMTP hazır olana kadar kapalı tutulabilir." />
           </div>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-            <NumberSetting label="Upload MB" name="uploadMaxSizeMb" defaultValue={operations.uploadMaxSizeMb} />
+            <NumberSetting label="Max dosya MB" name="uploadMaxSizeMb" defaultValue={operations.uploadMaxSizeMb} />
             <NumberSetting label="Misafir/dk" name="guestPreviewPerMinute" defaultValue={operations.guestPreviewPerMinute} />
             <NumberSetting label="Misafir/saat" name="guestPreviewPerHour" defaultValue={operations.guestPreviewPerHour} />
             <NumberSetting label="Kullanıcı iş/dk" name="userJobsPerMinute" defaultValue={operations.userJobsPerMinute} />
@@ -112,10 +112,10 @@ export default async function AdminSettingsPage({
       </AdminSection>
       </div>
       <div className="mt-5">
-      <AdminSection title="Export ayarları" description="Bu alan sonraki fazda DB-backed SiteSetting editörüne dönüşecek.">
+      <AdminSection title="Verification export ayarları" description="Email verification sonucu export ve kredi ekonomisi için operasyon görünümü.">
         <div className="grid gap-3 md:grid-cols-2">
-          <Setting label="Free watermark" value={businessFoundation.exports.freeWatermarkEnabled ? "Aktif" : "Pasif"} />
-          <Setting label="Paid export" value={businessFoundation.exports.paidExportMode} />
+          <Setting label="Branded preview legacy flag" value={businessFoundation.exports.freeWatermarkEnabled ? "Aktif" : "Pasif"} />
+          <Setting label="CSV export mode" value={businessFoundation.exports.paidExportMode} />
           <Setting label="Kredi zorunluluğu" value={businessFoundation.credits.enforcementEnabled ? "Aktif" : "Pasif"} />
           <Setting label="Preview protection" value={previewProtectionStrategy.mode} />
         </div>

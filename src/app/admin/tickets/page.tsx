@@ -73,7 +73,7 @@ export default async function AdminTicketsPage({
                       <p>Araç: <span className="font-black text-white">{ticket.aiJob.tool.name}</span></p>
                       <p>Durum: <span className="font-black text-white">{ticket.aiJob.status}</span></p>
                       {ticket.aiJob.errorMessage ? <p className="line-clamp-3">Hata: {ticket.aiJob.errorMessage}</p> : null}
-                      <Link href={`/admin/jobs?user=${encodeURIComponent(ticket.user.email)}`} className="text-cyan">İlgili işleri aç</Link>
+                      <Link href={`/admin/verification-jobs?user=${encodeURIComponent(ticket.user.email)}`} className="text-cyan">İlgili doğrulama işlerini aç</Link>
                     </>
                   ) : <p>Bağlı job yok.</p>}
                 </div>

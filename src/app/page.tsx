@@ -51,10 +51,27 @@ export default async function HomePage() {
           </VerifyContainer>
         </section>
 
-        <section id="results" className="border-b border-slate-200 bg-[#f7f8fb]">
+        <section id="live-demo" className="border-b border-slate-200 bg-[#f7f8fb]">
+          <VerifyContainer className="py-12 lg:py-16">
+            <div className="mx-auto max-w-3xl text-center">
+              <VerifyBadge tone="blue">Live verification demo</VerifyBadge>
+              <h2 className="mt-4 text-3xl font-semibold tracking-[-0.035em] text-slate-950 sm:text-4xl">
+                Watch list quality move from risky to campaign-ready.
+              </h2>
+              <p className="mt-4 text-base leading-7 text-slate-600">
+                Zeylora gives operators the metrics that matter: deliverability score, valid rate, bounce risk, duplicates removed, and segmented export readiness.
+              </p>
+            </div>
+            <div className="mt-8">
+              <DashboardPreview />
+            </div>
+          </VerifyContainer>
+        </section>
+
+        <section id="results" className="border-b border-slate-200 bg-white">
           <VerifyContainer className="grid gap-8 py-12 lg:grid-cols-[0.8fr_1.2fr] lg:items-center lg:py-16">
             <div>
-              <VerifyBadge tone="green">Operational proof</VerifyBadge>
+              <VerifyBadge tone="green">Deliverability improvement</VerifyBadge>
               <h2 className="mt-4 text-3xl font-semibold tracking-[-0.035em] text-slate-950 sm:text-4xl">
                 See the bounce risk disappear before you spend on sending.
               </h2>
@@ -67,7 +84,17 @@ export default async function HomePage() {
                 <OutcomePoint icon={MailCheck} label="Improve inbox placement by keeping risky mail out." />
               </div>
             </div>
-            <DashboardPreview />
+            <VerifyPanel className="p-5">
+              <div className="grid gap-5">
+                <BeforeAfterRow label="Before cleaning" valid={58} invalid={24} risky={18} />
+                <BeforeAfterRow label="After cleaning" valid={86} invalid={3} risky={11} />
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <VerifyMetric label="Sender risk" value="-74%" note="Bounce exposure reduced" tone="green" />
+                  <VerifyMetric label="Risky isolated" value="1,248" note="Catch-all / unknown" tone="amber" />
+                  <VerifyMetric label="Segmented exports" value="5 CSVs" note="Valid, invalid, risky, disposable, full" tone="blue" />
+                </div>
+              </div>
+            </VerifyPanel>
           </VerifyContainer>
         </section>
 
@@ -210,8 +237,8 @@ function DashboardPreview() {
             </div>
           </div>
 
-          <div className="rounded-lg border border-slate-200 bg-slate-950 p-4 text-white">
-            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-blue-200">Live activity</p>
+          <div className="rounded-lg border border-slate-200 bg-white p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Live activity</p>
             <div className="mt-4 grid gap-2">
               {[
                 ["Scanning MX records", "done"],
@@ -219,12 +246,12 @@ function DashboardPreview() {
                 ["Catch-all detected", "624"],
                 ["Disposable domains blocked", "189"]
               ].map(([label, value]) => (
-                <div key={label} className="flex items-center justify-between rounded-md border border-white/10 bg-white/5 px-3 py-2">
-                  <span className="flex items-center gap-2 text-sm font-semibold">
+                <div key={label} className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+                  <span className="flex items-center gap-2 text-sm font-semibold text-slate-800">
                     <span className="size-1.5 animate-pulse rounded-full bg-emerald-300" />
                     {label}
                   </span>
-                  <span className="text-sm font-semibold text-blue-200">{value}</span>
+                  <span className="text-sm font-semibold text-blue-700">{value}</span>
                 </div>
               ))}
             </div>

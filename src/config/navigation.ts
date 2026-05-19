@@ -1,5 +1,3 @@
-import { adminTr } from "@/i18n/admin/tr";
-
 export const marketingNav = [
   { label: "How it works", href: "/#how-it-works" },
   { label: "Pricing", href: "/pricing" },
@@ -20,23 +18,18 @@ export const dashboardNav = [
 ] as const;
 
 export const adminNav = [
-  { label: adminTr.nav.overview, href: "/admin" },
-  { label: adminTr.nav.users, href: "/admin/users" },
-  { label: adminTr.nav.tools, href: "/admin/tools" },
-  { label: "Doğrulama İşleri", href: "/admin/verification-jobs" },
-  { label: adminTr.nav.tickets, href: "/admin/tickets" },
-  { label: "Partnerlar", href: "/admin/affiliates" },
-  { label: adminTr.nav.credits, href: "/admin/credits" },
-  { label: adminTr.nav.pricing, href: "/admin/pricing" },
-  { label: adminTr.nav.payments, href: "/admin/payments" },
-  { label: adminTr.nav.cms, href: "/admin/cms" },
-  { label: adminTr.nav.providers, href: "/admin/providers" },
-  { label: adminTr.nav.featureFlags, href: "/admin/feature-flags" },
-  { label: adminTr.nav.reports, href: "/admin/reports" },
-  { label: adminTr.nav.analytics, href: "/admin/analytics" },
-  { label: adminTr.nav.settings, href: "/admin/settings" },
-  { label: adminTr.nav.system, href: "/admin/system" },
-  { label: adminTr.nav.recovery, href: "/admin/recovery" },
-  { label: adminTr.nav.qa, href: "/admin/qa" },
-  { label: adminTr.nav.logs, href: "/admin/logs" }
+  { label: "Overview", href: "/admin" },
+  { label: "Users", href: "/admin/users" },
+  { label: "Verification Jobs", href: "/admin/verification-jobs" },
+  { label: "Email Results", href: "/admin/email-results" },
+  { label: "Payments", href: "/admin/payments" },
+  { label: "Credit Packages", href: "/admin/pricing" },
+  { label: "Credits Ledger", href: "/admin/credits" },
+  { label: "Providers", href: "/admin/providers" },
+  { label: "Reports", href: "/admin/reports" },
+  { label: "Analytics", href: "/admin/analytics" },
+  { label: "Support", href: "/admin/tickets" },
+  { label: "Settings", href: "/admin/settings" },
+  { label: "System Health", href: "/admin/system" },
+  { label: "Logs", href: "/admin/logs" }
 ] as const;

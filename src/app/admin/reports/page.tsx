@@ -91,32 +91,27 @@ export default async function AdminReportsPage({
         </form>
       </AdminSection>
 
-      {data.summary.missingCostTools.length ? (
-        <div className="mt-4 rounded-2xl border border-amber/30 bg-amber/10 px-4 py-3 text-sm font-bold text-amber">
-          Bazı araçlarda maliyet girilmemiş: {data.summary.missingCostTools.map((tool) => tool.name).join(", ")}. Net kâr hesabı bu araçlarda eksik kalabilir.
-        </div>
-      ) : null}
       {data.summary.missingActiveCostTargets.length ? (
         <div className="mt-4 rounded-2xl border border-amber/30 bg-amber/10 px-4 py-3 text-sm font-bold text-amber">
-          Aktif araç/provider maliyeti eksik: {data.summary.missingActiveCostTargets.map((item) => `${item.name} (${item.providerName})`).join(", ")}.
+          Aktif email verification provider maliyeti eksik: {data.summary.missingActiveCostTargets.map((item) => `${item.name} (${item.providerName})`).join(", ")}.
         </div>
       ) : null}
 
       <div className="mt-4 grid gap-3 md:grid-cols-3 2xl:grid-cols-6">
         <AdminMetricCard label="Toplam gelir" value={formatCurrency(data.summary.revenue)} note={`${data.summary.paymentCount} başarılı ödeme`} />
         <AdminMetricCard label="Satılan kredi" value={data.summary.creditsSold} note="Başarılı ödeme ile teslim edilen kredi" />
-        <AdminMetricCard label="Kullanılan kredi" value={data.summary.creditsUsed} note="Temiz export harcamaları" />
-        <AdminMetricCard label="Sağlayıcı maliyeti" value={formatCurrency(data.summary.providerCost)} note="Tamamlanan job tahmini maliyeti" />
+        <AdminMetricCard label="Kullanılan kredi" value={data.summary.creditsUsed} note="Email verification harcamaları" />
+        <AdminMetricCard label="Sağlayıcı maliyeti" value={formatCurrency(data.summary.providerCost)} note="Tamamlanan verification job tahmini maliyeti" />
         <AdminMetricCard label="Manuel gider" value={formatCurrency(data.summary.manualExpenses)} note="Reklam, SEO, domain, yazılım vb." />
         <AdminMetricCard label="Net kâr" value={formatCurrency(data.summary.netProfit)} note={`Marj: ${data.summary.profitMargin === null ? "-" : `${data.summary.profitMargin.toFixed(1)}%`}`} />
         <AdminMetricCard label="Brüt kâr" value={formatCurrency(data.summary.grossProfit)} note="Gelir - sağlayıcı maliyeti" />
         <AdminMetricCard label="İade tutarı" value={formatCurrency(data.summary.refundAmount)} note={`${data.summary.refundCount} iade kaydı`} />
-        <AdminMetricCard label="Hatalı işlem" value={data.summary.failedJobCount} note="Provider/tool hata takibi" />
-        <AdminMetricCard label="Clean export maliyeti" value={data.summary.costPerCleanExport === null ? "-" : formatCurrency(data.summary.costPerCleanExport)} note="Tahmini maliyet / clean export" />
+        <AdminMetricCard label="Hatalı doğrulama" value={data.summary.failedJobCount} note="Provider/job hata takibi" />
+        <AdminMetricCard label="Ort. doğrulama maliyeti" value={data.summary.costPerCleanExport === null ? "-" : formatCurrency(data.summary.costPerCleanExport)} note="Tahmini maliyet / verification job" />
         <AdminMetricCard label="Snapshot maliyet" value={formatCurrency(data.summary.snapshotProviderCost)} note="Job tamamlandığı andaki mühürlü maliyet" />
         <AdminMetricCard label="Snapshot kâr" value={formatCurrency(data.summary.estimatedProfit)} note="Kredi değeri - snapshot maliyet" />
-        <AdminMetricCard label="Ort. kâr/export" value={data.summary.averageProfitPerExport === null ? "-" : formatCurrency(data.summary.averageProfitPerExport)} note="Tamamlanan job başına tahmini kâr" />
-        <AdminMetricCard label="Ort. gelir/export" value={data.summary.averageRevenuePerExport === null ? "-" : formatCurrency(data.summary.averageRevenuePerExport)} note="Kredi değeri üzerinden tahmini gelir" />
+        <AdminMetricCard label="Ort. kâr/job" value={data.summary.averageProfitPerExport === null ? "-" : formatCurrency(data.summary.averageProfitPerExport)} note="Tamamlanan verification job başına tahmini kâr" />
+        <AdminMetricCard label="Ort. gelir/job" value={data.summary.averageRevenuePerExport === null ? "-" : formatCurrency(data.summary.averageRevenuePerExport)} note="Kredi değeri üzerinden tahmini gelir" />
         <AdminMetricCard label="Ort. provider/job" value={data.summary.averageProviderCostPerTool === null ? "-" : formatCurrency(data.summary.averageProviderCostPerTool)} note="Snapshot öncelikli ortalama maliyet" />
       </div>
 
@@ -173,12 +168,12 @@ export default async function AdminReportsPage({
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
-        <AdminSection title="Araç kullanımı ve maliyet" description="Tamamlanan işlemlere göre tahmini provider maliyeti.">
+        <AdminSection title="Verification job maliyeti" description="Tamamlanan email verification işlerine göre tahmini provider maliyeti. Eski tool kayıtları varsa sadece geçmiş uyumluluk için görünür.">
           <AdminTable>
             <table className="min-w-[820px] w-full divide-y divide-white/10 text-sm">
               <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
                 <tr>
-                  <th className="px-4 py-3">Araç</th>
+                  <th className="px-4 py-3">İş tipi</th>
                   <th className="px-4 py-3">Tier</th>
                   <th className="px-4 py-3">Sağlayıcı</th>
                   <th className="px-4 py-3">İşlem</th>
@@ -214,7 +209,7 @@ export default async function AdminReportsPage({
           </AdminTable>
         </AdminSection>
 
-        <AdminSection title="Sağlayıcı maliyetleri" description="Provider bazında tamamlanan/hatalı işlem, tahmini maliyet ve bütçe placeholder bilgisi.">
+        <AdminSection title="Email provider maliyetleri" description="Provider bazında tamamlanan/hatalı verification işi, tahmini maliyet ve bütçe placeholder bilgisi.">
           <AdminTable>
             <table className="min-w-[860px] w-full divide-y divide-white/10 text-sm">
               <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">

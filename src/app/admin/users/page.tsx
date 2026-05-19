@@ -23,9 +23,9 @@ export default async function AdminUsersPage({
   const query = params?.q || "";
   const page = normalizeAdminPage(params?.page);
   const dataStartedAt = adminPerfNow();
-  const data = await getAdminUsersData({ query, filter, page });
+  const { data, error: usersLoadError } = await getSafeAdminUsersData({ query, filter, page });
   const users = data.items;
-  logAdminPerf("page./admin/users", {
+  logAdminPerf("page./admin/users [admin-users-perf]", {
     authMs: `${authMs}ms`,
     dataMs: `${adminPerfNow() - dataStartedAt}ms`,
     totalMs: `${adminPerfNow() - pageStartedAt}ms`,
@@ -44,6 +44,11 @@ export default async function AdminUsersPage({
       {params?.saved ? (
         <div className="mb-4 rounded-2xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm font-black text-emerald">
           Kaydedildi. Kredi bakiyesi ve işlem geçmişi güncellendi.
+        </div>
+      ) : null}
+      {usersLoadError ? (
+        <div className="mb-4 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+          Kullanıcı tablosu güvenli modda açıldı. Verification database migration eksik olabilir. System Health veya Logs ekranından detay kontrol edebilirsin.
         </div>
       ) : null}
       <AdminSection
@@ -85,7 +90,9 @@ export default async function AdminUsersPage({
                 <th className="px-4 py-3">Email</th>
                 <th className="px-4 py-3">Rol</th>
                 <th className="px-4 py-3">Kredi</th>
-                <th className="px-4 py-3">Job</th>
+                <th className="px-4 py-3">Doğrulama</th>
+                <th className="px-4 py-3">Toplam harcama</th>
+                <th className="px-4 py-3">Son ödeme</th>
                 <th className="px-4 py-3">Kayıt</th>
                 <th className="px-4 py-3">Kredi düzenle</th>
               </tr>
@@ -104,7 +111,20 @@ export default async function AdminUsersPage({
                   <td className="px-4 py-3 text-2xl font-black text-white">{user.creditBalance}</td>
                   <td className="px-4 py-3 text-slate-300">
                     <p>{user._count.verificationJobs} doğrulama</p>
-                    <p className="text-xs text-slate-500">{user._count.creditTransactions} credit tx</p>
+                    <p className="text-xs text-slate-500">
+                      {user.lastVerificationJob
+                        ? `${user.lastVerificationJob.status} · ${user.lastVerificationJob.uniqueEmails.toLocaleString()} email`
+                        : "Henüz doğrulama yok"}
+                    </p>
+                  </td>
+                  <td className="px-4 py-3 font-bold text-slate-200">${user.totalSpend.toFixed(2)}</td>
+                  <td className="px-4 py-3 text-slate-300">
+                    {user.lastPayment ? (
+                      <>
+                        <p>{Number(user.lastPayment.amount).toFixed(2)} {user.lastPayment.currency.toUpperCase()}</p>
+                        <p className="text-xs text-slate-500">{user.lastPayment.status} · {formatAdminDate(user.lastPayment.createdAt)}</p>
+                      </>
+                    ) : "-"}
                   </td>
                   <td className="px-4 py-3 text-slate-400">{formatAdminDate(user.createdAt)}</td>
                   <td className="px-4 py-3">
@@ -140,7 +160,7 @@ export default async function AdminUsersPage({
                 </tr>
               ))}
               {users.length === 0 ? (
-                <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">Filtreye uygun kullanıcı yok.</td></tr>
+                <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400">Filtreye uygun kullanıcı yok.</td></tr>
               ) : null}
             </tbody>
           </table>
@@ -155,4 +175,32 @@ export default async function AdminUsersPage({
       </AdminSection>
     </AppShell>
   );
+}
+
+async function getSafeAdminUsersData(input: Parameters<typeof getAdminUsersData>[0]) {
+  try {
+    return { data: await getAdminUsersData(input), error: null };
+  } catch (error) {
+    console.error("[admin-page-failed]", {
+      page: "/admin/users",
+      widget: "users.table",
+      error: error instanceof Error ? error.message : "Unknown admin users error"
+    });
+    return {
+      data: {
+        items: [],
+        pagination: {
+          page: 1,
+          pageSize: 25,
+          total: 0,
+          totalPages: 1,
+          from: 0,
+          to: 0,
+          hasPrevious: false,
+          hasNext: false
+        }
+      },
+      error
+    };
+  }
 }

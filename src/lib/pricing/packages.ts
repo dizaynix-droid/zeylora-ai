@@ -113,6 +113,8 @@ function getFallbackCreditPackages(): PublicCreditPackage[] {
 }
 
 export async function ensureLaunchCreditPackageDefaults() {
+  const activeFeatureFlagKeys = creditPackages.map((pack) => pack.featureFlagKey);
+
   for (const [index, pack] of creditPackages.entries()) {
     const legacyNames = [pack.name];
     const existing = await prisma.creditPackage.findFirst({
@@ -170,6 +172,24 @@ export async function ensureLaunchCreditPackageDefaults() {
       });
     }
   }
+
+  await prisma.creditPackage.updateMany({
+    where: {
+      deletedAt: null,
+      status: "ACTIVE",
+      featureFlagKey: {
+        in: ["pricing_pack_pro", "pricing_pack_creator", "pricing_pack_pro_seller", "pricing_pack_studio"]
+      },
+      NOT: {
+        featureFlagKey: {
+          in: activeFeatureFlagKeys
+        }
+      }
+    },
+    data: {
+      status: "INACTIVE"
+    }
+  });
 }
 
 function shouldRepairLaunchPackage(
@@ -192,17 +212,22 @@ function shouldRepairLaunchPackage(
     (pack.name === "Starter Trial Pack" && pack.credits <= 100 && price <= 9) ||
     (pack.name === "Starter" && pack.credits < 1000) ||
     (pack.name === "Creator" && price <= 49) ||
+    (pack.name === "Pro" && price <= 99) ||
     (pack.name === "Studio" && price <= 149) ||
     (pack.name === "Pro Seller" && price <= 149);
   const missingFeatureFlag = !pack.featureFlagKey;
+  const sameLaunchPackage = pack.name === expectedName || pack.featureFlagKey === expectedFeatureFlagKey;
 
   if (legacyRecord || missingFeatureFlag) return true;
+  if (!sameLaunchPackage) return false;
+
   return (
-    pack.name === expectedName &&
-    pack.credits === expectedCredits &&
-    pack.bonusCredits === expectedBonusCredits &&
-    price === expectedPrice &&
-    pack.featureFlagKey !== expectedFeatureFlagKey
+    pack.name !== expectedName ||
+    pack.credits !== expectedCredits ||
+    pack.bonusCredits !== expectedBonusCredits ||
+    price !== expectedPrice ||
+    pack.featureFlagKey !== expectedFeatureFlagKey ||
+    pack.status !== "ACTIVE"
   );
 }
 
@@ -216,7 +241,7 @@ function findPackageConfig(name: string, featureFlagKey: string | null) {
       item.name === name ||
       item.featureFlagKey === featureFlagKey ||
       (item.key === "growth" && name === "Creator") ||
-      (item.key === "pro" && (name === "Pro Seller" || name === "Studio")) ||
+      (item.key === "business" && (name === "Pro" || name === "Pro Seller" || name === "Studio")) ||
       (item.key === "trial" && name === "Starter Trial Pack")
   );
 }

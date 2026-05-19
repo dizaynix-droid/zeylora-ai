@@ -56,28 +56,40 @@ export default async function PricingPage({
 
         <section className="bg-[#f7f8fb]">
           <VerifyContainer className="py-10 lg:py-14">
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <div className="grid items-stretch gap-4 md:grid-cols-2 xl:grid-cols-4">
               {packages.map((pack) => (
-                <VerifyPanel key={pack.key} className={pack.highlight ? "border-blue-300 bg-blue-50 p-5" : "p-5"}>
+                <VerifyPanel key={pack.key} className={`flex h-full flex-col p-5 ${pack.highlight ? "border-blue-300 bg-blue-50" : ""}`}>
                   <div className="flex items-start justify-between gap-3">
                     <h2 className="text-2xl font-semibold tracking-[-0.02em] text-slate-950">{pack.name}</h2>
                     {pack.badgeText ? <VerifyBadge tone="blue">{pack.badgeText}</VerifyBadge> : null}
                   </div>
-                  <p className="mt-3 min-h-16 text-sm leading-6 text-slate-600">{pack.description}</p>
+                  <p className="mt-3 min-h-20 text-sm leading-6 text-slate-600">{pack.description}</p>
                   <p className="mt-6 text-5xl font-semibold tracking-[-0.04em] text-slate-950">${pack.price}</p>
                   <p className="mt-2 font-semibold text-blue-700">
-                    {pack.totalCredits.toLocaleString()} verifications
+                    {pack.totalCredits.toLocaleString()} email verifications
                     {pack.bonusCredits ? ` (${pack.credits.toLocaleString()} + ${pack.bonusCredits.toLocaleString()} bonus)` : ""}
                   </p>
-                  <p className="mt-2 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">one time credits</p>
+                  <div className="mt-5 grid gap-2 text-sm text-slate-600">
+                    <p>Reduce bounce rate before sending.</p>
+                    <p>Remove risky, invalid, and disposable emails.</p>
+                    <p>Export clean campaign segments.</p>
+                  </div>
+                  <p className="mt-4 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">usage based, no subscription</p>
                   <CheckoutButton
                     packageId={pack.id}
                     label={pack.key === "trial" ? "Start trial pack" : "Buy credits"}
-                    className="mt-6 inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-blue-600 text-sm font-semibold text-white transition hover:bg-blue-700"
+                    className="mt-auto inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-blue-600 text-sm font-semibold text-white transition hover:bg-blue-700"
                   />
                 </VerifyPanel>
               ))}
             </div>
+
+            <VerifyPanel className="mt-6 p-5">
+              <h2 className="text-xl font-semibold text-slate-950">Recommended package calculator</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Example: a 10,000-email list needs 10,000 verification credits, so Growth is the recommended package. Zeylora calculates this automatically when you upload or paste a list.
+              </p>
+            </VerifyPanel>
 
             <VerifyPanel className="mt-6 p-5">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">

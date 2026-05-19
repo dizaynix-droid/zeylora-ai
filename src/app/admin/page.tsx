@@ -25,8 +25,8 @@ export default async function AdminPage() {
   return (
     <AppShell
       area="admin"
-      title="İş kokpiti"
-      description="Gelir, kâr, ödeme, kredi ve acil operasyon sinyalleri için owner dashboard."
+      title="Email verification kokpiti"
+      description="Gelir, doğrulama hacmi, provider maliyeti ve acil operasyon sinyalleri için owner dashboard."
     >
       <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700">
         Admin girişi: {admin.email} ({admin.source === "role" ? "rol" : "email whitelist"})
@@ -47,10 +47,10 @@ export default async function AdminPage() {
 
       <div className="mt-3 grid gap-3 md:grid-cols-3 2xl:grid-cols-5">
         <AdminMetricCard label="Bugün satılan kredi" value={data.cockpit.today.creditsSold} note="Başarılı ödemelerden" />
-        <AdminMetricCard label="Bugün kullanılan kredi" value={data.cockpit.today.creditsUsed} note="Clean export kullanımı" />
+        <AdminMetricCard label="Bugün kullanılan kredi" value={data.cockpit.today.creditsUsed} note="Doğrulama kredisi kullanımı" />
         <AdminMetricCard label="Açık ticket" value={data.cockpit.openTickets} note="Owner yanıtı bekleyen talepler" />
-        <AdminMetricCard label="Bugün hatalı iş" value={data.cockpit.failedJobsToday} note="İncelenmesi gereken job" />
-        <AdminMetricCard label="Bugün clean export" value={data.cockpit.today.cleanExports} note="Kredi kesilen export sayısı" />
+        <AdminMetricCard label="Bugün hatalı iş" value={data.cockpit.failedJobsToday} note="İncelenmesi gereken verification job" />
+        <AdminMetricCard label="Bugün doğrulama işi" value={data.cockpit.today.cleanExports} note="Tamamlanan verification job sayısı" />
       </div>
 
       <div className="mt-4 grid gap-2 rounded-xl border border-slate-200 bg-white p-3 md:grid-cols-2 xl:grid-cols-3">
@@ -71,7 +71,7 @@ export default async function AdminPage() {
           ["Fiyatları düzenle", "/admin/pricing"],
           ["Gider ekle", "/admin/reports#expenses"],
           ["Ticketları aç", "/admin/tickets"],
-          ["Araç maliyetleri", "/admin/tools"],
+          ["Provider maliyetleri", "/admin/providers"],
           ["Ödeme ayarları", "/admin/payments"]
         ].map(([label, href]) => (
           <a
@@ -87,8 +87,8 @@ export default async function AdminPage() {
       <div className="mt-4">
         <AdminSection
           title="Son işlemler"
-          description="Job durumu, sağlayıcı, araç ve kullanıcı ilişkisini hızlıca kontrol et."
-          action={<AdminLinkButton href="/admin/jobs">Tüm işlemler</AdminLinkButton>}
+          description="Verification job durumu, sağlayıcı ve kullanıcı ilişkisini hızlıca kontrol et."
+          action={<AdminLinkButton href="/admin/verification-jobs">Tüm doğrulama işleri</AdminLinkButton>}
         >
           <AdminTable>
             <table className="min-w-[1180px] w-full divide-y divide-slate-200 text-sm">
@@ -129,7 +129,7 @@ export default async function AdminPage() {
       <div className="mt-4">
         <AdminSection
           title="Operasyon modülleri"
-          description="Phase 2 admin temeli. Her modül genişletilebilir şekilde ayrıldı."
+          description="Email verification operasyonu için hızlı erişim modülleri."
         >
           <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
             {operationModules.map(({ title, description, Icon, href }) => (
@@ -158,8 +158,8 @@ const operationModules: Array<{
 }> = [
   { title: "Kullanıcılar", description: "Kredi bakiyesi, manuel düzenleme ve job özeti.", Icon: Users, href: "/admin/users" },
   { title: "Fiyatlama", description: "Kredi paketleri, bonuslar ve Stripe hazırlığı.", Icon: CreditCard, href: "/admin/pricing" },
-  { title: "Doğrulama ekonomisi", description: "Provider maliyetleri, kredi maliyeti ve verification modeli.", Icon: Database, href: "/admin/tools" },
-  { title: "Lansman ayarları", description: "Preview, watermark, promo ve feature flag kontrolleri.", Icon: Settings, href: "/admin/settings" },
+  { title: "Provider ekonomisi", description: "MillionVerifier maliyeti, fallback ve health takibi.", Icon: Database, href: "/admin/providers" },
+  { title: "Operasyon ayarları", description: "Verification, checkout, kayıt ve rate limit kontrolleri.", Icon: Settings, href: "/admin/settings" },
   { title: "Audit", description: "Admin aksiyonları ve sistem kayıtları.", Icon: ShieldCheck, href: "/admin/logs" },
   { title: "Raporlar", description: "Gelir, gider, sağlayıcı maliyeti ve kâr/zarar takibi.", Icon: Activity, href: "/admin/reports" }
 ];
@@ -169,15 +169,15 @@ function buildAlerts(data: Awaited<ReturnType<typeof getAdminOverviewData>>) {
 
   if (data.cockpit.missingActiveCostTargets.length) {
     alerts.push({
-      label: `${data.cockpit.missingActiveCostTargets.length} aktif araç/provider maliyeti eksik`,
-      href: "/admin/tools",
+      label: `${data.cockpit.missingActiveCostTargets.length} aktif verification provider maliyeti eksik`,
+      href: "/admin/providers",
       tone: "warn"
     });
   }
   if (data.cockpit.failedJobsToday > 0) {
     alerts.push({
-      label: `${data.cockpit.failedJobsToday} hatalı job inceleme bekliyor`,
-      href: "/admin/jobs?status=failed",
+      label: `${data.cockpit.failedJobsToday} hatalı verification job inceleme bekliyor`,
+      href: "/admin/verification-jobs?status=failed",
       tone: "bad"
     });
   }
@@ -195,10 +195,10 @@ function buildAlerts(data: Awaited<ReturnType<typeof getAdminOverviewData>>) {
     alerts.push({ label: "Upload kapalı", href: "/admin/settings", tone: "bad" });
   }
   if (!data.cockpit.operations.previewEnabled) {
-    alerts.push({ label: "Preview kapalı", href: "/admin/settings", tone: "bad" });
+    alerts.push({ label: "Verification akışı kapalı olabilir", href: "/admin/settings", tone: "bad" });
   }
   if (!data.cockpit.operations.cleanExportsEnabled) {
-    alerts.push({ label: "Clean export kapalı", href: "/admin/settings", tone: "warn" });
+    alerts.push({ label: "CSV export kapalı olabilir", href: "/admin/settings", tone: "warn" });
   }
   if (data.cockpit.missingEnvProviders.length) {
     alerts.push({

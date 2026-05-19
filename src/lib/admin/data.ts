@@ -264,7 +264,7 @@ export async function getAdminUsersData(input: {
     ...(filter === "recent" ? { createdAt: { gte: new Date(Date.now() - 1000 * 60 * 60 * 24 * 14) } } : {})
   };
 
-  const [items, total] = await Promise.all([
+  const [rawItems, total] = await Promise.all([
     measureAdminQuery(
       "users.list",
       prisma.user.findMany({
@@ -286,6 +286,18 @@ export async function getAdminUsersData(input: {
               creditTransactions: true,
               payments: true
             }
+          },
+          payments: {
+            where: { deletedAt: null },
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            select: { amount: true, currency: true, status: true, createdAt: true }
+          },
+          verificationJobs: {
+            where: { deletedAt: null },
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            select: { id: true, status: true, uniqueEmails: true, createdAt: true }
           }
         }
       }),
@@ -293,9 +305,32 @@ export async function getAdminUsersData(input: {
     ),
     measureAdminQuery("users.count", prisma.user.count({ where }), { filter, hasQuery: Boolean(query) })
   ]);
+  const userIds = rawItems.map((user) => user.id);
+  const spendRows = userIds.length
+    ? await measureAdminQuery(
+        "users.paidSpend.group",
+        prisma.payment.groupBy({
+          by: ["userId"],
+          where: {
+            deletedAt: null,
+            status: "PAID",
+            userId: { in: userIds }
+          },
+          _sum: { amount: true }
+        }),
+        { page, take: pageSize }
+      )
+    : [];
+  const spendByUser = new Map(spendRows.map((row) => [row.userId, decimalToNumber(row._sum.amount)]));
+  const items = rawItems.map((user) => ({
+    ...user,
+    totalSpend: spendByUser.get(user.id) ?? 0,
+    lastPayment: user.payments[0] ?? null,
+    lastVerificationJob: user.verificationJobs[0] ?? null
+  }));
   logAdminPerf("admin.users.data", {
     duration: `${adminPerfNow() - startedAt}ms`,
-    queryCount: 2,
+    queryCount: userIds.length ? 3 : 2,
     page,
     take: pageSize,
     filter,
@@ -579,7 +614,8 @@ export async function getAdminCreditsData(input: { page?: number; pageSize?: num
           note: true,
           createdAt: true,
           user: { select: { email: true } },
-          aiJob: { select: { id: true, tool: { select: { name: true } } } }
+          verificationJob: { select: { id: true, originalFilename: true, uniqueEmails: true } },
+          payment: { select: { id: true, amount: true, currency: true } }
         }
       }),
       { page, take: pageSize }
@@ -1232,10 +1268,7 @@ export type AdminReportGrouping = "daily" | "weekly" | "monthly";
 const EXPENSE_CATEGORIES = ["ADS", "SEO", "PROVIDER", "SOFTWARE", "DESIGN", "DOMAIN", "HOSTING", "OTHER"] as const;
 const PROVIDER_RUNTIME_DEFAULTS = [
   { providerKey: "millionverifier", name: "MillionVerifier", providerType: "email-verification", envKeyName: "MILLIONVERIFIER_API_KEY", priority: 5, defaultStatus: "ACTIVE" },
-  { providerKey: "replicate", name: "Replicate", providerType: "replicate", envKeyName: "REPLICATE_API_TOKEN", priority: 10, defaultStatus: "ACTIVE" },
-  { providerKey: "photoroom", name: "PhotoRoom", providerType: "photoroom", envKeyName: "PHOTOROOM_API_KEY", priority: 20, defaultStatus: "ACTIVE" },
-  { providerKey: "removebg", name: "remove.bg", providerType: "removebg", envKeyName: "REMOVEBG_API_KEY", priority: 30, defaultStatus: "INACTIVE" },
-  { providerKey: "local-sharp", name: "Local Sharp", providerType: "local-sharp", envKeyName: "", priority: 40, defaultStatus: "ACTIVE" }
+  { providerKey: "email-fallback", name: "Fallback Email Provider", providerType: "email-verification", envKeyName: "EMAIL_VERIFICATION_FALLBACK_API_KEY", priority: 50, defaultStatus: "INACTIVE" }
 ] as const;
 
 export async function getAdminProvidersData() {
@@ -1263,7 +1296,8 @@ export async function getAdminProvidersData() {
       }
     })
   );
-  const byKey = new Map(dbProviders.map((provider) => [provider.providerKey, provider]));
+  const emailDbProviders = dbProviders.filter((provider) => provider.providerType === "email-verification" || provider.providerKey === "millionverifier" || provider.providerKey === "email-fallback");
+  const byKey = new Map(emailDbProviders.map((provider) => [provider.providerKey, provider]));
   const providers = [
     ...PROVIDER_RUNTIME_DEFAULTS.map((runtime) => {
       const db = byKey.get(runtime.providerKey);
@@ -1288,7 +1322,7 @@ export async function getAdminProvidersData() {
         source: db ? "db" : "runtime"
       };
     }),
-    ...dbProviders
+    ...emailDbProviders
       .filter((provider) => !PROVIDER_RUNTIME_DEFAULTS.some((runtime) => runtime.providerKey === provider.providerKey))
       .map((provider) => ({
         ...provider,
@@ -1302,7 +1336,7 @@ export async function getAdminProvidersData() {
     duration: `${adminPerfNow() - startedAt}ms`,
     queryCount: 1,
     resultCount: providers.length,
-    dbCount: dbProviders.length
+    dbCount: emailDbProviders.length
   });
 
   return providers;
@@ -1315,12 +1349,12 @@ export async function getAdminProviderMonitoringData() {
   const [providers, jobGroups] = await Promise.all([
     getAdminProvidersData(),
     measureAdminQuery(
-      "providers.monitoring.todayJobs",
-      prisma.aiJob.groupBy({
+      "providers.monitoring.todayVerificationJobs",
+      prisma.verificationJob.groupBy({
         by: ["providerKey", "status"],
         where: { deletedAt: null, createdAt: { gte: todayStart } },
         _count: { _all: true },
-        _sum: { estimatedCostAtRun: true }
+        _sum: { providerCostAtRun: true }
       })
     )
   ]);
@@ -1330,7 +1364,7 @@ export async function getAdminProviderMonitoringData() {
     const completed = rows.find((row) => row.status === "COMPLETED")?._count._all ?? 0;
     const failed = rows.find((row) => row.status === "FAILED")?._count._all ?? 0;
     const total = rows.reduce((sum, row) => sum + row._count._all, 0);
-    const estimatedCostToday = rows.reduce((sum, row) => sum + decimalToNumber(row._sum.estimatedCostAtRun), 0);
+    const estimatedCostToday = rows.reduce((sum, row) => sum + decimalToNumber(row._sum.providerCostAtRun), 0);
     const failureRate = total > 0 ? failed / total : 0;
     const health = provider.status !== "ACTIVE" ? "DISABLED" : !provider.configured || failureRate >= 0.25 ? "DEGRADED" : "HEALTHY";
 

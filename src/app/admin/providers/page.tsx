@@ -13,7 +13,7 @@ type ProviderSearchParams = {
   error?: string;
 };
 
-const providerTypes = ["replicate", "photoroom", "removebg", "local-sharp", "other"] as const;
+const providerTypes = ["email-verification", "other"] as const;
 
 export default async function AdminProvidersPage({
   searchParams
@@ -28,7 +28,7 @@ export default async function AdminProvidersPage({
   const dataStartedAt = adminPerfNow();
   const providers = await getAdminProviderMonitoringData();
 
-  logAdminPerf("page./admin/providers", {
+  logAdminPerf("page./admin/providers [admin-perf]", {
     authMs: `${authMs}ms`,
     dataMs: `${adminPerfNow() - dataStartedAt}ms`,
     totalMs: `${adminPerfNow() - pageStartedAt}ms`,
@@ -36,7 +36,7 @@ export default async function AdminProvidersPage({
   });
 
   return (
-    <AppShell area="admin" title="Sağlayıcı yönetimi" description="Provider durumları, env kontrolü, bütçe ve tahmini maliyet ayarları.">
+    <AppShell area="admin" title="Email verification sağlayıcıları" description="MillionVerifier, fallback provider, env durumu, kullanım ve doğrulama başı maliyet takibi.">
       {params?.saved ? (
         <div className="mb-4 rounded-2xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm font-black text-emerald">
           Sağlayıcı kaydedildi: {decodeURIComponent(params.saved)}
@@ -49,8 +49,7 @@ export default async function AdminProvidersPage({
       ) : null}
 
       <div className="mb-4 rounded-2xl border border-cyan/20 bg-cyan/10 px-4 py-3 text-sm font-semibold leading-6 text-cyan">
-        API anahtarları Vercel Environment Variables içinde saklanır. Bu sayfa secret değerlerini göstermez veya DB’ye yazmaz; sadece env key adını ve var/yok durumunu kontrol eder.
-        Durum alanı şu an operasyon/raporlama içindir; provider yürütme akışını otomatik kapatmaz.
+        API anahtarları Vercel Environment Variables içinde saklanır. Bu sayfada yalnızca email verification provider kayıtları görünür; secret değerleri gösterilmez.
       </div>
 
       <div className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -64,7 +63,7 @@ export default async function AdminProvidersPage({
               <Health status={provider.health} />
             </div>
             <div className="mt-3 grid grid-cols-3 gap-2 text-xs font-bold text-slate-400">
-              <span>Job: <b className="text-white">{provider.jobsToday}</b></span>
+              <span>İş: <b className="text-white">{provider.jobsToday}</b></span>
               <span>Hata: <b className="text-rose-200">{provider.failedToday}</b></span>
               <span>Maliyet: <b className="text-amber">${provider.estimatedCostToday.toFixed(4)}</b></span>
             </div>
@@ -72,10 +71,10 @@ export default async function AdminProvidersPage({
         ))}
       </div>
 
-      <AdminSection title="Yeni sağlayıcı ekle" description="Yeni provider veya local işlem motoru için operasyon kaydı oluştur.">
+      <AdminSection title="Yeni email provider ekle" description="Fallback veya alternatif email verification sağlayıcısı için operasyon kaydı oluştur.">
         <form action={upsertProviderSettingAction} className="grid gap-3 lg:grid-cols-6">
-          <AdminInput name="name" placeholder="Sağlayıcı adı" defaultValue="New Provider" />
-          <AdminInput name="providerKey" placeholder="slug, örn. replicate" defaultValue="new-provider" />
+          <AdminInput name="name" placeholder="Sağlayıcı adı" defaultValue="Email Provider" />
+          <AdminInput name="providerKey" placeholder="slug, örn. millionverifier" defaultValue="email-provider" />
           <select name="providerType" defaultValue="other" className={inputClass}>
             {providerTypes.map((type) => <option key={type} value={type}>{type}</option>)}
           </select>
@@ -86,7 +85,7 @@ export default async function AdminProvidersPage({
             <option value="PAUSED">Duraklatıldı</option>
             <option value="DISABLED">Devre dışı</option>
           </select>
-          <AdminInput name="estimatedCostPerRun" type="number" min="0" step="0.0001" placeholder="İşlem maliyeti" />
+          <AdminInput name="estimatedCostPerRun" type="number" min="0" step="0.0001" placeholder="Doğrulama başı maliyet" />
           <AdminInput name="estimatedCostCurrency" defaultValue="usd" placeholder="usd" />
           <AdminInput name="dailyBudgetLimit" type="number" min="0" step="0.01" placeholder="Günlük bütçe" />
           <AdminInput name="monthlyBudgetLimit" type="number" min="0" step="0.01" placeholder="Aylık bütçe" />
@@ -98,13 +97,13 @@ export default async function AdminProvidersPage({
           </select>
           <input name="notes" placeholder="Not" className={`${inputClass} lg:col-span-2`} />
           <button className="h-11 rounded-full bg-zeylora-brand text-sm font-black text-white shadow-glow transition hover:brightness-110 lg:col-span-6">
-            Sağlayıcı ekle
+            Email provider ekle
           </button>
         </form>
       </AdminSection>
 
       <div className="mt-4">
-        <AdminSection title="Provider operasyon tablosu" description="Öncelik, bütçe, env durumu ve tahmini varsayılan maliyetler.">
+        <AdminSection title="Provider operasyon tablosu" description="Env durumu, health, bütçe, failure rate ve doğrulama başı maliyetler.">
           <AdminTable>
             <table className="min-w-[1500px] w-full divide-y divide-white/10 text-sm">
               <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
@@ -113,7 +112,7 @@ export default async function AdminProvidersPage({
                   <th className="px-4 py-3">Env durumu</th>
                   <th className="px-4 py-3">Durum</th>
                   <th className="px-4 py-3">Bütçe</th>
-                  <th className="px-4 py-3">Varsayılan maliyet</th>
+                  <th className="px-4 py-3">Doğrulama maliyeti</th>
                   <th className="px-4 py-3">Son güncelleme</th>
                   <th className="px-4 py-3">Kontrol</th>
                 </tr>
@@ -125,6 +124,7 @@ export default async function AdminProvidersPage({
                       <p className="font-black text-white">{provider.name}</p>
                       <p className="mt-1 text-xs text-slate-500">{provider.providerKey} • {provider.providerType}</p>
                       <p className="mt-2 text-xs font-bold text-slate-500">{provider.dbBacked ? "DB kaydı var" : "Runtime varsayılanı; kaydetmeden DB’ye yazılmaz"}</p>
+                      <p className="mt-2 text-xs text-slate-400">Bugün: {provider.completedToday} tamamlandı · failure rate {(provider.failureRate * 100).toFixed(1)}%</p>
                       <p className="mt-2 text-xs leading-5 text-slate-400">{provider.notes || "Not yok"}</p>
                     </td>
                     <td className="px-4 py-4">
@@ -143,7 +143,7 @@ export default async function AdminProvidersPage({
                     </td>
                     <td className="px-4 py-4 text-slate-300">
                       {formatMoney(provider.estimatedCostPerRun, provider.estimatedCostCurrency)}
-                      <p className="mt-1 text-xs text-slate-500">Tool maliyeti varsa bunu ezer.</p>
+                      <p className="mt-1 text-xs text-slate-500">Provider cost snapshot için kullanılır.</p>
                     </td>
                     <td className="px-4 py-4 text-slate-400">{provider.updatedAt ? formatAdminDate(provider.updatedAt) : "Henüz kaydedilmedi"}</td>
                     <td className="px-4 py-4">
@@ -161,7 +161,7 @@ export default async function AdminProvidersPage({
                           <AdminInput name="priority" type="number" step="1" defaultValue={provider.priority} placeholder="Öncelik" />
                         </div>
                         <div className="grid gap-2 sm:grid-cols-3">
-                          <AdminInput name="estimatedCostPerRun" type="number" min="0" step="0.0001" defaultValue={toInputNumber(provider.estimatedCostPerRun)} placeholder="Run maliyeti" />
+                          <AdminInput name="estimatedCostPerRun" type="number" min="0" step="0.0001" defaultValue={toInputNumber(provider.estimatedCostPerRun)} placeholder="Doğrulama maliyeti" />
                           <AdminInput name="estimatedCostCurrency" defaultValue={provider.estimatedCostCurrency || "usd"} placeholder="usd" />
                           <select name="status" defaultValue={recordStatusToForm(provider.status)} className={inputClass}>
                             <option value="ACTIVE">Aktif</option>
