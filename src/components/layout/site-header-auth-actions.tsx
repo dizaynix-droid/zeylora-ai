@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { MouseEvent } from "react";
 import { useCallback, useEffect, useState } from "react";
 import { UserCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { VerifyAction } from "@/components/verify-ui/core";
 import { isSupabaseAuthConfigured } from "@/lib/supabase/config";
 
 type AuthState = "loading" | "signed-in" | "signed-out";
@@ -98,32 +98,32 @@ export function SiteHeaderAuthActions() {
         <span className="hidden h-10 w-20 animate-pulse rounded-lg border border-slate-200 bg-slate-100 sm:inline-flex" />
       ) : isSignedIn ? (
         <>
-          <Button href="/dashboard" variant="ghost" className="hidden sm:inline-flex">
+          <VerifyAction href="/dashboard" variant="quiet" className="hidden sm:inline-flex">
             Dashboard
-          </Button>
+          </VerifyAction>
           <form action="/auth/sign-out" method="post" className="hidden md:block">
-            <button className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50 hover:text-slate-950">
+            <button className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-950">
               Sign out
             </button>
           </form>
         </>
       ) : (
-        <Button href="/auth/sign-in" variant="ghost" className="hidden sm:inline-flex">
+        <VerifyAction href="/auth/sign-in" variant="quiet" className="hidden sm:inline-flex">
           Sign in
-        </Button>
+        </VerifyAction>
       )}
 
       <Link
         href="/dashboard#verify"
         onClick={handleUploadClick}
-        className="focus-lift inline-flex h-10 items-center justify-center rounded-lg bg-blue-600 px-4 text-sm font-bold text-white shadow-[0_8px_20px_rgba(37,99,235,.18)] transition hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        className="inline-flex h-10 items-center justify-center rounded-md bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
       >
         Verify list
       </Link>
 
       <Link
         href={isSignedIn ? "/dashboard" : "/auth/sign-in"}
-        className="grid size-10 place-items-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 md:hidden"
+        className="grid size-10 place-items-center rounded-md border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 md:hidden"
         aria-label={isSignedIn ? "Open dashboard" : "Sign in"}
       >
         <UserCircle size={18} />

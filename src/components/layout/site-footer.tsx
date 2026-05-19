@@ -3,6 +3,7 @@ import Image from "next/image";
 import { appConfig } from "@/config/app";
 import { brandIdentity } from "@/config/brand";
 import { marketingNav } from "@/config/navigation";
+import { VerifyContainer } from "@/components/verify-ui/core";
 
 const footerLinks = [
   { label: "About", href: "/about" },
@@ -16,11 +17,11 @@ const footerLinks = [
 
 export function SiteFooter() {
   return (
-    <footer className="b2b-surface border-t border-slate-200 bg-white">
-      <div className="section-shell py-10 md:py-14">
+    <footer className="border-t border-slate-200 bg-white">
+      <VerifyContainer className="py-10 md:py-14">
         <div className="grid gap-8 lg:grid-cols-[1fr_1.2fr] lg:items-start">
           <div>
-            <Link href="/" className="flex items-center gap-2 font-black text-slate-950">
+            <Link href="/" className="flex items-center gap-2 font-semibold text-slate-950">
               <Image
                 src={brandIdentity.assets.mark}
                 alt={`${appConfig.name} mark`}
@@ -37,7 +38,7 @@ export function SiteFooter() {
 
           <div className="grid gap-6 sm:grid-cols-2">
             <div>
-              <h3 className="text-sm font-black text-slate-950">Product</h3>
+              <h3 className="text-sm font-semibold text-slate-950">Product</h3>
               <div className="mt-3 grid gap-2">
                 {marketingNav.map((item) => (
                   <Link key={item.href} href={item.href} className="text-sm text-slate-600 transition hover:text-slate-950">
@@ -47,7 +48,7 @@ export function SiteFooter() {
               </div>
             </div>
             <div>
-              <h3 className="text-sm font-black text-slate-950">Trust</h3>
+              <h3 className="text-sm font-semibold text-slate-950">Trust</h3>
               <div className="mt-3 grid gap-2">
                 {footerLinks.map((item) => (
                   <Link key={item.href} href={item.href} className="text-sm text-slate-600 transition hover:text-slate-950">
@@ -63,7 +64,7 @@ export function SiteFooter() {
           <p>Copyright {new Date().getFullYear()} {appConfig.name}. All rights reserved.</p>
           <p>Verify emails before sending. Keep uploads private and downloads signed.</p>
         </div>
-      </div>
+      </VerifyContainer>
     </footer>
   );
 }

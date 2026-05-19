@@ -6,7 +6,7 @@ import { createMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createMetadata({
   title: "Update Password",
-  description: "Update your Zeylora AI account password.",
+  description: "Update your Zeylora account password.",
   path: "/auth/update-password",
   noIndex: true
 });
@@ -20,7 +20,7 @@ export default async function UpdatePasswordPage({
   return (
     <>
       <SiteHeader />
-      <main className="b2b-surface min-h-[calc(100vh-8rem)] bg-cinematic-depth px-3 py-8 sm:px-4 md:py-20">
+      <main className="min-h-[calc(100vh-8rem)] bg-[#f7f8fb] px-3 py-8 sm:px-4 md:py-20">
         <UpdatePasswordForm next={getSafeNextPath(params?.next)} />
       </main>
       <SiteFooter />

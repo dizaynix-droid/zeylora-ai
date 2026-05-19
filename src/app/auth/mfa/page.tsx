@@ -9,7 +9,7 @@ import { createMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createMetadata({
   title: "Two-Factor Authentication",
-  description: "Verify your Zeylora AI account with an authenticator app.",
+  description: "Verify your Zeylora account with an authenticator app.",
   path: "/auth/mfa",
   noIndex: true
 });
@@ -44,7 +44,7 @@ export default async function MfaPage({
   return (
     <>
       <SiteHeader />
-      <main className="b2b-surface min-h-[calc(100vh-8rem)] bg-cinematic-depth px-3 py-8 sm:px-4 md:py-20">
+      <main className="min-h-[calc(100vh-8rem)] bg-[#f7f8fb] px-3 py-8 sm:px-4 md:py-20">
         <MfaChallengeForm next={nextPath} />
       </main>
       <SiteFooter />

@@ -1,7 +1,8 @@
 "use client";
 
 import { type FormEvent, useState } from "react";
-import { KeyRound, Loader2, Sparkles } from "lucide-react";
+import { KeyRound, Loader2 } from "lucide-react";
+import { VerifyBadge, VerifyPanel } from "@/components/verify-ui/core";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseAuthConfigured } from "@/lib/supabase/config";
 
@@ -42,21 +43,17 @@ export function UpdatePasswordForm({ next = "/dashboard" }: { next?: string }) {
   }
 
   return (
-    <div className="premium-ring mx-auto max-w-xl rounded-[2rem]">
-      <div className="glass-panel rounded-[2rem] p-4 sm:p-5 md:p-7">
-        <p className="eyebrow">
-          <Sparkles size={14} />
-          Account security
-        </p>
-        <h1 className="mt-4 text-3xl font-black tracking-tight text-white sm:text-4xl">
+    <VerifyPanel className="mx-auto max-w-xl p-5 sm:p-6 md:p-8">
+        <VerifyBadge tone="blue">Account security</VerifyBadge>
+        <h1 className="mt-4 text-3xl font-semibold tracking-[-0.03em] text-slate-950 sm:text-4xl">
           Set a new password.
         </h1>
-        <p className="mt-3 text-sm leading-6 text-slate-300">
+        <p className="mt-3 text-sm leading-6 text-slate-600">
           Use a strong password. Admin accounts should use a unique password and prepare for mandatory 2FA later.
         </p>
 
         <form onSubmit={(event) => void handleSubmit(event)} className="mt-5">
-          <label htmlFor="new-password" className="text-xs font-black uppercase text-slate-400">
+          <label htmlFor="new-password" className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
             New password
           </label>
           <div className="relative mt-2">
@@ -70,23 +67,22 @@ export function UpdatePasswordForm({ next = "/dashboard" }: { next?: string }) {
               onChange={(event) => setPassword(event.target.value)}
               placeholder="Minimum 8 characters"
               autoComplete="new-password"
-              className="h-12 w-full rounded-full border border-white/10 bg-white/[0.06] pl-11 pr-4 text-sm font-semibold text-white outline-none transition placeholder:text-slate-500 focus:border-cyan/60"
+              className="h-12 w-full rounded-md border border-slate-300 bg-white pl-11 pr-4 text-sm font-medium text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
             />
           </div>
           <button
             type="submit"
             disabled={status === "loading"}
-            className="mt-4 inline-flex h-12 w-full items-center justify-center rounded-full bg-zeylora-brand px-5 text-sm font-black text-white shadow-glow transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+            className="mt-4 inline-flex h-12 w-full items-center justify-center rounded-md bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {status === "loading" ? <Loader2 className="mr-2 animate-spin" size={18} /> : null}
             Update password
           </button>
         </form>
-        <p className={`mt-4 text-sm font-semibold ${status === "success" ? "text-emerald" : status === "error" ? "text-danger" : "text-slate-400"}`}>
+        <p className={`mt-4 text-sm font-semibold ${status === "success" ? "text-emerald-700" : status === "error" ? "text-rose-700" : "text-slate-500"}`}>
           {message}
         </p>
-      </div>
-    </div>
+    </VerifyPanel>
   );
 }
 

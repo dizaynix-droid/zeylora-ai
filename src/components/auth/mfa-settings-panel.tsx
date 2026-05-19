@@ -65,7 +65,7 @@ export function MfaSettingsPanel() {
       const supabase = createClient();
       const { data, error } = await supabase.auth.mfa.enroll({
         factorType: "totp",
-        friendlyName: "Zeylora AI"
+        friendlyName: "Zeylora"
       });
 
       if (error) throw error;
@@ -187,7 +187,7 @@ export function MfaSettingsPanel() {
         <div className="mt-4 grid gap-4 rounded-2xl border border-white/10 bg-black/20 p-3 sm:p-4">
           <div className="mx-auto w-full max-w-[220px] rounded-2xl bg-white p-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={enrollment.qrCode} alt="Zeylora AI TOTP QR code" className="h-auto w-full" />
+            <img src={enrollment.qrCode} alt="Zeylora TOTP QR code" className="h-auto w-full" />
           </div>
           <div className="min-w-0">
             <p className="text-sm font-bold text-white">1. Scan the QR code</p>

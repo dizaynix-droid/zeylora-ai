@@ -1,8 +1,8 @@
 import { LegalPage } from "@/components/legal/legal-page";
 import { createCmsPageMetadata, getPublishedCmsPage } from "@/lib/cms/pages";
 
-const fallbackTitle = "Zeylora AI FAQ";
-const fallbackDescription = "Frequently asked questions about Zeylora AI previews, credits, exports, and product photo workflows.";
+const fallbackTitle = "Zeylora FAQ";
+const fallbackDescription = "Frequently asked questions about Zeylora email verification credits, CSV uploads, and segmented exports.";
 
 export function generateMetadata() {
   return createCmsPageMetadata({
@@ -27,10 +27,10 @@ export default async function FaqPage() {
           ? undefined
           : [
               {
-                title: "How previews and credits work",
+                title: "How verification credits work",
                 body: [
-                  "You can generate branded previews first. Credits are spent when you unlock a watermark-free clean export.",
-                  "If a clean export is already unlocked for a job, re-downloading it should not charge credits again."
+                  "1 credit verifies 1 unique email address. Zeylora counts and deduplicates emails before processing so you can estimate credit usage clearly.",
+                  "Completed jobs include segmented downloads such as valid-only, invalid-only, risky/catch-all, disposable, and full report CSV files."
                 ]
               }
             ]

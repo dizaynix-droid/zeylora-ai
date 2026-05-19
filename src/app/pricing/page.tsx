@@ -3,13 +3,13 @@ import { CheckoutButton } from "@/components/billing/checkout-button";
 import { CheckoutResume } from "@/components/billing/checkout-resume";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
-import { Card } from "@/components/ui/card";
+import { VerifyBadge, VerifyContainer, VerifyPageShell, VerifyPanel } from "@/components/verify-ui/core";
 import { getCreditPackagesForDisplay } from "@/lib/pricing/packages";
 import { createMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createMetadata({
   title: "Pricing",
-  description: "Buy Zeylora AI email verification credits. 1 credit verifies 1 email.",
+  description: "Buy Zeylora email verification credits. 1 credit verifies 1 email.",
   path: "/pricing"
 });
 
@@ -27,58 +27,74 @@ export default async function PricingPage({
   return (
     <>
       <SiteHeader />
-      <main className="b2b-surface min-h-screen bg-premium-radial py-14">
-        <section className="section-shell">
-          <CheckoutResume packageId={checkoutPackage} />
-          <p className="eyebrow">Verification credits</p>
-          <h1 className="mt-5 max-w-5xl text-4xl font-black tracking-tight text-slate-950 md:text-6xl">
-            Clean email lists before campaigns hit inboxes.
-          </h1>
-          <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-600">
-            1 credit verifies 1 email. Buy once, upload lists anytime, and download valid, invalid, risky, disposable, and full report CSVs.
-          </p>
+      <VerifyPageShell>
+        <section className="border-b border-slate-200 bg-white">
+          <VerifyContainer className="py-12 lg:py-16">
+            <CheckoutResume packageId={checkoutPackage} />
+            <VerifyBadge tone="blue">Verification credits</VerifyBadge>
+            <h1 className="mt-5 max-w-5xl text-4xl font-semibold tracking-[-0.04em] text-slate-950 md:text-6xl">
+              Clean email lists before campaigns hit inboxes.
+            </h1>
+            <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-600">
+              1 credit verifies 1 email. Buy once, upload lists anytime, and download valid, invalid, risky, disposable, and full report CSVs.
+            </p>
 
-          <div className="mt-6 grid gap-3 md:grid-cols-3">
-            {[
-              ["No subscription", "Buy verification credits once and use them as needed."],
-              ["Sender reputation", "Remove invalid and risky emails before sending."],
-              ["Clean reports", "Download valid-only, risky/catch-all, invalid-only, or full CSV reports."]
-            ].map(([label, copy]) => (
-              <div key={label} className="rounded-xl border border-slate-200 bg-white p-4 shadow-[0_8px_22px_rgba(15,23,42,.04)]">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-blue-600">{label}</p>
-                <p className="mt-2 text-sm leading-6 text-slate-600">{copy}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-            {packages.map((pack) => (
-              <Card key={pack.key} className={pack.highlight ? "border-blue-200 bg-blue-50 p-6" : "p-6"}>
-                <div className="flex items-center justify-between gap-3">
-                  <h2 className="text-2xl font-black text-slate-950">{pack.name}</h2>
-                  {pack.badgeText ? (
-                    <span className="rounded-md bg-blue-600 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-white">
-                      {pack.badgeText}
-                    </span>
-                  ) : null}
-                </div>
-                <p className="mt-3 min-h-16 text-sm leading-6 text-slate-600">{pack.description}</p>
-                <p className="mt-6 text-5xl font-black text-slate-950">${pack.price}</p>
-                <p className="mt-2 font-bold text-blue-600">
-                  {pack.totalCredits.toLocaleString()} verifications
-                  {pack.bonusCredits ? ` (${pack.credits.toLocaleString()} + ${pack.bonusCredits.toLocaleString()} bonus)` : ""}
-                </p>
-                <p className="mt-2 text-xs font-bold uppercase text-slate-500">one time credits</p>
-                <CheckoutButton
-                  packageId={pack.id}
-                  label={pack.key === "trial" ? "Start Trial Pack" : "Buy credits"}
-                  className="mt-6 inline-flex h-11 w-full items-center justify-center rounded-lg bg-blue-600 text-sm font-black text-white transition hover:bg-blue-700"
-                />
-              </Card>
-            ))}
-          </div>
+            <div className="mt-7 grid gap-3 md:grid-cols-3">
+              {[
+                ["No subscription", "Buy verification credits once and use them as needed."],
+                ["Sender reputation", "Remove invalid and risky emails before sending."],
+                ["Clean exports", "Download segmented CSVs for reporting and campaign hygiene."]
+              ].map(([label, copy]) => (
+                <VerifyPanel key={label} className="p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-blue-700">{label}</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">{copy}</p>
+                </VerifyPanel>
+              ))}
+            </div>
+          </VerifyContainer>
         </section>
-      </main>
+
+        <section className="bg-[#f7f8fb]">
+          <VerifyContainer className="py-10 lg:py-14">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+              {packages.map((pack) => (
+                <VerifyPanel key={pack.key} className={pack.highlight ? "border-blue-300 bg-blue-50 p-5" : "p-5"}>
+                  <div className="flex items-start justify-between gap-3">
+                    <h2 className="text-2xl font-semibold tracking-[-0.02em] text-slate-950">{pack.name}</h2>
+                    {pack.badgeText ? <VerifyBadge tone="blue">{pack.badgeText}</VerifyBadge> : null}
+                  </div>
+                  <p className="mt-3 min-h-16 text-sm leading-6 text-slate-600">{pack.description}</p>
+                  <p className="mt-6 text-5xl font-semibold tracking-[-0.04em] text-slate-950">${pack.price}</p>
+                  <p className="mt-2 font-semibold text-blue-700">
+                    {pack.totalCredits.toLocaleString()} verifications
+                    {pack.bonusCredits ? ` (${pack.credits.toLocaleString()} + ${pack.bonusCredits.toLocaleString()} bonus)` : ""}
+                  </p>
+                  <p className="mt-2 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">one time credits</p>
+                  <CheckoutButton
+                    packageId={pack.id}
+                    label={pack.key === "trial" ? "Start trial pack" : "Buy credits"}
+                    className="mt-6 inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-blue-600 text-sm font-semibold text-white transition hover:bg-blue-700"
+                  />
+                </VerifyPanel>
+              ))}
+            </div>
+
+            <VerifyPanel className="mt-6 p-5">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold text-slate-950">Need higher volume?</h2>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">
+                    Contact support for bulk verification credits, agency usage, and larger sender operations.
+                  </p>
+                </div>
+                <a href="/contact" className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 hover:bg-slate-50">
+                  Contact sales
+                </a>
+              </div>
+            </VerifyPanel>
+          </VerifyContainer>
+        </section>
+      </VerifyPageShell>
       <SiteFooter />
     </>
   );

@@ -1,4 +1,4 @@
-import { Activity, CreditCard, Settings, ShieldCheck, Users, WandSparkles } from "lucide-react";
+import { Activity, CreditCard, Database, Settings, ShieldCheck, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { AdminLinkButton, AdminMetricCard, AdminSection, AdminStatusPill, AdminTable, formatAdminDate } from "@/components/admin/admin-ui";
@@ -53,7 +53,7 @@ export default async function AdminPage() {
           <a
             key={alert.href + alert.label}
             href={alert.href}
-            className={`rounded-lg border px-4 py-3 text-sm font-black transition ${alert.tone === "bad" ? "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100" : alert.tone === "warn" ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100" : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"}`}
+            className={`rounded-lg border px-4 py-3 text-sm font-semibold transition ${alert.tone === "bad" ? "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100" : alert.tone === "warn" ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100" : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"}`}
           >
             {alert.label}
           </a>
@@ -72,7 +72,7 @@ export default async function AdminPage() {
           <a
             key={label}
             href={href}
-            className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-center text-sm font-black text-slate-900 transition hover:border-blue-200 hover:bg-blue-50"
+            className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-center text-sm font-semibold text-slate-900 transition hover:border-blue-200 hover:bg-blue-50"
           >
             {label}
           </a>
@@ -126,12 +126,12 @@ export default async function AdminPage() {
         >
           <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
             {operationModules.map(({ title, description, Icon, href }) => (
-              <a key={title} href={href} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-3 transition hover:bg-white/10">
-                <span className="grid size-10 place-items-center rounded-xl bg-cyan/10 text-cyan">
+              <a key={title} href={href} className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-3 transition hover:border-blue-200 hover:bg-blue-50">
+                <span className="grid size-10 place-items-center rounded-md bg-blue-50 text-blue-700">
                   <Icon size={18} />
                 </span>
                 <span>
-                  <span className="block font-black text-white">{title}</span>
+                  <span className="block font-semibold text-slate-950">{title}</span>
                   <span className="block text-sm leading-5 text-slate-400">{description}</span>
                 </span>
               </a>
@@ -151,7 +151,7 @@ const operationModules: Array<{
 }> = [
   { title: "Kullanıcılar", description: "Kredi bakiyesi, manuel düzenleme ve job özeti.", Icon: Users, href: "/admin/users" },
   { title: "Fiyatlama", description: "Kredi paketleri, bonuslar ve Stripe hazırlığı.", Icon: CreditCard, href: "/admin/pricing" },
-  { title: "Araç ekonomisi", description: "Tool maliyetleri, aktif/pasif durum ve export modeli.", Icon: WandSparkles, href: "/admin/tools" },
+  { title: "Doğrulama ekonomisi", description: "Provider maliyetleri, kredi maliyeti ve verification modeli.", Icon: Database, href: "/admin/tools" },
   { title: "Lansman ayarları", description: "Preview, watermark, promo ve feature flag kontrolleri.", Icon: Settings, href: "/admin/settings" },
   { title: "Audit", description: "Admin aksiyonları ve sistem kayıtları.", Icon: ShieldCheck, href: "/admin/logs" },
   { title: "Raporlar", description: "Gelir, gider, sağlayıcı maliyeti ve kâr/zarar takibi.", Icon: Activity, href: "/admin/reports" }

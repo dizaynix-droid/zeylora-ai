@@ -1,8 +1,8 @@
 import { LegalPage } from "@/components/legal/legal-page";
 import { createCmsPageMetadata, getPublishedCmsPage } from "@/lib/cms/pages";
 
-const fallbackTitle = "About Zeylora AI";
-const fallbackDescription = "Learn about Zeylora AI, an ecommerce product photo editing studio for sellers and creators.";
+const fallbackTitle = "About Zeylora";
+const fallbackDescription = "Learn about Zeylora, an email verification and list cleaning platform for serious senders.";
 
 export function generateMetadata() {
   return createCmsPageMetadata({
@@ -29,8 +29,8 @@ export default async function AboutPage() {
               {
                 title: "Product focus",
                 body: [
-                  "Zeylora AI is built as an ecommerce product photo editor for sellers who need sharper, cleaner, marketplace-ready visuals.",
-                  "The studio focuses on preview-first workflows, branded free previews, and credit-based clean exports."
+                  "Zeylora is built for marketers, agencies, ecommerce teams, SaaS operators, and cold email users who need cleaner email lists before sending.",
+                  "The platform focuses on credit-based bulk verification, private uploads, segmented CSV exports, and operational reporting."
                 ]
               }
             ]

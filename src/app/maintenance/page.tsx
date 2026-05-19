@@ -1,15 +1,16 @@
 import { appConfig } from "@/config/app";
+import { VerifyBadge, VerifyPageShell, VerifyPanel } from "@/components/verify-ui/core";
 
 export default function MaintenancePage() {
   return (
-    <main className="grid min-h-screen place-items-center bg-premium-radial px-4 text-center">
-      <div className="glass-panel max-w-lg rounded-3xl p-8">
-        <p className="eyebrow">Maintenance mode</p>
-        <h1 className="mt-5 text-4xl font-black text-white">{appConfig.name} is getting an upgrade.</h1>
-        <p className="mt-4 leading-7 text-slate-300">
-          We are improving the studio foundation. Please check back soon.
+    <VerifyPageShell className="grid min-h-screen place-items-center px-4 text-center">
+      <VerifyPanel className="max-w-lg p-8">
+        <VerifyBadge tone="amber">Maintenance mode</VerifyBadge>
+        <h1 className="mt-5 text-4xl font-semibold tracking-[-0.03em] text-slate-950">{appConfig.name} is getting an upgrade.</h1>
+        <p className="mt-4 leading-7 text-slate-600">
+          We are improving the verification platform. Please check back soon.
         </p>
-      </div>
-    </main>
+      </VerifyPanel>
+    </VerifyPageShell>
   );
 }

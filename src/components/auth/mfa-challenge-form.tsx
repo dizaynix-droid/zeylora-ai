@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Loader2, ShieldCheck } from "lucide-react";
+import { VerifyBadge, VerifyPanel } from "@/components/verify-ui/core";
 import { createClient } from "@/lib/supabase/client";
 
 type Status = "loading" | "ready" | "verifying" | "success" | "error";
@@ -96,19 +97,20 @@ export function MfaChallengeForm({ next = "/dashboard" }: { next?: string }) {
   const busy = status === "loading" || status === "verifying";
 
   return (
-    <div className="premium-ring mx-auto max-w-lg rounded-[2rem]">
-      <div className="glass-panel rounded-[2rem] p-5 sm:p-7">
-        <span className="grid size-12 place-items-center rounded-2xl bg-cyan/10 text-cyan">
+    <VerifyPanel className="mx-auto max-w-lg p-5 sm:p-7">
+        <span className="grid size-12 place-items-center rounded-lg bg-blue-50 text-blue-700">
           <ShieldCheck size={22} />
         </span>
-        <p className="mt-5 text-xs font-black uppercase tracking-[0.18em] text-cyan">Account security</p>
-        <h1 className="mt-3 text-3xl font-black tracking-tight text-white sm:text-4xl">Two-factor authentication</h1>
-        <p className="mt-3 text-sm leading-6 text-slate-300">
+        <div className="mt-5">
+          <VerifyBadge tone="blue">Account security</VerifyBadge>
+        </div>
+        <h1 className="mt-3 text-3xl font-semibold tracking-[-0.03em] text-slate-950 sm:text-4xl">Two-factor authentication</h1>
+        <p className="mt-3 text-sm leading-6 text-slate-600">
           MFA is enabled on your account. Enter the code from Google Authenticator, Authy, 1Password, or Microsoft Authenticator to continue.
         </p>
 
         <div className="mt-6 grid gap-3">
-          <label htmlFor="mfa-code" className="text-xs font-black uppercase text-slate-400">
+          <label htmlFor="mfa-code" className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
             6-digit code
           </label>
           <input
@@ -126,30 +128,29 @@ export function MfaChallengeForm({ next = "/dashboard" }: { next?: string }) {
             placeholder="123456"
             maxLength={6}
             disabled={busy}
-            className="h-14 w-full rounded-2xl border border-white/10 bg-white/[0.06] px-4 text-center text-lg font-black tracking-[0.24em] text-white outline-none transition placeholder:text-slate-600 focus:border-cyan/60 disabled:opacity-60"
+            className="h-14 w-full rounded-md border border-slate-300 bg-white px-4 text-center text-lg font-semibold tracking-[0.24em] text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:opacity-60"
           />
           <button
             type="button"
             onClick={() => void verifyMfa()}
             disabled={busy || !factor}
-            className="inline-flex h-12 w-full items-center justify-center rounded-full bg-zeylora-brand px-5 text-sm font-black text-white shadow-glow transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+            className="inline-flex h-12 w-full items-center justify-center rounded-md bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {busy ? <Loader2 className="mr-2 animate-spin" size={18} /> : null}
             Verify and continue
           </button>
         </div>
 
-        <p className={`mt-4 text-sm font-semibold ${status === "error" ? "text-danger" : status === "success" ? "text-emerald" : "text-slate-300"}`}>
+        <p className={`mt-4 text-sm font-semibold ${status === "error" ? "text-rose-700" : status === "success" ? "text-emerald-700" : "text-slate-600"}`}>
           {message}
         </p>
         <div className="mt-5 flex flex-wrap gap-3 text-sm font-bold">
-          <Link href="/auth/sign-in" className="text-cyan transition hover:text-white">Use a different account</Link>
+          <Link href="/auth/sign-in" className="text-blue-700 transition hover:text-blue-800">Use a different account</Link>
           <form action="/auth/sign-out" method="post">
-            <button className="text-slate-400 transition hover:text-white">Sign out</button>
+            <button className="text-slate-500 transition hover:text-slate-950">Sign out</button>
           </form>
         </div>
-      </div>
-    </div>
+    </VerifyPanel>
   );
 }
 

@@ -252,6 +252,63 @@ select {
   background: #ffffff !important;
 }
 
+.verify-workspace .text-white {
+  color: #0f172a !important;
+}
+
+.verify-workspace .text-slate-200,
+.verify-workspace .text-slate-300,
+.verify-workspace .text-slate-400,
+.verify-workspace .text-rose-200 {
+  color: #64748b !important;
+}
+
+.verify-workspace .text-cyan,
+.verify-workspace .text-emerald,
+.verify-workspace .text-warning {
+  color: #1d4ed8 !important;
+}
+
+.verify-workspace .bg-white\/5,
+.verify-workspace .bg-white\/10,
+.verify-workspace .bg-white\/\[0\.05\],
+.verify-workspace .bg-white\/\[0\.06\],
+.verify-workspace .bg-\[\#080d1f\],
+.verify-workspace .bg-\[\#101525\],
+.verify-workspace .bg-black\/25 {
+  background-color: #ffffff !important;
+}
+
+.verify-workspace .border-white\/10,
+.verify-workspace .border-white\/15 {
+  border-color: rgba(15, 23, 42, 0.12) !important;
+}
+
+.verify-workspace .rounded-full,
+.verify-workspace .rounded-2xl,
+.verify-workspace .rounded-3xl {
+  border-radius: 0.5rem !important;
+}
+
+.verify-workspace .bg-zeylora-brand,
+.verify-workspace .bg-cyan {
+  background: #2563eb !important;
+  color: #ffffff !important;
+}
+
+.verify-workspace .shadow-glow,
+.verify-workspace .shadow-cinematic {
+  box-shadow: none !important;
+}
+
+.verify-workspace input,
+.verify-workspace textarea,
+.verify-workspace select {
+  background-color: #ffffff !important;
+  border-color: rgba(15, 23, 42, 0.16) !important;
+  color: #0f172a !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

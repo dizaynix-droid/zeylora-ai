@@ -1,7 +1,8 @@
 "use client";
 
 import { type FormEvent, useState } from "react";
-import { KeyRound, Loader2, Mail, Sparkles } from "lucide-react";
+import { KeyRound, Loader2, Mail } from "lucide-react";
+import { VerifyBadge, VerifyPanel } from "@/components/verify-ui/core";
 import { trackingEvents } from "@/config/tracking";
 import { trackEvent } from "@/lib/analytics/events";
 import { createClient } from "@/lib/supabase/client";
@@ -138,20 +139,16 @@ export function AuthForm({ authStatus, authError, next = "/dashboard" }: { authS
   }
 
   return (
-    <div className="premium-ring mx-auto max-w-xl rounded-[2rem]">
-      <div className="glass-panel rounded-[2rem] p-4 sm:p-5 md:p-7">
-        <p className="eyebrow">
-          <Sparkles size={14} />
-          Zeylora account
-        </p>
-        <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl md:text-5xl">
+    <VerifyPanel className="mx-auto max-w-xl p-5 sm:p-6 md:p-8">
+        <VerifyBadge tone="blue">Zeylora account</VerifyBadge>
+        <h1 className="mt-4 text-3xl font-semibold tracking-[-0.03em] text-slate-950 sm:text-4xl md:text-5xl">
           Sign in to your email verification workspace.
         </h1>
         <p className="mt-3 text-sm leading-6 text-slate-600">
           Secure sessions unlock CSV uploads, verification jobs, credit balance, and segmented downloads.
         </p>
 
-        <div className="mt-6 grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2">
+        <div className="mt-6 grid grid-cols-2 gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
           {[
             ["signin", "Sign in"],
             ["signup", "Sign up"]
@@ -166,7 +163,7 @@ export function AuthForm({ authStatus, authError, next = "/dashboard" }: { authS
                   setMessage("Sign in to verify lists, manage credits, and download clean reports.");
                 }
               }}
-              className={`h-10 rounded-lg text-sm font-black transition ${
+              className={`h-10 rounded-md text-sm font-semibold transition ${
                 mode === value ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-white"
               }`}
             >
@@ -179,20 +176,20 @@ export function AuthForm({ authStatus, authError, next = "/dashboard" }: { authS
           type="button"
           onClick={() => void handleGoogleAuth()}
           disabled={status === "loading" || !configured}
-          className="mt-4 inline-flex h-12 w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-5 text-sm font-black text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          className="mt-4 inline-flex h-12 w-full items-center justify-center rounded-md border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {status === "loading" ? <Loader2 className="mr-2 animate-spin" size={18} /> : <span className="mr-2 text-lg">G</span>}
           Continue with Google
         </button>
 
-        <div className="my-5 flex items-center gap-3 text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+        <div className="my-5 flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
           <span className="h-px flex-1 bg-slate-200" />
           or use email
           <span className="h-px flex-1 bg-slate-200" />
         </div>
 
         <form onSubmit={(event) => void handlePasswordAuth(event)}>
-          <label htmlFor="auth-email" className="text-xs font-black uppercase text-slate-400">
+          <label htmlFor="auth-email" className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
             Email address
           </label>
           <div className="relative mt-2">
@@ -206,11 +203,11 @@ export function AuthForm({ authStatus, authError, next = "/dashboard" }: { authS
               onChange={(event) => setEmail(event.target.value)}
               placeholder="you@company.com"
               autoComplete="email"
-              className="h-12 w-full rounded-lg border border-slate-200 bg-white pl-11 pr-4 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+              className="h-12 w-full rounded-md border border-slate-300 bg-white pl-11 pr-4 text-sm font-medium text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
             />
           </div>
 
-          <label htmlFor="auth-password" className="mt-4 block text-xs font-black uppercase text-slate-400">
+          <label htmlFor="auth-password" className="mt-4 block text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
             Password
           </label>
           <div className="relative mt-2">
@@ -224,14 +221,14 @@ export function AuthForm({ authStatus, authError, next = "/dashboard" }: { authS
               onChange={(event) => setPassword(event.target.value)}
               placeholder="Minimum 8 characters"
               autoComplete={mode === "signup" ? "new-password" : "current-password"}
-              className="h-12 w-full rounded-lg border border-slate-200 bg-white pl-11 pr-4 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+              className="h-12 w-full rounded-md border border-slate-300 bg-white pl-11 pr-4 text-sm font-medium text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
             />
           </div>
 
           <button
             type="submit"
             disabled={status === "loading"}
-            className="mt-4 inline-flex h-12 w-full items-center justify-center rounded-lg bg-blue-600 px-5 text-sm font-black text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
+            className="mt-4 inline-flex h-12 w-full items-center justify-center rounded-md bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {status === "loading" ? (
               <>
@@ -255,11 +252,10 @@ export function AuthForm({ authStatus, authError, next = "/dashboard" }: { authS
           Forgot password?
         </button>
 
-        <p className={`mt-4 text-sm font-semibold ${status === "success" ? "text-emerald" : status === "error" ? "text-danger" : "text-slate-400"}`}>
+        <p className={`mt-4 text-sm font-semibold ${status === "success" ? "text-emerald-700" : status === "error" ? "text-rose-700" : "text-slate-500"}`}>
           {message}
         </p>
-      </div>
-    </div>
+    </VerifyPanel>
   );
 }
 

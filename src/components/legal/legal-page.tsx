@@ -1,6 +1,6 @@
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
-import { Card } from "@/components/ui/card";
+import { VerifyBadge, VerifyContainer, VerifyPageShell, VerifyPanel } from "@/components/verify-ui/core";
 import type { ReactNode } from "react";
 
 type LegalSection = {
@@ -26,26 +26,26 @@ export function LegalPage({
   return (
     <>
       <SiteHeader />
-      <main className="min-h-screen bg-premium-radial py-12 md:py-20">
-        <section className="section-shell">
-          <p className="eyebrow">{eyebrow}</p>
-          <h1 className="mt-5 max-w-4xl text-4xl font-black tracking-tight text-white md:text-6xl">
+      <VerifyPageShell className="py-12 md:py-20">
+        <VerifyContainer>
+          <VerifyBadge tone="blue">{eyebrow}</VerifyBadge>
+          <h1 className="mt-5 max-w-4xl text-4xl font-semibold tracking-[-0.04em] text-slate-950 md:text-6xl">
             {title}
           </h1>
-          <p className="mt-5 max-w-3xl text-base leading-8 text-slate-300 md:text-lg">
+          <p className="mt-5 max-w-3xl text-base leading-8 text-slate-600 md:text-lg">
             {description}
           </p>
           {lastUpdated ? (
-            <p className="mt-4 text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+            <p className="mt-4 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
               Last updated {new Intl.DateTimeFormat("en", { month: "long", day: "numeric", year: "numeric" }).format(new Date(lastUpdated))}
             </p>
           ) : null}
 
-          <Card className="mt-8 p-5 md:p-8">
+          <VerifyPanel className="mt-8 p-5 md:p-8">
             <MarkdownLegalContent content={bodyMarkdown || sectionsToMarkdown(sections ?? [])} />
-          </Card>
-        </section>
-      </main>
+          </VerifyPanel>
+        </VerifyContainer>
+      </VerifyPageShell>
       <SiteFooter />
     </>
   );
@@ -64,10 +64,10 @@ function MarkdownLegalContent({ content }: { content: string }) {
               key={`${index}-${block.text}`}
               className={
                 block.level === 1
-                  ? "pt-1 text-2xl font-black tracking-tight text-white md:text-3xl"
+                  ? "pt-1 text-2xl font-semibold tracking-tight text-slate-950 md:text-3xl"
                   : block.level === 2
-                    ? "pt-2 text-xl font-black text-white md:text-2xl"
-                    : "pt-1 text-lg font-black text-white"
+                    ? "pt-2 text-xl font-semibold text-slate-950 md:text-2xl"
+                    : "pt-1 text-lg font-semibold text-slate-950"
               }
             >
               {renderInlineMarkdown(block.text)}
@@ -77,9 +77,9 @@ function MarkdownLegalContent({ content }: { content: string }) {
 
         if (block.type === "list") {
           return (
-            <ul key={`${index}-${block.items.join("-")}`} className="grid gap-2 pl-5 text-sm leading-7 text-slate-300 md:text-base">
+            <ul key={`${index}-${block.items.join("-")}`} className="grid gap-2 pl-5 text-sm leading-7 text-slate-600 md:text-base">
               {block.items.map((item) => (
-                <li key={item} className="list-disc marker:text-cyan/80">
+                <li key={item} className="list-disc marker:text-blue-600">
                   {renderInlineMarkdown(item)}
                 </li>
               ))}
@@ -88,7 +88,7 @@ function MarkdownLegalContent({ content }: { content: string }) {
         }
 
         return (
-          <p key={`${index}-${block.text}`} className="text-sm leading-7 text-slate-300 md:text-base md:leading-8">
+          <p key={`${index}-${block.text}`} className="text-sm leading-7 text-slate-600 md:text-base md:leading-8">
             {renderInlineMarkdown(block.text)}
           </p>
         );
@@ -170,7 +170,7 @@ function renderInlineMarkdown(text: string): ReactNode[] {
     const token = match[0];
     if (token.startsWith("**")) {
       nodes.push(
-        <strong key={`${match.index}-${token}`} className="font-black text-white">
+        <strong key={`${match.index}-${token}`} className="font-semibold text-slate-950">
           {token.slice(2, -2)}
         </strong>
       );
@@ -183,7 +183,7 @@ function renderInlineMarkdown(text: string): ReactNode[] {
             <a
               key={`${match.index}-${token}`}
               href={href}
-              className="font-bold text-cyan underline decoration-cyan/30 underline-offset-4 transition hover:text-white"
+              className="font-semibold text-blue-700 underline decoration-blue-200 underline-offset-4 transition hover:text-blue-800"
               rel={href.startsWith("http") ? "noopener noreferrer" : undefined}
               target={href.startsWith("http") ? "_blank" : undefined}
             >

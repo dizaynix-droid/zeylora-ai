@@ -74,7 +74,7 @@ export function CheckoutButton({ packageId, label = "Get credits", className }: 
         {isLoading ? <Loader2 className="mr-2 animate-spin" size={16} /> : <CreditCard className="mr-2" size={16} />}
         <span>{isLoading ? "Opening checkout..." : label}</span>
       </button>
-      {error ? <p className="mt-2 text-xs font-semibold text-rose-200">{error}</p> : null}
+      {error ? <p className="mt-2 text-xs font-semibold text-rose-700">{error}</p> : null}
     </div>
   );
 }

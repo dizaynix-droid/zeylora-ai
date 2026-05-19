@@ -5,7 +5,7 @@ export const adminTr = {
   nav: {
     overview: "Genel Bakış",
     users: "Kullanıcılar",
-    tools: "AI Araçları",
+    tools: "Doğrulama Ayarları",
     jobs: "İşlemler",
     credits: "Krediler",
     pricing: "Fiyatlama",
@@ -25,15 +25,15 @@ export const adminTr = {
   overview: {
     title: "Zeylora yönetim temeli",
     description:
-      "Araçlar, kullanıcılar, ödemeler, krediler, sağlayıcılar, içerikler, analizler, kayıtlar, özellikler ve bakım modu için sade kontrol merkezi.",
+      "Doğrulama işleri, kullanıcılar, ödemeler, krediler, sağlayıcılar, içerikler, analizler, kayıtlar, özellikler ve bakım modu için sade kontrol merkezi.",
     modules: {
       users: {
         title: "Kullanıcılar",
         description: "Hesapları, kredi bakiyelerini, durumları ve ileride eklenecek güvenlik kontrollerini yönetin."
       },
       tools: {
-        title: "AI Araçları",
-        description: "Araç durumunu, kredi maliyetini, sağlayıcı ayarlarını, fallback ve versiyonları yönetin."
+        title: "Doğrulama ayarları",
+        description: "Verification maliyetini, sağlayıcı ayarlarını, fallback ve provider versiyonlarını yönetin."
       },
       payments: {
         title: "Ödemeler",
