@@ -49,8 +49,8 @@ export function renderEmailTemplate(templateKey: EmailTemplateKey, input: Templa
     return createEmail({
       subject: "Welcome to Zeylora AI",
       eyebrow: "Welcome",
-      title: "Your ecommerce photo studio is ready.",
-      body: `Hi ${firstName}, welcome to Zeylora AI. You can now create branded previews, keep your edit history, and unlock clean product exports with credits.`,
+      title: "Your email verification workspace is ready.",
+      body: `Hi ${firstName}, welcome to Zeylora AI. You can now upload email lists, verify addresses, reduce bounce risk, and download clean CSV segments with usage-based credits.`,
       cta: "Open dashboard",
       actionUrl: `${siteUrl}/dashboard`,
       footer: `Need help? Contact ${supportEmail}.`
@@ -86,10 +86,10 @@ export function renderEmailTemplate(templateKey: EmailTemplateKey, input: Templa
       subject: "Payment received - credits added",
       eyebrow: "Payment successful",
       title: "Your Zeylora credits are ready.",
-      body: `Your payment${input.amount ? ` of ${input.amount}` : ""} was confirmed and ${input.credits ?? "your"} credits were added to your account.`,
+      body: `Your payment${input.amount ? ` of ${input.amount}` : ""} was confirmed and ${input.credits ?? "your"} email verification credits were added to your account.`,
       cta: "Open dashboard",
       actionUrl: `${siteUrl}/dashboard#credits`,
-      footer: "Clean exports are unlocked with credits and can be re-downloaded without another charge."
+      footer: "1 credit verifies 1 email address. Download segmented CSV reports after verification completes."
     });
   }
 
@@ -98,7 +98,7 @@ export function renderEmailTemplate(templateKey: EmailTemplateKey, input: Templa
       subject: "Credits added to your account",
       eyebrow: "Credits updated",
       title: `${input.credits ?? "New"} credits added.`,
-      body: `Your Zeylora AI credit balance was updated${input.packageName ? ` from ${input.packageName}` : ""}. Use credits to unlock clean, watermark-free product exports.`,
+      body: `Your Zeylora AI credit balance was updated${input.packageName ? ` from ${input.packageName}` : ""}. Use credits to verify email addresses and export clean CSV segments.`,
       cta: "View credits",
       actionUrl: `${siteUrl}/dashboard#credits`,
       footer: `Questions about credits? Contact ${supportEmail}.`
@@ -110,7 +110,7 @@ export function renderEmailTemplate(templateKey: EmailTemplateKey, input: Templa
       subject: "You earned Zeylora referral credits",
       eyebrow: "Creator Program",
       title: `${input.credits ?? "New"} referral credits earned.`,
-      body: `A referred seller completed a successful credit purchase${input.amount ? ` (${input.amount})` : ""}. Your Creator Program reward was delivered as platform credits you can use for clean exports.`,
+      body: `A referred customer completed a successful credit purchase${input.amount ? ` (${input.amount})` : ""}. Your Creator Program reward was delivered as platform credits you can use for email verification.`,
       cta: "Open Creator Program",
       actionUrl: `${siteUrl}/dashboard/affiliate`,
       footer: "Referral rewards are platform credits only and are not cash-withdrawable."

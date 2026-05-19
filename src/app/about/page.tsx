@@ -1,8 +1,8 @@
 import { LegalPage } from "@/components/legal/legal-page";
-import { createCmsPageMetadata, getPublishedCmsPage } from "@/lib/cms/pages";
+import { createCmsPageMetadata, getDefaultCmsBody, getPublishedCmsPage } from "@/lib/cms/pages";
 
-const fallbackTitle = "About Zeylora";
-const fallbackDescription = "Learn about Zeylora, an email verification and list cleaning platform for serious senders.";
+const fallbackTitle = "About Zeylora AI | Email Verification Platform";
+const fallbackDescription = "Learn how Zeylora AI helps businesses verify email addresses, clean lists, reduce bounce risk, and protect sender reputation.";
 
 export function generateMetadata() {
   return createCmsPageMetadata({
@@ -20,21 +20,8 @@ export default async function AboutPage() {
       eyebrow="About"
       title={cmsPage?.title || fallbackTitle}
       description={cmsPage?.metaDescription || fallbackDescription}
-      bodyMarkdown={cmsPage?.bodyMarkdown}
+      bodyMarkdown={cmsPage?.bodyMarkdown || getDefaultCmsBody("about")}
       lastUpdated={cmsPage?.updatedAt}
-      sections={
-        cmsPage
-          ? undefined
-          : [
-              {
-                title: "Product focus",
-                body: [
-                  "Zeylora is built for marketers, agencies, ecommerce teams, SaaS operators, and cold email users who need cleaner email lists before sending.",
-                  "The platform focuses on credit-based bulk verification, private uploads, segmented CSV exports, and operational reporting."
-                ]
-              }
-            ]
-      }
     />
   );
 }

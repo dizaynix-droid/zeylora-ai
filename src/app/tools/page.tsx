@@ -14,7 +14,7 @@ export default function ToolsPage() {
             One focused workspace for email list cleaning.
           </h1>
           <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-600">
-            The old image-editing tool grid is retired from the public workflow. Upload CSV/TXT lists, verify emails, and download segmented reports from the dashboard.
+            Upload CSV/TXT lists, verify emails, remove risky records, and download segmented reports from the dashboard.
           </p>
           <div className="mt-7 flex flex-col gap-3 sm:flex-row">
             <VerifyAction href="/dashboard#verify">
