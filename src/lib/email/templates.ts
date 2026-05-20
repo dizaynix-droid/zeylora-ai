@@ -56,7 +56,7 @@ export const templateEventType: Record<EmailTemplateKey, EmailEventType> = {
 
 export function renderEmailTemplate(templateKey: EmailTemplateKey, input: TemplateInput = {}): RenderedEmail {
   const supportEmail = input.supportEmail || process.env.SUPPORT_EMAIL || "support@zeylora.ai";
-  const siteUrl = sanitizeUrl(input.actionUrl || process.env.NEXT_PUBLIC_SITE_URL || "https://www.zeylora.ai");
+  const siteUrl = sanitizeUrl(input.actionUrl || process.env.NEXT_PUBLIC_SITE_URL || "https://www.zeylora.ai").replace(/\/$/, "");
   const firstName = input.name?.trim() || input.email?.split("@")[0] || "there";
 
   if (templateKey === "welcome") {
@@ -211,18 +211,33 @@ function createEmail(input: {
 
   const html = `<!doctype html>
 <html>
-  <body style="margin:0;background:#070812;color:#f8fafc;font-family:Arial,Helvetica,sans-serif;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:linear-gradient(135deg,#08111f,#12071a);padding:28px 12px;">
+  <body style="margin:0;background:#f5f7fb;color:#0f172a;font-family:Arial,Helvetica,sans-serif;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f5f7fb;padding:28px 12px;">
       <tr><td align="center">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;border:1px solid rgba(255,255,255,.12);border-radius:24px;background:#111827;overflow:hidden;">
-          <tr><td style="padding:28px 28px 10px;">
-            <div style="font-size:13px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:#67e8f9;">${safe.eyebrow}</div>
-            <h1 style="margin:16px 0 12px;font-size:30px;line-height:1.1;color:#ffffff;">${safe.title}</h1>
-            <p style="margin:0;color:#cbd5e1;font-size:16px;line-height:1.7;">${safe.body}</p>
-            <a href="${safe.actionUrl}" style="display:inline-block;margin-top:24px;padding:14px 22px;border-radius:999px;background:linear-gradient(135deg,#20d3ff,#8b5cf6,#db4ca2);color:#ffffff;text-decoration:none;font-weight:900;">${safe.cta}</a>
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;border:1px solid #dbe4f0;border-radius:18px;background:#ffffff;overflow:hidden;box-shadow:0 18px 45px rgba(15,23,42,.08);">
+          <tr><td style="padding:24px 28px;border-bottom:1px solid #e7edf6;background:#ffffff;">
+            <table role="presentation" cellspacing="0" cellpadding="0">
+              <tr>
+                <td style="width:34px;height:34px;border-radius:10px;background:#2563eb;color:#ffffff;font-size:18px;line-height:34px;font-weight:900;text-align:center;">Z</td>
+                <td style="padding-left:10px;color:#0f172a;font-size:18px;line-height:1.2;font-weight:900;">Zeylora AI</td>
+              </tr>
+            </table>
           </td></tr>
-          <tr><td style="padding:24px 28px 28px;color:#94a3b8;font-size:13px;line-height:1.6;border-top:1px solid rgba(255,255,255,.08);">
-            <strong style="color:#ffffff;">Zeylora AI</strong><br/>${safe.footer}
+          <tr><td style="padding:30px 28px 12px;">
+            <div style="display:inline-block;border:1px solid #c7d7fe;border-radius:999px;background:#eff6ff;padding:7px 10px;font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#1d4ed8;">${safe.eyebrow}</div>
+            <h1 style="margin:18px 0 12px;font-size:28px;line-height:1.16;color:#0f172a;font-weight:800;">${safe.title}</h1>
+            <p style="margin:0;color:#475569;font-size:16px;line-height:1.7;">${safe.body}</p>
+            <a href="${safe.actionUrl}" style="display:inline-block;margin-top:24px;padding:13px 20px;border-radius:10px;background:#2563eb;color:#ffffff;text-decoration:none;font-size:15px;font-weight:800;">${safe.cta}</a>
+          </td></tr>
+          <tr><td style="padding:18px 28px 28px;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #e2e8f0;border-radius:14px;background:#f8fafc;">
+              <tr><td style="padding:14px 16px;color:#64748b;font-size:13px;line-height:1.6;">
+                <strong style="color:#0f172a;">Zeylora AI</strong><br/>${safe.footer}
+              </td></tr>
+            </table>
+          </td></tr>
+          <tr><td style="padding:18px 28px;color:#94a3b8;font-size:12px;line-height:1.6;border-top:1px solid #e7edf6;background:#fbfdff;">
+            Email verification credits are used only for verification attempts. You can review jobs, billing, and exports from your dashboard.
           </td></tr>
         </table>
       </td></tr>
