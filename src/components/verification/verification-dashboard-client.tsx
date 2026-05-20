@@ -219,7 +219,7 @@ export function VerificationDashboardClient({
               <VerifyBadge tone="blue">Verify list</VerifyBadge>
               <h2 className="mt-3 text-3xl font-semibold tracking-[-0.03em] text-slate-950">Upload CSV/TXT or paste emails.</h2>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                Zeylora deduplicates your list, reserves credits, verifies through MillionVerifier, then creates segmented downloads.
+                Zeylora deduplicates your list, reserves credits, runs email verification checks, then creates segmented downloads.
               </p>
             </div>
           </div>

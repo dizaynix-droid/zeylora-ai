@@ -445,18 +445,18 @@ function getFriendlyStartError(error: unknown) {
   const lower = message.toLowerCase();
 
   if (lower.includes("provider") || lower.includes("millionverifier")) {
-    return "Verification provider is not ready right now. Your pasted list is saved; please open the dashboard and try again after provider setup is checked.";
+    return "Verification is temporarily unavailable. Your list is saved in this browser; please try again shortly or contact support.";
   }
 
   if (lower.includes("storage") || lower.includes("upload") || lower.includes("r2")) {
-    return "We could not save this list for processing. Your pasted list is still saved in this browser; open the dashboard and try again.";
+    return "We could not store this list for processing. Your pasted list is still saved in this browser; please try again with a smaller list or contact support.";
   }
 
   if (message && message.length < 180 && !lower.includes("prisma") && !lower.includes("database")) {
     return message;
   }
 
-  return "We could not start verification from this page. Your pasted list is saved; open the dashboard and try again.";
+  return "Verification could not be started. Your list is saved in this browser; please try again in a moment.";
 }
 
 function getWorkflowSteps(parseState: ParseState, ready: boolean) {

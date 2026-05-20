@@ -203,7 +203,7 @@ export default async function HomePage() {
               <TrustBlock icon={KeyRound} title="Signed download links" copy="CSV exports are delivered through controlled private links." />
               <TrustBlock icon={Globe2} title="GDPR-friendly workflow" copy="Designed around list hygiene, export control, and minimal operational exposure." />
               <TrustBlock icon={FileCheck2} title="Export control" copy="Download valid, invalid, risky, disposable, duplicate, and full report segments." />
-              <TrustBlock icon={DatabaseZap} title="Provider-backed checks" copy="MillionVerifier-first architecture with future provider fallback support." />
+              <TrustBlock icon={DatabaseZap} title="Verification checks" copy="MX, SMTP, disposable, catch-all, and syntax signals help separate clean sends from risky addresses." />
               <TrustBlock icon={Calculator} title="No subscription required" copy="Buy verification volume once and use it when your lists are ready." />
             </div>
           </VerifyContainer>
@@ -434,22 +434,25 @@ function VerificationEnginePanel() {
         </VerifyPanel>
       </div>
 
-      <VerifyPanel className="overflow-hidden p-4 shadow-[0_16px_50px_rgba(15,23,42,.08)]">
-        <div className="grid gap-4 lg:grid-cols-[1.1fr_.9fr] lg:items-center">
+      <VerifyPanel className="overflow-hidden p-5 shadow-[0_16px_50px_rgba(15,23,42,.08)]">
+        <div className="grid gap-5 lg:grid-cols-[.9fr_1.1fr] lg:items-center">
           <div>
             <div className="flex items-center gap-2">
-              <DatabaseZap size={16} className="text-blue-700" />
-              <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Provider-backed workflow</p>
+              <FileCheck2 size={16} className="text-blue-700" />
+              <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Verification results preview</p>
             </div>
-            <h3 className="mt-2 text-xl font-semibold tracking-[-0.03em] text-slate-950">From raw list to clean exports without guessing.</h3>
+            <h3 className="mt-2 text-xl font-semibold tracking-[-0.03em] text-slate-950">What you get after verification</h3>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              Zeylora extracts unique addresses, reserves one verification per email, checks provider signals, and prepares segmented CSV downloads for campaign teams.
+              Download clear CSV reports and separate risky addresses before you send, so your team can protect bounce rate and sender reputation.
             </p>
           </div>
-          <div className="grid gap-2 sm:grid-cols-3">
-            <MiniReadout label="Provider" value="MillionVerifier" />
-            <MiniReadout label="Mode" value="Queued + safe" />
-            <MiniReadout label="Credits" value="1 / email" />
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            <ResultPreviewCard title="Valid Emails" copy="Ready for campaigns and CRM updates." tone="green" />
+            <ResultPreviewCard title="Risky Emails" copy="Catch-all or uncertain emails marked for review." tone="amber" />
+            <ResultPreviewCard title="Invalid Emails" copy="Remove unreachable addresses before sending." tone="red" />
+            <ResultPreviewCard title="Disposable Emails" copy="Detect temporary or low-quality domains." tone="blue" />
+            <ResultPreviewCard title="Duplicates Removed" copy="Clean repeated addresses automatically." tone="blue" />
+            <ResultPreviewCard title="Full CSV Report" copy="Export segmented results for your team." tone="green" />
           </div>
         </div>
       </VerifyPanel>
@@ -457,11 +460,19 @@ function VerificationEnginePanel() {
   );
 }
 
-function MiniReadout({ label, value }: { label: string; value: string }) {
+function ResultPreviewCard({ title, copy, tone }: { title: string; copy: string; tone: "green" | "amber" | "red" | "blue" }) {
+  const toneClass =
+    tone === "green"
+      ? "border-emerald-100 bg-emerald-50/70 text-emerald-700"
+      : tone === "amber"
+        ? "border-amber-100 bg-amber-50/70 text-amber-700"
+        : tone === "red"
+          ? "border-rose-100 bg-rose-50/70 text-rose-700"
+          : "border-blue-100 bg-blue-50/70 text-blue-700";
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.09em] text-slate-500">{label}</p>
-      <p className="mt-1 text-sm font-semibold text-slate-950">{value}</p>
+    <div className={`rounded-xl border p-3 ${toneClass}`}>
+      <p className="text-sm font-semibold text-slate-950">{title}</p>
+      <p className="mt-1 text-xs leading-5 text-slate-600">{copy}</p>
     </div>
   );
 }

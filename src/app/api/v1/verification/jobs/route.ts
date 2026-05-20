@@ -1,19 +1,19 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/abuse/rate-limit";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db";
 import { getStorageConfig, uploadPrivateObject } from "@/lib/storage/s3-client";
 import { parseEmailList, looksLikeSupportedListFile } from "@/lib/verification/email-parser";
 import { getVerificationEconomicsSnapshot } from "@/lib/verification/economics";
-import { processVerificationJobChunk, refundVerificationCredits, reserveVerificationCredits } from "@/lib/verification/processor";
+import { processVerificationQueue, refundVerificationCredits, reserveVerificationCredits } from "@/lib/verification/processor";
 
 export const runtime = "nodejs";
 
 const MAX_UPLOAD_BYTES = Number(process.env.MAX_VERIFICATION_UPLOAD_BYTES || 25 * 1024 * 1024);
 const INLINE_INPUT_EMAIL_LIMIT = Number(process.env.VERIFICATION_INLINE_INPUT_EMAIL_LIMIT || 5_000);
 const INLINE_INPUT_BYTES_LIMIT = Number(process.env.VERIFICATION_INLINE_INPUT_BYTES_LIMIT || 750_000);
-const SYNC_PROCESS_EMAIL_LIMIT = Number(process.env.VERIFICATION_SYNC_PROCESS_EMAIL_LIMIT || 25);
-const SYNC_PROCESS_TIME_BUDGET_MS = Number(process.env.VERIFICATION_SYNC_PROCESS_TIME_BUDGET_MS || 22_000);
+const STARTER_WORKER_EMAIL_LIMIT = Number(process.env.VERIFICATION_STARTER_WORKER_EMAIL_LIMIT || 1_000);
+const STARTER_WORKER_TIME_BUDGET_MS = Number(process.env.VERIFICATION_STARTER_WORKER_TIME_BUDGET_MS || 25_000);
 
 export async function GET(request: Request) {
   const startedAt = Date.now();
@@ -151,6 +151,16 @@ export async function POST(request: Request) {
   let providerKey = "millionverifier";
 
   try {
+    console.info("[verification-job-start]", {
+      userId: user.id,
+      sourceType: file instanceof File ? "upload" : "paste",
+      originalFilename,
+      totalRows: parsed.totalRows,
+      uniqueEmails: parsed.uniqueEmails.length,
+      duplicateEmails: parsed.duplicateEmails.length,
+      inlineInputAllowed
+    });
+
     const economics = await getVerificationEconomicsSnapshot(parsed.uniqueEmails.length);
     providerKey = economics.providerKey;
     const providerSettings = await prisma.providerSetting.findUnique({
@@ -207,6 +217,14 @@ export async function POST(request: Request) {
         creditsReserved: true,
         progressPercent: true
       }
+    });
+
+    console.info("[verification-job-created]", {
+      jobId: job.id,
+      userId: user.id,
+      provider: economics.providerKey,
+      emails: parsed.uniqueEmails.length,
+      creditsReserved: parsed.uniqueEmails.length
     });
 
     const reservation = await reserveVerificationCredits({
@@ -278,33 +296,37 @@ export async function POST(request: Request) {
       }
     });
 
-    let finalJob = queuedJob;
-    let processedNow = false;
-
-    if (parsed.uniqueEmails.length <= SYNC_PROCESS_EMAIL_LIMIT) {
-      await processVerificationJobChunk(queuedJob.id, {
-        maxEmails: parsed.uniqueEmails.length,
-        timeBudgetMs: SYNC_PROCESS_TIME_BUDGET_MS
-      });
-      processedNow = true;
-      const refreshedJob = await prisma.verificationJob.findUnique({
-        where: { id: queuedJob.id },
-        select: {
-          id: true,
-          status: true,
-          uniqueEmails: true,
-          creditsReserved: true,
-          progressPercent: true
-        }
-      });
-      if (refreshedJob) finalJob = refreshedJob;
-    }
+    after(async () => {
+      const backgroundStartedAt = Date.now();
+      try {
+        const result = await processVerificationQueue({
+          jobId: queuedJob.id,
+          maxJobs: 1,
+          maxEmails: Math.max(1, Math.min(STARTER_WORKER_EMAIL_LIMIT, parsed.uniqueEmails.length)),
+          timeBudgetMs: STARTER_WORKER_TIME_BUDGET_MS
+        });
+        console.info("[verification-job-background-worker]", {
+          jobId: queuedJob.id,
+          userId: user.id,
+          processedJobs: result.processedJobs,
+          failedJobs: result.failedJobs,
+          processedEmails: result.processedEmails,
+          durationMs: Date.now() - backgroundStartedAt
+        });
+      } catch (backgroundError) {
+        console.error("[verification-job-background-worker-failed]", {
+          jobId: queuedJob.id,
+          userId: user.id,
+          message: backgroundError instanceof Error ? backgroundError.message : "Background worker failed."
+        });
+      }
+    });
 
     console.info("[verification-job-queued]", {
-      jobId: finalJob.id,
+      jobId: queuedJob.id,
       provider: economics.providerKey,
       emails: parsed.uniqueEmails.length,
-      processedNow,
+      backgroundWorkerScheduled: true,
       inputMode: storageReady ? "storage" : "inline_fallback",
       totalMs: Date.now() - startedAt
     });
@@ -312,12 +334,12 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         ok: true,
-        queued: finalJob.status !== "COMPLETED",
-        processedNow,
-        job: finalJob,
-        message: finalJob.status === "COMPLETED" ? "Verification completed." : "Verification job queued. Large lists are processed safely in chunks."
+        queued: true,
+        processedNow: false,
+        job: queuedJob,
+        message: "Verification job started. Your list is being processed safely in chunks."
       },
-      { status: processedNow ? 200 : 202 }
+      { status: 202 }
     );
   } catch (error) {
     if (job && creditsReserved) {
