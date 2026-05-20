@@ -100,7 +100,9 @@ export function AppShell({ title, description, area, children }: AppShellProps) 
                 <Menu size={17} />
                 {area === "admin" ? "Yönetim menüsü" : "Workspace menu"}
               </span>
-              <span className="text-xs font-semibold uppercase tracking-[0.08em] text-blue-700">Aç / kapa</span>
+              <span className="text-xs font-semibold uppercase tracking-[0.08em] text-blue-700">
+                {area === "admin" ? "Aç / kapa" : "Open / close"}
+              </span>
             </summary>
             <nav className="mt-2 grid gap-1 border-t border-slate-200 pt-2 sm:grid-cols-2">
               {nav.map((item) => (
