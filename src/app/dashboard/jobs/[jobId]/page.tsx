@@ -112,8 +112,8 @@ export default async function VerificationJobPage({
       description="Review deliverability breakdown and download segmented CSV exports."
     >
       <JobAutoRefresh enabled={active} jobId={job.id} />
-      <div className="grid min-w-0 gap-5">
-        <VerifyPanel className="min-w-0 overflow-hidden p-4 sm:p-5 md:p-7">
+      <div className="grid min-w-0 max-w-full overflow-x-hidden gap-5">
+        <VerifyPanel className="min-w-0 max-w-full overflow-hidden p-4 sm:p-5 md:p-7">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div className="min-w-0">
               <p className="text-xs font-semibold uppercase tracking-[0.08em] text-blue-700">{job.providerKey}</p>
@@ -133,14 +133,14 @@ export default async function VerificationJobPage({
             </div>
           </div>
 
-          <div className="mt-6 grid min-w-0 grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="mt-6 grid min-w-0 max-w-full grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Metric label="Total" value={job.totalEmails} />
             <Metric label="Unique" value={job.uniqueEmails} />
             <Metric label="Duplicates" value={job.duplicateCount} />
             <Metric label="Credits required" value={job.creditsReserved || job.uniqueEmails} />
           </div>
 
-          <div className="mt-3 grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="mt-3 grid min-w-0 max-w-full grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             <Metric label="Processed" value={job.processedCount || resultTotal} />
             <Metric label="Valid" value={job.validCount} tone="good" />
             <Metric label="Invalid" value={job.invalidCount} tone="bad" />
@@ -175,22 +175,22 @@ export default async function VerificationJobPage({
           ) : null}
 
           {downloadLinks.length > 0 ? (
-            <div className="mt-6 grid gap-3 sm:flex sm:flex-wrap">
+            <div className="mt-6 grid min-w-0 max-w-full gap-3 sm:flex sm:flex-wrap">
               {downloadLinks.map((link) => (
                 <a
                   key={link.label}
                   href={link.url}
-                  className="inline-flex h-11 items-center justify-center rounded-md bg-blue-600 px-5 text-sm font-semibold text-white hover:bg-blue-700"
+                  className="inline-flex h-11 w-full min-w-0 max-w-full items-center justify-center rounded-md bg-blue-600 px-3 text-center text-sm font-semibold text-white hover:bg-blue-700 sm:w-auto sm:px-5"
                 >
-                  <Download className="mr-2" size={16} />
-                  {link.label}
+                  <Download className="mr-2 shrink-0" size={16} />
+                  <span className="min-w-0 truncate">{link.label}</span>
                 </a>
               ))}
             </div>
           ) : null}
         </VerifyPanel>
 
-        <VerifyPanel className="min-w-0 overflow-hidden p-4 sm:p-5 md:p-6">
+        <VerifyPanel className="min-w-0 max-w-full overflow-hidden p-4 sm:p-5 md:p-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs font-semibold uppercase tracking-[0.08em] text-blue-700">Result rows</p>
             <p className="text-sm font-semibold text-slate-500">
@@ -202,7 +202,7 @@ export default async function VerificationJobPage({
               job.results.map((result) => (
                 <div key={result.email} className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 p-3">
                   <p className="break-all text-sm font-semibold text-slate-950">{result.email}</p>
-                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                  <div className="mt-3 grid min-w-0 grid-cols-1 gap-2 text-xs sm:grid-cols-2">
                     <MobileResultField label="Status" value={result.status} />
                     <MobileResultField label="Domain" value={result.domain || "-"} />
                     <MobileResultField label="Reason" value={result.reason || "-"} wide />
@@ -259,8 +259,8 @@ function hasProviderFile(metadata: unknown) {
 function Metric({ label, value, tone }: { label: string; value: number; tone?: "good" | "bad" | "warn" }) {
   const color = tone === "good" ? "text-emerald-700" : tone === "bad" ? "text-rose-700" : tone === "warn" ? "text-amber-700" : "text-slate-950";
   return (
-    <div className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:p-4">
-      <p className="break-words text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500 sm:text-xs">{label}</p>
+    <div className="min-w-0 max-w-full rounded-lg border border-slate-200 bg-slate-50 p-3 sm:p-4">
+      <p className="break-words text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-500 sm:text-xs sm:tracking-[0.08em]">{label}</p>
       <p className={`mt-2 break-words text-2xl font-semibold sm:text-3xl ${color}`}>{value.toLocaleString()}</p>
     </div>
   );
@@ -268,7 +268,7 @@ function Metric({ label, value, tone }: { label: string; value: number; tone?: "
 
 function MobileResultField({ label, value, wide }: { label: string; value: string; wide?: boolean }) {
   return (
-    <div className={`min-w-0 rounded-md border border-slate-200 bg-white p-2 ${wide ? "col-span-2" : ""}`}>
+    <div className={`min-w-0 max-w-full rounded-md border border-slate-200 bg-white p-2 ${wide ? "sm:col-span-2" : ""}`}>
       <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">{label}</p>
       <p className="mt-1 break-words text-xs font-semibold text-slate-900">{value}</p>
     </div>
