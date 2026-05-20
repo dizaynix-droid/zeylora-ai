@@ -389,11 +389,19 @@ async function processBulkVerificationJob(input: {
 
   const metadata = readJobMetadata(input.job.metadataJson);
   const providerFileId = metadata.millionVerifierFileId || metadata.providerFileId;
+  const bulkEmails = providerFileId
+    ? readBulkInputEmails(metadata, input.parsed.uniqueEmails)
+    : await getRemainingEmailsForBulkUpload(input.job.id, input.parsed.uniqueEmails);
 
   if (!providerFileId) {
+    if (bulkEmails.length === 0) {
+      await completeVerificationJob(input.job.id);
+      return { processedEmails: 0, completed: true };
+    }
+
     const upload = await input.provider.uploadBulkFile({
       fileName: input.job.originalFilename || `zeylora-${input.job.id}.csv`,
-      emails: input.parsed.uniqueEmails
+      emails: bulkEmails
     });
 
     await updateBulkJobProgress({
@@ -412,6 +420,9 @@ async function processBulkVerificationJob(input: {
         providerMode: "bulk",
         providerFileId: upload.providerFileId,
         millionVerifierFileId: upload.providerFileId,
+        bulkInputEmails: bulkEmails,
+        bulkInputEmailCount: bulkEmails.length,
+        preBulkProcessedCount: input.existingResultCount,
         bulkUploadedAt: new Date().toISOString()
       }
     });
@@ -460,7 +471,7 @@ async function processBulkVerificationJob(input: {
     throw new Error(`MillionVerifier bulk job failed with status ${info.providerStatus}.`);
   }
 
-  if (!isBulkProviderComplete(info, input.parsed.uniqueEmails.length)) {
+  if (!isBulkProviderComplete(info, bulkEmails.length)) {
     return {
       processedEmails: Math.max(0, info.verified - input.existingResultCount),
       completed: false
@@ -496,7 +507,7 @@ async function processBulkVerificationJob(input: {
     return { processedEmails: 0, completed: false };
   }
 
-  const completeResults = fillMissingBulkResults(input.parsed.uniqueEmails, providerResults);
+  const completeResults = fillMissingBulkResults(bulkEmails, providerResults);
   await createVerificationResultsInChunks(input.job.id, completeResults);
   await prisma.verificationBatch.updateMany({
     where: { verificationJobId: input.job.id, status: { not: "COMPLETED" } },
@@ -885,6 +896,70 @@ export async function refundVerificationCredits(input: { userId: string; jobId: 
   });
 }
 
+export async function cancelVerificationJob(input: { userId: string; jobId: string; reason?: string }) {
+  await ensureVerificationDatabaseReady(`cancel:${input.jobId}`);
+  const job = await prisma.verificationJob.findFirst({
+    where: {
+      id: input.jobId,
+      userId: input.userId,
+      deletedAt: null
+    },
+    select: {
+      id: true,
+      userId: true,
+      status: true,
+      uniqueEmails: true,
+      creditsReserved: true,
+      creditsUsed: true,
+      metadataJson: true
+    }
+  });
+
+  if (!job) {
+    return { ok: false as const, error: "Verification job was not found." };
+  }
+
+  if (["COMPLETED", "FAILED", "PARTIAL_FAILED", "CANCELED", "CANCELLED"].includes(job.status)) {
+    return { ok: true as const, alreadyFinal: true as const, refundedCredits: 0, processedCount: job.creditsUsed };
+  }
+
+  const processedCount = await prisma.verificationEmailResult.count({ where: { verificationJobId: job.id } });
+  const refundAmount = Math.max(0, job.creditsReserved - processedCount);
+  if (refundAmount > 0) {
+    await refundVerificationCredits({
+      userId: job.userId,
+      jobId: job.id,
+      amount: refundAmount,
+      note: "Verification job canceled refund"
+    });
+  }
+
+  await prisma.verificationJob.update({
+    where: { id: job.id },
+    data: {
+      status: "CANCELED",
+      processedCount,
+      creditsUsed: processedCount,
+      progressPercent: computeProgress(processedCount, job.uniqueEmails),
+      errorMessage: input.reason || `Verification job was canceled. ${refundAmount.toLocaleString("en-US")} unused credits were refunded.`,
+      completedAt: new Date(),
+      metadataJson: mergeJobMetadata(job.metadataJson, {
+        canceledAt: new Date().toISOString(),
+        refundedCredits: refundAmount
+      })
+    }
+  });
+
+  console.info("[verification-job-canceled]", {
+    jobId: job.id,
+    userId: job.userId,
+    processedCount,
+    refundedCredits: refundAmount
+  });
+
+  return { ok: true as const, refundedCredits: refundAmount, processedCount };
+}
+
 async function updateBulkJobProgress(input: {
   jobId: string;
   currentMetadata: Prisma.JsonValue | null;
@@ -1051,6 +1126,36 @@ function fillMissingBulkResults(emails: string[], providerResults: VerificationP
     }
   }
   return emails.map((email) => byEmail.get(email.toLowerCase())!);
+}
+
+async function getRemainingEmailsForBulkUpload(jobId: string, emails: string[]) {
+  const processed = await readProcessedEmailSet(jobId);
+  return emails.filter((email) => !processed.has(email.toLowerCase()));
+}
+
+async function readProcessedEmailSet(jobId: string) {
+  const processed = new Set<string>();
+  const pageSize = 5_000;
+  for (let skip = 0; ; skip += pageSize) {
+    const rows = await prisma.verificationEmailResult.findMany({
+      where: { verificationJobId: jobId },
+      select: { normalizedEmail: true },
+      skip,
+      take: pageSize
+    });
+    for (const row of rows) {
+      processed.add(row.normalizedEmail.toLowerCase());
+    }
+    if (rows.length < pageSize) break;
+  }
+  return processed;
+}
+
+function readBulkInputEmails(metadata: Record<string, string>, fallbackEmails: string[]) {
+  const candidate = (metadata as { bulkInputEmails?: unknown }).bulkInputEmails;
+  if (!Array.isArray(candidate)) return fallbackEmails;
+  const emails = candidate.filter((email): email is string => typeof email === "string" && email.includes("@"));
+  return emails.length > 0 ? emails : fallbackEmails;
 }
 
 function readBoolean(value: unknown) {

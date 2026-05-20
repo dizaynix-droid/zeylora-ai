@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { Download } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { JobAutoRefresh } from "@/components/verification/job-auto-refresh";
+import { JobCancelButton } from "@/components/verification/job-cancel-button";
 import { VerifyPanel } from "@/components/verify-ui/core";
 import { getCurrentSessionUser } from "@/lib/auth/current-user";
 import { requireMfaIfNeeded } from "@/lib/auth/mfa";
@@ -106,7 +107,7 @@ export default async function VerificationJobPage({
       title="Verification report"
       description="Review deliverability breakdown and download segmented CSV exports."
     >
-      <JobAutoRefresh enabled={active} />
+      <JobAutoRefresh enabled={active} jobId={job.id} />
       <div className="grid gap-5">
         <VerifyPanel className="p-5 md:p-7">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -124,6 +125,7 @@ export default async function VerificationJobPage({
               <Link href={`/dashboard/support?jobId=${job.id}`} className="rounded-md border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100">
                 Contact support
               </Link>
+              {active ? <JobCancelButton jobId={job.id} /> : null}
             </div>
           </div>
 
@@ -156,12 +158,12 @@ export default async function VerificationJobPage({
                 />
               </div>
               <p className="mt-3 text-sm leading-6 text-blue-900/75">
-                Large lists do not run inside the browser request. Zeylora verifies this list in background chunks and refreshes this report automatically.
+                Large lists do not run inside the browser request. Zeylora verifies this list in background chunks, nudges the worker while this page is open, and refreshes this report automatically.
               </p>
             </div>
           ) : null}
 
-          {job.status === "FAILED" && job.errorMessage ? (
+          {(job.status === "FAILED" || job.status === "CANCELED" || job.status === "CANCELLED") && job.errorMessage ? (
             <div className="mt-6 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-800">
               {job.errorMessage}
             </div>
