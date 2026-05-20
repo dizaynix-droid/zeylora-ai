@@ -31,7 +31,7 @@ export default async function AdminCreditsPage({
     <AppShell
       area="admin"
       title="Doğrulama hakkı defteri"
-      description="Satın alınan, kullanılan, iade edilen ve admin tarafından düzenlenen email doğrulama hakları."
+      description="Bugünkü satın alma, kullanım, iade ve admin kredi hareketleri. Eski foto test kayıtları bu defterden ayrıştırıldı."
     >
       {error ? (
         <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
@@ -47,8 +47,8 @@ export default async function AdminCreditsPage({
 
       <div className="mt-4">
         <AdminSection
-          title="Son kredi hareketleri"
-          description="Satın alma, doğrulama kullanımı, refund ve admin adjustment kayıtları burada görünür."
+          title="Bugünkü kredi hareketleri"
+          description={`Türkiye saatine göre ${formatAdminDate(data.rangeStart)} sonrası doğrulama hakkı hareketleri.`}
         >
           <div className="mb-3">
             <AdminPaginationControls basePath="/admin/credits" pagination={data.pagination} />
@@ -73,11 +73,7 @@ export default async function AdminCreditsPage({
                     <td className={tx.amount >= 0 ? "px-4 py-3 font-black text-emerald-200" : "px-4 py-3 font-black text-rose-200"}>{tx.amount}</td>
                     <td className="px-4 py-3 text-slate-300">{tx.balanceAfter}</td>
                     <td className="px-4 py-3 text-slate-400">
-                      {tx.note ||
-                        tx.verificationJob?.originalFilename ||
-                        (tx.verificationJob ? `${tx.verificationJob.uniqueEmails.toLocaleString()} email verification` : "") ||
-                        (tx.payment ? `Payment ${Number(tx.payment.amount).toFixed(2)} ${tx.payment.currency.toUpperCase()}` : "") ||
-                        "-"}
+                      {renderCreditTransactionNote(tx)}
                     </td>
                     <td className="px-4 py-3 text-slate-400">{formatAdminDate(tx.createdAt)}</td>
                   </tr>
@@ -115,6 +111,7 @@ async function getSafeCreditsData(page: number) {
     });
     return {
       data: {
+        rangeStart: new Date(),
         transactions: [],
         pagination: {
           page: 1,
@@ -147,4 +144,28 @@ function transactionLabel(type: string) {
   if (type === "REFERRAL_REWARD") return "Partner ödülü";
   if (type === "FREE_TRIAL") return "Deneme";
   return type;
+}
+
+type CreditTransactionRow = Awaited<ReturnType<typeof getAdminCreditsData>>["transactions"][number];
+
+function renderCreditTransactionNote(tx: CreditTransactionRow) {
+  if (tx.verificationJob?.originalFilename) return tx.verificationJob.originalFilename;
+  if (tx.verificationJob) return `${tx.verificationJob.uniqueEmails.toLocaleString()} email verification`;
+  if (tx.payment) return `Payment ${Number(tx.payment.amount).toFixed(2)} ${tx.payment.currency.toUpperCase()}`;
+  if (isLegacyPhotoCreditNote(tx.note)) return "Eski foto test kaydı";
+  return tx.note || "-";
+}
+
+function isLegacyPhotoCreditNote(note?: string | null) {
+  if (!note) return false;
+  const normalized = note.toLowerCase();
+  return [
+    "hd-upscale",
+    "ai-relight",
+    "object-remover",
+    "background",
+    "photo",
+    "clean export",
+    "failed job refund"
+  ].some((marker) => normalized.includes(marker));
 }

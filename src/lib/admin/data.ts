@@ -602,11 +602,16 @@ export async function getAdminCreditsData(input: { page?: number; pageSize?: num
   const startedAt = adminPerfNow();
   const page = normalizeAdminPage(input.page);
   const pageSize = normalizeAdminPageSize(input.pageSize);
+  const todayStart = getIstanbulDayStartUtc(new Date());
+  const where: Prisma.CreditTransactionWhereInput = {
+    createdAt: { gte: todayStart }
+  };
 
   const [transactions, totalTransactions, totals] = await Promise.all([
     measureAdminQuery(
       "credits.transactions.list",
       prisma.creditTransaction.findMany({
+        where,
         orderBy: { createdAt: "desc" },
         skip: getSkip(page, pageSize),
         take: pageSize,
@@ -622,12 +627,13 @@ export async function getAdminCreditsData(input: { page?: number; pageSize?: num
           payment: { select: { id: true, amount: true, currency: true } }
         }
       }),
-      { page, take: pageSize }
+      { page, take: pageSize, since: todayStart.toISOString() }
     ),
-    measureAdminQuery("credits.transactions.count", prisma.creditTransaction.count()),
+    measureAdminQuery("credits.transactions.count", prisma.creditTransaction.count({ where })),
     measureAdminQuery(
       "credits.transactions.totals",
       prisma.creditTransaction.groupBy({
+        where,
         by: ["type"],
         _sum: { amount: true },
         _count: { _all: true }
@@ -640,10 +646,12 @@ export async function getAdminCreditsData(input: { page?: number; pageSize?: num
     page,
     take: pageSize,
     resultCount: transactions.length,
-    total: totalTransactions
+    total: totalTransactions,
+    since: todayStart.toISOString()
   });
 
   return {
+    rangeStart: todayStart,
     transactions,
     pagination: createPagination({ page, pageSize, total: totalTransactions }),
     totals,
@@ -936,8 +944,8 @@ async function buildAdminAnalyticsData() {
   const todayStart = startOfDay(new Date());
   const failureRateStartedAt = adminPerfNow();
   const failureRatePromise = measureAdminQuery(
-    "analytics.failureRate.statusGroup",
-    prisma.aiJob.groupBy({
+    "analytics.verification.failureRate.statusGroup",
+    prisma.verificationJob.groupBy({
       by: ["status"],
       where: { deletedAt: null },
       _count: { _all: true }
@@ -964,55 +972,24 @@ async function buildAdminAnalyticsData() {
   );
   const providerSplitStartedAt = adminPerfNow();
   const providerSplitPromise = measureAdminQuery(
-    "analytics.providerSplit",
-    prisma.aiJob.groupBy({
+    "analytics.verification.providerSplit",
+    prisma.verificationJob.groupBy({
       by: ["providerKey"],
       where: { deletedAt: null },
       _count: { _all: true }
     })
   ).then((providerSplit) => {
-    logAdminPerf("analytics.providerSplit.total", {
+    const providers = providerSplit
+      .filter((provider) => typeof provider.providerKey === "string" && provider.providerKey.length > 0)
+      .map((provider) => ({
+        providerKey: provider.providerKey as string,
+        _count: { _all: provider._count._all }
+      }));
+    logAdminPerf("analytics.verification.providerSplit.total", {
       duration: `${adminPerfNow() - providerSplitStartedAt}ms`,
-      resultCount: providerSplit.length
+      resultCount: providers.length
     });
-    return providerSplit;
-  });
-  const topToolsStartedAt = adminPerfNow();
-  const topToolsPromise = Promise.all([
-    measureAdminQuery(
-      "analytics.topTools.usage",
-      prisma.aiJob.groupBy({
-        by: ["toolId"],
-        where: { deletedAt: null },
-        _count: { _all: true },
-        orderBy: { _count: { toolId: "desc" } },
-        take: 5
-      }),
-      { take: 5 }
-    ),
-    measureAdminQuery(
-      "analytics.topTools.tools",
-      prisma.aiTool.findMany({
-        where: { deletedAt: null },
-        select: { id: true, name: true, slug: true, creditCost: true, providerKey: true, status: true }
-      })
-    )
-  ]).then(([toolUsage, tools]) => {
-    const toolNameById = new Map(tools.map((tool) => [tool.id, tool]));
-    const topTools = toolUsage
-      .map((item) => ({
-        ...item,
-        tool: toolNameById.get(item.toolId)
-      }))
-      .filter((item) => item.tool && item._count._all > 0);
-
-    logAdminPerf("analytics.topTools", {
-      duration: `${adminPerfNow() - topToolsStartedAt}ms`,
-      queryCount: 2,
-      resultCount: topTools.length
-    });
-
-    return topTools;
+    return providers;
   });
   const behaviorPromise = Promise.all([
     measureAdminQuery(
@@ -1058,19 +1035,18 @@ async function buildAdminAnalyticsData() {
     buildBehaviorAnalytics(eventGroups, todayVisitors, breakdownRows, dailyRows)
   );
 
-  const [{ completedJobs, failedJobs, failureRate }, creditsUsed, providerSplit, topTools, behavior] = await Promise.all([
+  const [{ completedJobs, failedJobs, failureRate }, creditsUsed, providerSplit, behavior] = await Promise.all([
     failureRatePromise,
     creditsUsedPromise,
     providerSplitPromise,
-    topToolsPromise,
     behaviorPromise
   ]);
 
   logAdminPerf("admin.analytics.data", {
     duration: `${adminPerfNow() - startedAt}ms`,
-    queryCount: 9,
+    queryCount: 6,
     cacheHit: false,
-    resultCount: topTools.length,
+    resultCount: behavior.topTools.length,
     providerCount: providerSplit.length
   });
 
@@ -1080,7 +1056,7 @@ async function buildAdminAnalyticsData() {
     failureRate,
     creditsUsed: Math.abs(creditsUsed._sum.amount ?? 0),
     providerSplit,
-    topTools,
+    topTools: [],
     behavior
   };
 }
@@ -1197,8 +1173,7 @@ export type AdminReportGrouping = "daily" | "weekly" | "monthly";
 
 const EXPENSE_CATEGORIES = ["ADS", "SEO", "PROVIDER", "SOFTWARE", "DESIGN", "DOMAIN", "HOSTING", "OTHER"] as const;
 const PROVIDER_RUNTIME_DEFAULTS = [
-  { providerKey: "millionverifier", name: "MillionVerifier", providerType: "email-verification", envKeyName: "MILLIONVERIFIER_API_KEY", priority: 5, defaultStatus: "ACTIVE" },
-  { providerKey: "email-fallback", name: "Fallback Email Provider", providerType: "email-verification", envKeyName: "EMAIL_VERIFICATION_FALLBACK_API_KEY", priority: 50, defaultStatus: "INACTIVE" }
+  { providerKey: "millionverifier", name: "MillionVerifier", providerType: "email-verification", envKeyName: "MILLIONVERIFIER_API_KEY", priority: 5, defaultStatus: "ACTIVE" }
 ] as const;
 
 export type AdminProvider = {
@@ -1254,7 +1229,10 @@ export async function getAdminProvidersData(): Promise<AdminProvider[]> {
       }
     })
   );
-  const emailDbProviders = dbProviders.filter((provider) => provider.providerType === "email-verification" || provider.providerKey === "millionverifier" || provider.providerKey === "email-fallback");
+  const emailDbProviders = dbProviders.filter((provider) =>
+    provider.providerKey !== "email-fallback" &&
+    (provider.providerType === "email-verification" || provider.providerKey === "millionverifier")
+  );
   const byKey = new Map(emailDbProviders.map((provider) => [provider.providerKey, provider]));
   const providers: AdminProvider[] = [
     ...PROVIDER_RUNTIME_DEFAULTS.map((runtime) => {
@@ -2297,6 +2275,22 @@ function getBucketKey(date: Date, grouping: AdminReportGrouping) {
 
 function startOfDay(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
+}
+
+function getIstanbulDayStartUtc(date: Date) {
+  const istanbulOffsetMs = 3 * 60 * 60 * 1000;
+  const istanbulDate = new Date(date.getTime() + istanbulOffsetMs);
+  return new Date(
+    Date.UTC(
+      istanbulDate.getUTCFullYear(),
+      istanbulDate.getUTCMonth(),
+      istanbulDate.getUTCDate(),
+      0,
+      0,
+      0,
+      0
+    ) - istanbulOffsetMs
+  );
 }
 
 function endOfDay(date: Date) {
