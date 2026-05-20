@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { checkRateLimit, rateLimitResponse } from "@/lib/abuse/rate-limit";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db";
+import { sendTransactionalEmail } from "@/lib/email/resend";
 import { getStorageConfig, uploadPrivateObject } from "@/lib/storage/s3-client";
 import { ensureVerificationDatabaseReady } from "@/lib/verification/db-readiness";
 import { parseEmailList, looksLikeSupportedListFile } from "@/lib/verification/email-parser";
@@ -570,6 +571,15 @@ export async function POST(request: Request) {
     after(async () => {
       const backgroundStartedAt = Date.now();
       try {
+        const queuedEmail = safeSendVerificationStartEmail({
+          traceId,
+          userId: user.id,
+          email: user.email,
+          jobId: queuedJob.id,
+          fileName: originalFilename || "Pasted email list",
+          uniqueEmails: parsed.uniqueEmails.length
+        });
+
         const result = await processVerificationQueue({
           jobId: queuedJob.id,
           maxJobs: 1,
@@ -593,6 +603,7 @@ export async function POST(request: Request) {
           maxEmails: Math.max(1, Math.min(STARTER_WORKER_EMAIL_LIMIT, parsed.uniqueEmails.length)),
           timeBudgetMs: STARTER_WORKER_TIME_BUDGET_MS
         });
+        await queuedEmail;
       } catch (backgroundError) {
         console.error("[verification-job-background-worker-failed]", {
           traceId,
@@ -836,6 +847,35 @@ function buildIdempotencyKey(userId: string, emails: string[], clientKey: string
   return createHash("sha256")
     .update(`${userId}:${emails.join("\n")}`)
     .digest("hex");
+}
+
+async function safeSendVerificationStartEmail(input: {
+  traceId: string;
+  userId: string;
+  email: string;
+  jobId: string;
+  fileName: string;
+  uniqueEmails: number;
+}) {
+  await sendTransactionalEmail({
+    templateKey: "verification_job_queued",
+    to: input.email,
+    userId: input.userId,
+    idempotencyKey: `verification-job-queued:${input.jobId}`,
+    payload: {
+      jobId: input.jobId,
+      fileName: input.fileName,
+      uniqueEmails: input.uniqueEmails
+    }
+  }).catch((error) => {
+    console.warn("[verification-email-failed]", {
+      traceId: input.traceId,
+      jobId: input.jobId,
+      userId: input.userId,
+      templateKey: "verification_job_queued",
+      message: error instanceof Error ? error.message : "Verification queued email failed"
+    });
+  });
 }
 
 function isPrismaUniqueConstraintError(error: unknown) {

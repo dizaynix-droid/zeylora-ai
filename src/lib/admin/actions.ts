@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin/auth";
 import { logAdminAction } from "@/lib/admin/audit";
 import { deleteDashboardCache } from "@/lib/dashboard/cache";
+import { sendTransactionalEmail } from "@/lib/email/resend";
 import {
   clearMarketingTrackingSettingsCache,
   MARKETING_TRACKING_SETTING_KEY,
@@ -30,19 +31,20 @@ export async function adjustUserCreditsAction(formData: FormData) {
   const userId = String(formData.get("userId") || "");
   const rawAmount = Number(formData.get("amount") || 0);
   const note = String(formData.get("note") || "Admin credit adjustment").trim();
+  const returnTo = getSafeAdminReturnPath(String(formData.get("returnTo") || "/admin/users"));
 
   if (!userId || !Number.isInteger(rawAmount) || rawAmount === 0) {
-    throw new Error("Invalid credit adjustment.");
+    redirect(withAdminNotice(returnTo, { error: "invalid_credit" }));
   }
 
-  await prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const user = await tx.user.findUnique({
       where: { id: userId },
-      select: { creditBalance: true }
+      select: { email: true, creditBalance: true }
     });
 
     if (!user) {
-      throw new Error("User not found.");
+      redirect(withAdminNotice(returnTo, { error: "user_not_found" }));
     }
 
     const balanceAfter = user.creditBalance + rawAmount;
@@ -52,15 +54,22 @@ export async function adjustUserCreditsAction(formData: FormData) {
       data: { creditBalance: balanceAfter }
     });
 
-    await tx.creditTransaction.create({
+    const transaction = await tx.creditTransaction.create({
       data: {
         userId,
         type: "ADMIN_ADJUSTMENT",
         amount: rawAmount,
         balanceAfter,
         note
-      }
+      },
+      select: { id: true }
     });
+
+    return {
+      email: user.email,
+      balanceAfter,
+      transactionId: transaction.id
+    };
   });
 
   deleteDashboardCache(`dashboard:credits:${userId}`);
@@ -72,12 +81,36 @@ export async function adjustUserCreditsAction(formData: FormData) {
     entityId: userId,
     metadata: { amount: rawAmount, note }
   });
+  if (rawAmount > 0) {
+    await sendTransactionalEmail({
+      templateKey: "credits_added",
+      to: result.email,
+      userId,
+      idempotencyKey: `admin-credits-added:${result.transactionId}`,
+      payload: {
+        credits: rawAmount,
+        packageName: "manual admin credit adjustment"
+      }
+    }).catch((error) => {
+      console.warn("[admin-credit-email-failed]", {
+        userId,
+        transactionId: result.transactionId,
+        message: error instanceof Error ? error.message : "Admin credit email failed"
+      });
+    });
+  }
 
   revalidatePath("/admin");
   revalidatePath("/admin/users");
   revalidatePath("/admin/credits");
   revalidatePath("/dashboard");
-  redirect("/admin/users?saved=credits");
+  redirect(withAdminNotice(returnTo, {
+    saved: "credits",
+    userId,
+    email: result.email,
+    amount: String(rawAmount),
+    balance: String(result.balanceAfter)
+  }));
 }
 
 export async function updateToolEconomicsAction(formData: FormData) {
@@ -934,6 +967,20 @@ export async function manualAffiliateRewardAction(formData: FormData) {
 
 function getFormString(formData: FormData, key: string, maxLength = 240) {
   return String(formData.get(key) || "").trim().slice(0, maxLength);
+}
+
+function getSafeAdminReturnPath(value: string) {
+  if (!value.startsWith("/admin/")) return "/admin/users";
+  if (value.startsWith("//") || value.includes("://")) return "/admin/users";
+  return value.slice(0, 800);
+}
+
+function withAdminNotice(path: string, params: Record<string, string>) {
+  const url = new URL(path, "https://zeylora.local");
+  for (const [key, value] of Object.entries(params)) {
+    if (value) url.searchParams.set(key, value);
+  }
+  return `${url.pathname}?${url.searchParams.toString()}`;
 }
 
 function normalizeSlug(value: string) {

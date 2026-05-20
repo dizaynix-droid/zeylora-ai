@@ -6,6 +6,9 @@ export type EmailTemplateKey =
   | "mfa_enabled"
   | "payment_success"
   | "credits_added"
+  | "verification_job_queued"
+  | "verification_job_completed"
+  | "verification_job_failed"
   | "referral_reward"
   | "ticket_reply"
   | "failed_payment";
@@ -25,6 +28,14 @@ type TemplateInput = {
   ticketSubject?: string;
   ticketMessage?: string;
   referralName?: string;
+  jobId?: string;
+  fileName?: string | null;
+  uniqueEmails?: number;
+  validCount?: number;
+  invalidCount?: number;
+  riskyCount?: number;
+  refundedCredits?: number;
+  errorMessage?: string;
   actionUrl?: string;
   supportEmail?: string;
 };
@@ -35,6 +46,9 @@ export const templateEventType: Record<EmailTemplateKey, EmailEventType> = {
   mfa_enabled: "MFA_ENABLED",
   payment_success: "PAYMENT_SUCCESSFUL",
   credits_added: "CREDITS_ADDED",
+  verification_job_queued: "LOW_CREDITS",
+  verification_job_completed: "JOB_COMPLETED",
+  verification_job_failed: "JOB_FAILED_REFUNDED",
   referral_reward: "REFERRAL_REWARD",
   ticket_reply: "TICKET_REPLY",
   failed_payment: "FAILED_PAYMENT"
@@ -102,6 +116,42 @@ export function renderEmailTemplate(templateKey: EmailTemplateKey, input: Templa
       cta: "View credits",
       actionUrl: `${siteUrl}/dashboard#credits`,
       footer: `Questions about credits? Contact ${supportEmail}.`
+    });
+  }
+
+  if (templateKey === "verification_job_queued") {
+    return createEmail({
+      subject: "Your email verification job has started",
+      eyebrow: "Verification started",
+      title: `${input.fileName || "Your list"} is queued for verification.`,
+      body: `Zeylora received ${formatCount(input.uniqueEmails)} unique emails and started processing the list in safe background chunks. You can watch progress from your dashboard.`,
+      cta: "View job progress",
+      actionUrl: `${siteUrl}/dashboard/jobs/${input.jobId || ""}`,
+      footer: "Large lists continue processing in the background. You do not need to keep the browser open."
+    });
+  }
+
+  if (templateKey === "verification_job_completed") {
+    return createEmail({
+      subject: "Your email verification report is ready",
+      eyebrow: "Verification complete",
+      title: `${input.fileName || "Your list"} is ready to download.`,
+      body: `We processed ${formatCount(input.uniqueEmails)} unique emails. Results: ${formatCount(input.validCount)} valid, ${formatCount(input.invalidCount)} invalid, and ${formatCount(input.riskyCount)} risky/catch-all/disposable addresses.`,
+      cta: "Download report",
+      actionUrl: `${siteUrl}/dashboard/jobs/${input.jobId || ""}`,
+      footer: "Your segmented CSV exports are available in the job report."
+    });
+  }
+
+  if (templateKey === "verification_job_failed") {
+    return createEmail({
+      subject: "Verification needs attention",
+      eyebrow: "Verification issue",
+      title: `${input.fileName || "Your list"} could not fully complete.`,
+      body: `${input.errorMessage || "A processing issue stopped this verification job."}${input.refundedCredits ? ` ${formatCount(input.refundedCredits)} unused credits were refunded automatically.` : " Your credits were not charged for unprocessed emails."}`,
+      cta: "Open support",
+      actionUrl: `${siteUrl}/dashboard/support?jobId=${input.jobId || ""}`,
+      footer: `If you need help, contact ${supportEmail} or reply from your support dashboard.`
     });
   }
 
@@ -193,6 +243,12 @@ function escapeText(value: string) {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
+}
+
+function formatCount(value: unknown) {
+  const numberValue = Number(value || 0);
+  if (!Number.isFinite(numberValue)) return "0";
+  return numberValue.toLocaleString("en-US");
 }
 
 function sanitizeUrl(value: string) {

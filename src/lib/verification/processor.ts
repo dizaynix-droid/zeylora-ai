@@ -1,5 +1,6 @@
 import type { Prisma, VerificationEmailStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { sendTransactionalEmail } from "@/lib/email/resend";
 import { getPrivateObjectText, uploadPrivateObject } from "@/lib/storage/s3-client";
 import { buildVerificationCsv, filterResultsForExport } from "@/lib/verification/csv";
 import { ensureVerificationDatabaseReady } from "@/lib/verification/db-readiness";
@@ -480,8 +481,14 @@ async function completeVerificationJob(jobId: string) {
     select: {
       id: true,
       userId: true,
+      originalFilename: true,
       uniqueEmails: true,
-      metadataJson: true
+      metadataJson: true,
+      user: {
+        select: {
+          email: true
+        }
+      }
     }
   });
 
@@ -515,6 +522,7 @@ async function completeVerificationJob(jobId: string) {
     });
   }
 
+  const resultCounts = countStatuses(allResults.map((result) => result.status));
   await prisma.verificationJob.update({
     where: { id: job.id },
     data: {
@@ -533,6 +541,21 @@ async function completeVerificationJob(jobId: string) {
         exportRows: allResults.length,
         ...(exportStorageError ? { exportStorageError } : {})
       })
+    }
+  });
+
+  await safeSendVerificationLifecycleEmail({
+    templateKey: "verification_job_completed",
+    userId: job.userId,
+    email: job.user.email,
+    jobId: job.id,
+    payload: {
+      jobId: job.id,
+      fileName: job.originalFilename || "Email list",
+      uniqueEmails: job.uniqueEmails,
+      validCount: resultCounts.VALID,
+      invalidCount: resultCounts.INVALID,
+      riskyCount: resultCounts.RISKY + resultCounts.CATCH_ALL + resultCounts.DISPOSABLE
     }
   });
 }
@@ -560,10 +583,16 @@ async function failVerificationJob(jobId: string, error: unknown) {
     select: {
       id: true,
       userId: true,
+      originalFilename: true,
       creditsReserved: true,
       creditsUsed: true,
       uniqueEmails: true,
-      providerKey: true
+      providerKey: true,
+      user: {
+        select: {
+          email: true
+        }
+      }
     }
   });
 
@@ -602,6 +631,23 @@ async function failVerificationJob(jobId: string, error: unknown) {
     processedCount,
     refundedCredits: refundAmount,
     message: error instanceof Error ? error.message : "Verification failed."
+  });
+
+  await safeSendVerificationLifecycleEmail({
+    templateKey: "verification_job_failed",
+    userId: job.userId,
+    email: job.user.email,
+    jobId: job.id,
+    payload: {
+      jobId: job.id,
+      fileName: job.originalFilename || "Email list",
+      uniqueEmails: job.uniqueEmails,
+      refundedCredits: refundAmount,
+      errorMessage:
+        processedCount > 0
+          ? `Verification stopped after ${processedCount.toLocaleString("en-US")} processed emails.`
+          : error instanceof Error ? error.message : "Verification failed before processing started."
+    }
   });
 }
 
@@ -762,6 +808,29 @@ function mergeJobMetadata(current: unknown, next: Record<string, unknown>) {
     ...(current && typeof current === "object" && !Array.isArray(current) ? current : {}),
     ...next
   } as Prisma.InputJsonValue;
+}
+
+async function safeSendVerificationLifecycleEmail(input: {
+  templateKey: "verification_job_completed" | "verification_job_failed";
+  userId: string;
+  email: string;
+  jobId: string;
+  payload: Record<string, unknown>;
+}) {
+  await sendTransactionalEmail({
+    templateKey: input.templateKey,
+    to: input.email,
+    userId: input.userId,
+    idempotencyKey: `${input.templateKey}:${input.jobId}`,
+    payload: input.payload
+  }).catch((error) => {
+    console.warn("[verification-email-failed]", {
+      jobId: input.jobId,
+      userId: input.userId,
+      templateKey: input.templateKey,
+      message: error instanceof Error ? error.message : "Verification lifecycle email failed"
+    });
+  });
 }
 
 async function uploadCsv(key: string, csv: string) {

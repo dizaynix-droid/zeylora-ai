@@ -5,13 +5,14 @@ import { getAdminUsersData, normalizeAdminPage } from "@/lib/admin/data";
 import { adjustUserCreditsAction } from "@/lib/admin/actions";
 import { adminPerfNow, logAdminPerf } from "@/lib/admin/perf";
 import { prisma } from "@/lib/db";
+import { CreditAdjustSubmit } from "./credit-adjust-submit";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminUsersPage({
   searchParams
 }: {
-  searchParams?: Promise<{ q?: string; filter?: string; page?: string; saved?: string }>;
+  searchParams?: Promise<{ q?: string; filter?: string; page?: string; saved?: string; error?: string; amount?: string; balance?: string; email?: string; userId?: string }>;
 }) {
   const pageStartedAt = adminPerfNow();
   const authStartedAt = adminPerfNow();
@@ -23,6 +24,11 @@ export default async function AdminUsersPage({
     : "all";
   const query = params?.q || "";
   const page = normalizeAdminPage(params?.page);
+  const returnTo = buildAdminUsersReturnPath({ q: query, filter, page });
+  const savedAmount = Number(params?.amount || 0);
+  const savedBalance = Number(params?.balance || 0);
+  const savedEmail = params?.email || "";
+  const highlightedUserId = params?.userId || "";
   const dataStartedAt = adminPerfNow();
   const { data, error: usersLoadError } = await getSafeAdminUsersData({ query, filter, page });
   const users = data.items;
@@ -42,9 +48,19 @@ export default async function AdminUsersPage({
       title="Kullanıcı yönetimi"
       description="Kullanıcıları, kredi bakiyelerini ve son işlem özetlerini güvenli şekilde takip et."
     >
-      {params?.saved ? (
-        <div className="mb-4 rounded-2xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm font-black text-emerald">
-          Kaydedildi. Kredi bakiyesi ve işlem geçmişi güncellendi.
+      {params?.saved === "credits" ? (
+        <div className="mb-4 rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800 shadow-[0_10px_30px_rgba(16,185,129,.10)]">
+          <p className="text-base font-black">Kredi işlemi kaydedildi.</p>
+          <p className="mt-1">
+            {savedEmail ? `${savedEmail} için ` : ""}
+            {Number.isFinite(savedAmount) && savedAmount !== 0 ? `${savedAmount > 0 ? "+" : ""}${savedAmount.toLocaleString("tr-TR")} kredi işlendi. ` : ""}
+            {Number.isFinite(savedBalance) && savedBalance > 0 ? `Yeni bakiye: ${savedBalance.toLocaleString("tr-TR")}.` : "Kredi bakiyesi ve işlem geçmişi güncellendi."}
+          </p>
+        </div>
+      ) : null}
+      {params?.error ? (
+        <div className="mb-4 rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800">
+          Kredi işlemi kaydedilemedi. Tutarı ve kullanıcıyı kontrol edip tekrar dene.
         </div>
       ) : null}
       {usersLoadError ? (
@@ -100,7 +116,7 @@ export default async function AdminUsersPage({
             </thead>
             <tbody className="divide-y divide-white/10">
               {users.map((user) => (
-                <tr key={user.id} className="align-top">
+                <tr key={user.id} className={`align-top transition ${highlightedUserId === user.id ? "bg-emerald-50/80 ring-2 ring-inset ring-emerald-200" : ""}`}>
                   <td className="px-4 py-3">
                     <p className="font-black text-white">{user.email}</p>
                     <p className="mt-1 text-xs text-slate-500">{user.name || "İsim yok"}</p>
@@ -109,7 +125,12 @@ export default async function AdminUsersPage({
                     <AdminStatusPill tone={user.role === "ADMIN" ? "good" : "neutral"}>{user.role}</AdminStatusPill>
                     <p className="mt-2 text-xs text-slate-500">{user.status}</p>
                   </td>
-                  <td className="px-4 py-3 text-2xl font-black text-white">{user.creditBalance}</td>
+                  <td className="px-4 py-3">
+                    <p className="text-2xl font-black text-white">{user.creditBalance}</p>
+                    {highlightedUserId === user.id && params?.saved === "credits" ? (
+                      <p className="mt-1 text-xs font-black text-emerald-700">Son kredi işlemi kaydedildi</p>
+                    ) : null}
+                  </td>
                   <td className="px-4 py-3 text-slate-300">
                     <p>{user._count.verificationJobs} doğrulama</p>
                     <p className="text-xs text-slate-500">
@@ -131,6 +152,7 @@ export default async function AdminUsersPage({
                   <td className="px-4 py-3">
                     <form action={adjustUserCreditsAction} className="flex flex-wrap items-center gap-2">
                       <input type="hidden" name="userId" value={user.id} />
+                      <input type="hidden" name="returnTo" value={returnTo} />
                       {[10, 25, 50, -10].map((amount) => (
                         <button
                           key={amount}
@@ -153,9 +175,7 @@ export default async function AdminUsersPage({
                         placeholder="Not opsiyonel"
                         className="h-9 w-40 rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none focus:border-cyan"
                       />
-                      <button className="h-9 rounded-full bg-zeylora-brand px-4 text-xs font-black text-white shadow-glow transition hover:brightness-110">
-                        Uygula
-                      </button>
+                      <CreditAdjustSubmit />
                     </form>
                   </td>
                 </tr>
@@ -251,4 +271,13 @@ async function getSafeAdminUsersData(input: Parameters<typeof getAdminUsersData>
       error
     };
   }
+}
+
+function buildAdminUsersReturnPath(input: { q: string; filter: string; page: number }) {
+  const params = new URLSearchParams();
+  if (input.q) params.set("q", input.q);
+  if (input.filter && input.filter !== "all") params.set("filter", input.filter);
+  if (input.page > 1) params.set("page", String(input.page));
+  const query = params.toString();
+  return query ? `/admin/users?${query}` : "/admin/users";
 }

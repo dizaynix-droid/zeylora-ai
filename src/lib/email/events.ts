@@ -4,6 +4,9 @@ import type { EmailTemplateKey } from "@/lib/email/templates";
 export type TransactionalEmailEvent =
   | "payment_successful"
   | "credits_added"
+  | "verification_job_queued"
+  | "verification_job_completed"
+  | "verification_job_failed"
   | "password_reset"
   | "mfa_enabled"
   | "ticket_reply"
