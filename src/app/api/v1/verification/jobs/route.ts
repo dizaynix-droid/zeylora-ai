@@ -84,10 +84,26 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const startedAt = Date.now();
-  const user = await getCurrentUser(request);
+  const traceId = crypto.randomUUID();
+  verificationStartLog(traceId, "request_received", {
+    contentType: request.headers.get("content-type") || "unknown"
+  });
+
+  const user = await getCurrentUser(request).catch((error) => {
+    verificationStartError(traceId, "auth_lookup_failed", error);
+    throw error;
+  });
+
+  verificationStartLog(traceId, "auth_checked", {
+    authenticated: Boolean(user),
+    userId: user?.id ?? null,
+    email: maskEmail(user?.email),
+    role: user?.role ?? null,
+    creditBalance: user?.creditBalance ?? null
+  });
 
   if (!user) {
-    return NextResponse.json({ ok: false, error: "Sign in before verifying a list.", code: "unauthenticated" }, { status: 401 });
+    return NextResponse.json({ ok: false, error: "Sign in before verifying a list.", code: "unauthenticated", traceId }, { status: 401 });
   }
 
   const rateLimit = checkRateLimit(request, {
@@ -97,6 +113,10 @@ export async function POST(request: Request) {
   });
 
   if (!rateLimit.ok) {
+    verificationStartLog(traceId, "rate_limit_blocked", {
+      userId: user.id,
+      action: "job"
+    });
     return rateLimitResponse(rateLimit);
   }
 
@@ -107,27 +127,48 @@ export async function POST(request: Request) {
   let originalFilename: string | null = null;
 
   if (file instanceof File && file.size > 0) {
+    verificationStartLog(traceId, "file_received", {
+      userId: user.id,
+      fileName: file.name,
+      fileSize: file.size,
+      fileType: file.type || "unknown"
+    });
     if (file.size > MAX_UPLOAD_BYTES) {
       return NextResponse.json(
         {
           ok: false,
-          error: `Upload limit is ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)}MB. Split larger lists or contact support for bulk verification.`
+          error: `Upload limit is ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)}MB. Split larger lists or contact support for bulk verification.`,
+          traceId
         },
         { status: 413 }
       );
     }
     if (!looksLikeSupportedListFile(file)) {
-      return NextResponse.json({ ok: false, error: "Please upload a CSV or TXT file." }, { status: 400 });
+      return NextResponse.json({ ok: false, error: "Please upload a CSV or TXT file.", traceId }, { status: 400 });
     }
     originalFilename = file.name;
     sourceText = await file.text();
   }
 
   const parsed = parseEmailList(sourceText);
+  verificationStartLog(traceId, "emails_parsed", {
+    userId: user.id,
+    sourceType: file instanceof File ? "upload" : "paste",
+    parsedEmailCount: parsed.totalRows,
+    uniqueEmailCount: parsed.uniqueEmails.length,
+    duplicateEmailCount: parsed.duplicateEmails.length,
+    sourceBytes: Buffer.byteLength(sourceText, "utf8")
+  });
 
   if (parsed.uniqueEmails.length === 0) {
-    return NextResponse.json({ ok: false, error: "No valid email addresses were found." }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "No valid email addresses were found.", traceId }, { status: 400 });
   }
+
+  verificationStartLog(traceId, "credits_checked", {
+    userId: user.id,
+    creditBalance: user.creditBalance,
+    requiredCredits: parsed.uniqueEmails.length
+  });
 
   if (user.creditBalance < parsed.uniqueEmails.length) {
     return NextResponse.json(
@@ -136,7 +177,8 @@ export async function POST(request: Request) {
         code: "insufficient_credits",
         error: `This list has ${parsed.uniqueEmails.length} unique emails. You need ${parsed.uniqueEmails.length} credits.`,
         requiredCredits: parsed.uniqueEmails.length,
-        creditBalance: user.creditBalance
+        creditBalance: user.creditBalance,
+        traceId
       },
       { status: 402 }
     );
@@ -151,7 +193,13 @@ export async function POST(request: Request) {
   let providerKey = "millionverifier";
 
   try {
+    verificationStartLog(traceId, "economics_snapshot_attempt", {
+      userId: user.id,
+      uniqueEmailCount: parsed.uniqueEmails.length
+    });
+
     console.info("[verification-job-start]", {
+      traceId,
       userId: user.id,
       sourceType: file instanceof File ? "upload" : "paste",
       originalFilename,
@@ -163,11 +211,31 @@ export async function POST(request: Request) {
 
     const economics = await getVerificationEconomicsSnapshot(parsed.uniqueEmails.length);
     providerKey = economics.providerKey;
+    verificationStartLog(traceId, "economics_snapshot_ready", {
+      providerKey: economics.providerKey,
+      requiredCredits: parsed.uniqueEmails.length,
+      creditValue: economics.creditValue,
+      costPerVerification: economics.costPerVerification,
+      providerCost: economics.providerCost,
+      estimatedRevenue: economics.estimatedRevenue,
+      estimatedProfit: economics.estimatedProfit
+    });
+
     const providerSettings = await prisma.providerSetting.findUnique({
       where: { providerKey: economics.providerKey },
       select: {
-        status: true
+        status: true,
+        envKeyName: true,
+        apiKeyEncrypted: true
       }
+    });
+
+    verificationStartLog(traceId, "provider_settings_checked", {
+      providerKey: economics.providerKey,
+      dbStatus: providerSettings?.status ?? "no_db_row",
+      envKeyName: providerSettings?.envKeyName ?? "MILLIONVERIFIER_API_KEY",
+      dbApiKeyPresent: Boolean(providerSettings?.apiKeyEncrypted),
+      envApiKeyPresent: Boolean(process.env.MILLIONVERIFIER_API_KEY)
     });
 
     if (providerSettings?.status === "SUSPENDED" || providerSettings?.status === "INACTIVE") {
@@ -175,11 +243,19 @@ export async function POST(request: Request) {
         {
           ok: false,
           error: "Verification provider is temporarily unavailable. Please try again later.",
-          code: "provider_unavailable"
+          code: "provider_unavailable",
+          traceId
         },
         { status: 503 }
       );
     }
+
+    verificationStartLog(traceId, "job_creation_attempt", {
+      userId: user.id,
+      providerKey: economics.providerKey,
+      uniqueEmailCount: parsed.uniqueEmails.length,
+      inlineInputAllowed
+    });
 
     job = await prisma.verificationJob.create({
       data: {
@@ -220,6 +296,7 @@ export async function POST(request: Request) {
     });
 
     console.info("[verification-job-created]", {
+      traceId,
       jobId: job.id,
       userId: user.id,
       provider: economics.providerKey,
@@ -227,10 +304,23 @@ export async function POST(request: Request) {
       creditsReserved: parsed.uniqueEmails.length
     });
 
+    verificationStartLog(traceId, "credit_reserve_attempt", {
+      userId: user.id,
+      jobId: job.id,
+      requiredCredits: parsed.uniqueEmails.length
+    });
+
     const reservation = await reserveVerificationCredits({
       userId: user.id,
       jobId: job.id,
       amount: parsed.uniqueEmails.length
+    });
+
+    verificationStartLog(traceId, "credit_reserve_result", {
+      userId: user.id,
+      jobId: job.id,
+      ok: reservation.ok,
+      balanceAfter: reservation.ok ? reservation.balanceAfter : null
     });
 
     if (!reservation.ok) {
@@ -242,7 +332,7 @@ export async function POST(request: Request) {
           completedAt: new Date()
         }
       });
-      return NextResponse.json({ ok: false, error: "Insufficient credits.", code: "insufficient_credits" }, { status: 402 });
+      return NextResponse.json({ ok: false, error: "Insufficient credits.", code: "insufficient_credits", traceId }, { status: 402 });
     }
     creditsReserved = true;
 
@@ -250,6 +340,12 @@ export async function POST(request: Request) {
     let storageWarning: string | null = null;
 
     try {
+      verificationStartLog(traceId, "storage_upload_attempt", {
+        jobId: job.id,
+        inputKey,
+        inputBytes: Buffer.byteLength(sourceText, "utf8"),
+        inlineInputAllowed
+      });
       getStorageConfig();
       await uploadPrivateObject({
         key: inputKey,
@@ -258,18 +354,32 @@ export async function POST(request: Request) {
         cacheControl: "private, max-age=0"
       });
       storageReady = true;
+      verificationStartLog(traceId, "storage_upload_success", {
+        jobId: job.id,
+        inputKey
+      });
     } catch (storageError) {
       storageWarning = storageError instanceof Error ? storageError.message : "Input storage failed.";
       if (!inlineInputAllowed) {
+        verificationStartError(traceId, "storage_upload_failed", storageError, {
+          jobId: job.id,
+          inlineInputAllowed
+        });
         throw storageError;
       }
       console.warn("[verification-input-storage-fallback]", {
+        traceId,
         jobId: job.id,
         userId: user.id,
         emails: parsed.uniqueEmails.length,
         message: storageWarning
       });
     }
+
+    verificationStartLog(traceId, "job_queue_update_attempt", {
+      jobId: job.id,
+      inputMode: storageReady ? "storage" : "inline_fallback"
+    });
 
     const queuedJob = await prisma.verificationJob.update({
       where: { id: job.id },
@@ -296,6 +406,12 @@ export async function POST(request: Request) {
       }
     });
 
+    verificationStartLog(traceId, "queue_worker_start_attempt", {
+      jobId: queuedJob.id,
+      maxEmails: Math.max(1, Math.min(STARTER_WORKER_EMAIL_LIMIT, parsed.uniqueEmails.length)),
+      timeBudgetMs: STARTER_WORKER_TIME_BUDGET_MS
+    });
+
     after(async () => {
       const backgroundStartedAt = Date.now();
       try {
@@ -306,6 +422,7 @@ export async function POST(request: Request) {
           timeBudgetMs: STARTER_WORKER_TIME_BUDGET_MS
         });
         console.info("[verification-job-background-worker]", {
+          traceId,
           jobId: queuedJob.id,
           userId: user.id,
           processedJobs: result.processedJobs,
@@ -315,14 +432,17 @@ export async function POST(request: Request) {
         });
       } catch (backgroundError) {
         console.error("[verification-job-background-worker-failed]", {
+          traceId,
           jobId: queuedJob.id,
           userId: user.id,
-          message: backgroundError instanceof Error ? backgroundError.message : "Background worker failed."
+          message: backgroundError instanceof Error ? backgroundError.message : "Background worker failed.",
+          stack: backgroundError instanceof Error ? backgroundError.stack : null
         });
       }
     });
 
     console.info("[verification-job-queued]", {
+      traceId,
       jobId: queuedJob.id,
       provider: economics.providerKey,
       emails: parsed.uniqueEmails.length,
@@ -334,6 +454,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         ok: true,
+        traceId,
         queued: true,
         processedNow: false,
         job: queuedJob,
@@ -350,9 +471,11 @@ export async function POST(request: Request) {
         note: "Verification job setup failed refund"
       }).catch((refundError) => {
         console.error("[verification-job-refund-failed]", {
+          traceId,
           jobId: job?.id,
           userId: user.id,
-          message: refundError instanceof Error ? refundError.message : "Refund failed."
+          message: refundError instanceof Error ? refundError.message : "Refund failed.",
+          stack: refundError instanceof Error ? refundError.stack : null
         });
       });
     }
@@ -367,9 +490,11 @@ export async function POST(request: Request) {
         }
       }).catch((updateError) => {
         console.error("[verification-job-fail-update-failed]", {
+          traceId,
           jobId: job?.id,
           userId: user.id,
-          message: updateError instanceof Error ? updateError.message : "Job failed update failed."
+          message: updateError instanceof Error ? updateError.message : "Job failed update failed.",
+          stack: updateError instanceof Error ? updateError.stack : null
         });
       });
     }
@@ -377,11 +502,13 @@ export async function POST(request: Request) {
     const classified = classifyVerificationStartError(error);
 
     console.error("[verification-job-queue-failed]", {
+      traceId,
       jobId: job?.id ?? null,
       provider: providerKey,
       emails: parsed.uniqueEmails.length,
       code: classified.code,
-      message: error instanceof Error ? error.message : "Verification setup failed."
+      message: error instanceof Error ? error.message : "Verification setup failed.",
+      stack: error instanceof Error ? error.stack : null
     });
 
     return NextResponse.json(
@@ -389,11 +516,36 @@ export async function POST(request: Request) {
         ok: false,
         code: classified.code,
         error: classified.error,
-        jobId: job?.id ?? null
+        jobId: job?.id ?? null,
+        traceId
       },
       { status: classified.status }
     );
   }
+}
+
+function verificationStartLog(traceId: string, checkpoint: string, data: Record<string, unknown> = {}) {
+  console.info("[verification-start-checkpoint]", {
+    traceId,
+    checkpoint,
+    ...data
+  });
+}
+
+function verificationStartError(traceId: string, checkpoint: string, error: unknown, data: Record<string, unknown> = {}) {
+  console.error("[verification-start-error]", {
+    traceId,
+    checkpoint,
+    ...data,
+    message: error instanceof Error ? error.message : String(error || "Unknown error"),
+    stack: error instanceof Error ? error.stack : null
+  });
+}
+
+function maskEmail(email?: string | null) {
+  if (!email || !email.includes("@")) return null;
+  const [name, domain] = email.split("@");
+  return `${name.slice(0, 2)}***@${domain}`;
 }
 
 function createPagination(page: number, pageSize: number, total: number) {

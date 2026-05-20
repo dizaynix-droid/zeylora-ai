@@ -39,6 +39,12 @@ export async function processVerificationQueue(options: {
     if (!job) break;
 
     try {
+      console.info("[verification-worker-checkpoint]", {
+        checkpoint: "claim_ready",
+        jobId: job.id,
+        maxEmails: Math.max(1, maxEmails - processedEmails),
+        timeBudgetMs: Math.max(2_500, timeBudgetMs - (Date.now() - startedAt))
+      });
       const result = await processVerificationJobChunk(job.id, {
         maxEmails: Math.max(1, maxEmails - processedEmails),
         timeBudgetMs: Math.max(2_500, timeBudgetMs - (Date.now() - startedAt))
@@ -48,6 +54,12 @@ export async function processVerificationQueue(options: {
       if (result.completed) completedJobs += 1;
       if (processedEmails >= maxEmails) break;
     } catch (error) {
+      console.error("[verification-worker-error]", {
+        checkpoint: "job_failed",
+        jobId: job.id,
+        message: error instanceof Error ? error.message : String(error || "Unknown worker error"),
+        stack: error instanceof Error ? error.stack : null
+      });
       processedJobs += 1;
       failedJobs += 1;
       await failVerificationJob(job.id, error);
@@ -86,10 +98,27 @@ export async function processVerificationJobChunk(jobId: string, options: { maxE
     throw new Error("Verification job was not found.");
   }
 
+  console.info("[verification-worker-checkpoint]", {
+    checkpoint: "job_loaded",
+    jobId: job.id,
+    providerKey: job.providerKey,
+    uniqueEmails: job.uniqueEmails,
+    hasInputStorageKey: Boolean(job.inputStorageKey)
+  });
+
   const inputText = await readVerificationJobInput(job);
   const parsed = parseEmailList(inputText);
   const processedCount = await prisma.verificationEmailResult.count({ where: { verificationJobId: job.id } });
   const remaining = parsed.uniqueEmails.slice(processedCount);
+
+  console.info("[verification-worker-checkpoint]", {
+    checkpoint: "input_parsed",
+    jobId: job.id,
+    parsedEmailCount: parsed.totalRows,
+    uniqueEmailCount: parsed.uniqueEmails.length,
+    alreadyProcessed: processedCount,
+    remainingEmails: remaining.length
+  });
 
   if (remaining.length === 0) {
     await completeVerificationJob(job.id);
@@ -103,6 +132,15 @@ export async function processVerificationJobChunk(jobId: string, options: { maxE
       configJson: true,
       status: true
     }
+  });
+
+  console.info("[verification-worker-checkpoint]", {
+    checkpoint: "provider_settings_loaded",
+    jobId: job.id,
+    providerKey: job.providerKey,
+    dbStatus: providerSettings?.status ?? "no_db_row",
+    dbApiKeyPresent: Boolean(providerSettings?.apiKeyEncrypted),
+    envApiKeyPresent: Boolean(process.env.MILLIONVERIFIER_API_KEY)
   });
 
   if (providerSettings?.status === "SUSPENDED" || providerSettings?.status === "INACTIVE") {
@@ -122,7 +160,34 @@ export async function processVerificationJobChunk(jobId: string, options: { maxE
   for (let index = 0; index < targetEmails.length; index += providerBatchSize) {
     if (Date.now() - startedAt > options.timeBudgetMs) break;
     const batch = targetEmails.slice(index, index + providerBatchSize);
-    const providerResults = await provider.verifyBatch(batch);
+    console.info("[verification-provider-request-payload]", {
+      jobId: job.id,
+      providerKey: job.providerKey,
+      batchSize: batch.length,
+      domains: summarizeDomains(batch)
+    });
+
+    let providerResults: VerificationProviderResult[];
+    try {
+      providerResults = await provider.verifyBatch(batch);
+    } catch (error) {
+      console.error("[verification-provider-call-failed]", {
+        jobId: job.id,
+        providerKey: job.providerKey,
+        batchSize: batch.length,
+        domains: summarizeDomains(batch),
+        message: error instanceof Error ? error.message : String(error || "Provider failed"),
+        stack: error instanceof Error ? error.stack : null
+      });
+      throw error;
+    }
+
+    console.info("[verification-provider-results-ready]", {
+      jobId: job.id,
+      providerKey: job.providerKey,
+      resultCount: providerResults.length,
+      statusCounts: countStatuses(providerResults.map((result) => result.status))
+    });
     const dbResults = providerResults.map((result) => toDbResult(job.id, result));
     const counts = countStatuses(providerResults.map((result) => result.status));
 
@@ -442,6 +507,18 @@ function countStatuses(statuses: VerificationEmailStatus[]) {
       DUPLICATE: 0
     }
   );
+}
+
+function summarizeDomains(emails: string[]) {
+  const counts = new Map<string, number>();
+  for (const email of emails) {
+    const domain = email.includes("@") ? email.split("@").pop()?.toLowerCase() || "unknown" : "unknown";
+    counts.set(domain, (counts.get(domain) || 0) + 1);
+  }
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([domain, count]) => ({ domain, count }));
 }
 
 function computeProgress(processed: number, total: number) {

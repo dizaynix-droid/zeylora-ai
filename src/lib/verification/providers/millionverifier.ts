@@ -29,8 +29,6 @@ export function createMillionVerifierProvider(options: MillionVerifierProviderOp
     async verifyBatch(emails: string[]) {
       const apiKey = process.env.MILLIONVERIFIER_API_KEY || options.apiKey;
       const baseUrl = (options.baseUrl || process.env.MILLIONVERIFIER_API_BASE_URL || DEFAULT_BASE_URL).replace(/\/$/, "");
-      const debugProvider = process.env.NODE_ENV === "development" || process.env.VERIFICATION_PROVIDER_DEBUG === "true";
-
       if (!apiKey) {
         throw new Error("MillionVerifier API key is not configured.");
       }
@@ -43,13 +41,13 @@ export function createMillionVerifierProvider(options: MillionVerifierProviderOp
         url.searchParams.set("email", email);
         url.searchParams.set("timeout", "10");
 
-        if (debugProvider) {
-          console.info("[verification-provider-request]", {
-            provider: "millionverifier",
-            domain: getEmailDomain(email),
-            baseUrl: url.origin + url.pathname
-          });
-        }
+        console.info("[verification-provider-request]", {
+          provider: "millionverifier",
+          domain: getEmailDomain(email),
+          baseUrl: url.origin + url.pathname,
+          timeoutSeconds: 10,
+          apiKeyPresent: true
+        });
 
         const response = await fetch(url, {
           method: "GET",
@@ -57,25 +55,27 @@ export function createMillionVerifierProvider(options: MillionVerifierProviderOp
           signal: AbortSignal.timeout(18_000)
         });
 
+        const responseBody = await response.text().catch(() => "");
+        const json = parseMillionVerifierResponse(responseBody);
+
         if (!response.ok) {
           console.error("[verification-provider-response-failed]", {
             provider: "millionverifier",
             domain: getEmailDomain(email),
-            httpStatus: response.status
+            httpStatus: response.status,
+            body: sanitizeProviderLogBody(responseBody)
           });
           throw new Error(`MillionVerifier failed with HTTP ${response.status}.`);
         }
 
-        const json = (await response.json().catch(() => ({}))) as MillionVerifierResponse;
-        if (debugProvider) {
-          console.info("[verification-provider-response]", {
-            provider: "millionverifier",
-            domain: getEmailDomain(email),
-            httpStatus: response.status,
-            result: String(json.result || json.status || ""),
-            subresult: String(json.subresult || json.reason || "")
-          });
-        }
+        console.info("[verification-provider-response]", {
+          provider: "millionverifier",
+          domain: getEmailDomain(email),
+          httpStatus: response.status,
+          result: String(json.result || json.status || ""),
+          subresult: String(json.subresult || json.reason || ""),
+          body: sanitizeProviderLogBody(json)
+        });
         results.push({
           email,
           status: mapMillionVerifierStatus(json),
@@ -110,5 +110,31 @@ function sanitizeProviderPayload(payload: MillionVerifierResponse) {
   delete clone.api;
   delete clone.apiKey;
   delete clone.key;
+  return clone;
+}
+
+function parseMillionVerifierResponse(body: string): MillionVerifierResponse {
+  if (!body) return {};
+  try {
+    return JSON.parse(body) as MillionVerifierResponse;
+  } catch {
+    return { result: "unknown", reason: "Provider response was not JSON.", rawText: sanitizeProviderLogBody(body) };
+  }
+}
+
+function sanitizeProviderLogBody(payload: unknown) {
+  if (typeof payload === "string") {
+    return payload.replace(/api=([^&\s]+)/gi, "api=***").slice(0, 700);
+  }
+  if (!payload || typeof payload !== "object") return payload;
+  const clone = { ...(payload as Record<string, unknown>) };
+  delete clone.api;
+  delete clone.apiKey;
+  delete clone.key;
+  delete clone.token;
+  if (typeof clone.email === "string") {
+    clone.emailDomain = getEmailDomain(clone.email);
+    delete clone.email;
+  }
   return clone;
 }

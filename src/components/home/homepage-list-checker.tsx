@@ -145,20 +145,33 @@ export function HomepageListChecker() {
         method: "POST",
         body: formData
       });
-      const jobPayload = await jobResponse.json().catch(() => null) as { ok?: boolean; job?: { id?: string }; error?: string; code?: string } | null;
+      const jobPayload = await jobResponse.json().catch(() => null) as { ok?: boolean; job?: { id?: string }; error?: string; code?: string; traceId?: string } | null;
+      if (!jobResponse.ok || !jobPayload?.ok) {
+        console.error("[homepage-verification-start-failed]", {
+          httpStatus: jobResponse.status,
+          code: jobPayload?.code ?? null,
+          traceId: jobPayload?.traceId ?? null,
+          error: jobPayload?.error ?? "No JSON error payload returned.",
+          uniqueEmails: uniqueCount
+        });
+      }
       if (jobResponse.status === 402 || jobPayload?.code === "insufficient_credits") {
         setMessage(`You need ${uniqueCount.toLocaleString()} verification credits. ${recommendedPackage.name} is the best fit for this list; taking you to pricing.`);
         router.push(`/pricing?checkoutPackage=${recommendedPackage.key}&resumeVerification=1`);
         return;
       }
       if (!jobResponse.ok || !jobPayload?.ok) {
-        throw new Error(jobPayload?.error || "Verification could not be started.");
+        throw new Error(formatStartError(jobPayload));
       }
       sessionStorage.removeItem(DRAFT_STORAGE_KEY);
       localStorage.removeItem(DRAFT_STORAGE_KEY);
       router.push(jobPayload.job?.id ? `/dashboard/jobs/${jobPayload.job.id}` : "/dashboard#jobs");
     } catch (error) {
       setParseState("error");
+      console.error("[homepage-verification-start-exception]", {
+        message: error instanceof Error ? error.message : String(error || "Unknown error"),
+        uniqueEmails: uniqueCount
+      });
       setMessage(getFriendlyStartError(error));
     }
   }
@@ -452,11 +465,16 @@ function getFriendlyStartError(error: unknown) {
     return "We could not store this list for processing. Your pasted list is still saved in this browser; please try again with a smaller list or contact support.";
   }
 
-  if (message && message.length < 180 && !lower.includes("prisma") && !lower.includes("database")) {
+  if (message && message.length < 240 && !lower.includes("prisma")) {
     return message;
   }
 
   return "Verification could not be started. Your list is saved in this browser; please try again in a moment.";
+}
+
+function formatStartError(payload: { error?: string; code?: string; traceId?: string } | null) {
+  const base = payload?.error || "Verification could not be started.";
+  return payload?.traceId ? `${base} Reference: ${payload.traceId}` : base;
 }
 
 function getWorkflowSteps(parseState: ParseState, ready: boolean) {
