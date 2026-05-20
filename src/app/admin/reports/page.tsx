@@ -109,7 +109,7 @@ export default async function AdminReportsPage({
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_.8fr]">
-        <AdminSection title="Email provider maliyetleri" description="Sadece mail verification provider kayıtları ve VerificationJob verileri kullanılır. Eski foto tool/provider kayıtları bu rapora girmez.">
+        <AdminSection title="Email provider maliyetleri" description="Sadece mail verification provider kayıtları ve VerificationJob verileri kullanılır.">
           <AdminTable>
             <table className="min-w-[860px] w-full divide-y divide-slate-200 text-sm">
               <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.12em] text-slate-500">

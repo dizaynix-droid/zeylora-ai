@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { initialTools } from "@/config/tools";
 
 type ToolPageProps = {
   params: Promise<{
@@ -8,15 +7,12 @@ type ToolPageProps = {
 };
 
 export async function generateStaticParams() {
-  return initialTools.map((tool) => ({ slug: tool.slug }));
+  return [];
 }
 
-export async function generateMetadata({ params }: ToolPageProps) {
-  const { slug } = await params;
-  const tool = initialTools.find((item) => item.slug === slug);
-
+export function generateMetadata() {
   return {
-    title: tool ? `${tool.name} moved to verification workspace` : "Verification workspace",
+    title: "Verification workspace",
     description: "Zeylora is now focused on email verification and list cleaning."
   };
 }

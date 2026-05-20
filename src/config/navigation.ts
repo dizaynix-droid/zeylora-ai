@@ -21,6 +21,7 @@ export const adminNav = [
   { label: "Kullanıcılar", href: "/admin/users" },
   { label: "Doğrulama İşleri", href: "/admin/verification-jobs" },
   { label: "Email Sonuçları", href: "/admin/email-results" },
+  { label: "Kredi Defteri", href: "/admin/credits" },
   { label: "Ödemeler", href: "/admin/payments" },
   { label: "Paket Yönetimi", href: "/admin/pricing" },
   { label: "Provider Yönetimi", href: "/admin/providers" },

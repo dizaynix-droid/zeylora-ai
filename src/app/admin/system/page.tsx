@@ -200,9 +200,9 @@ export default async function AdminSystemPage({
             items={[
               "Cloudflare proxy ON ve SSL Full/Strict",
               "Bot Fight Mode veya Turnstile değerlendirmesi",
-              "Basic WAF: admin/auth/upload/job endpointleri için anomali kontrolü",
-              "Rate limit: /api/v1/uploads ve /api/v1/jobs/* için IP/user bazlı limit",
-              "Static asset ve public showcase image cache policy",
+              "Basic WAF: admin/auth/verification endpointleri için anomali kontrolü",
+              "Rate limit: /api/v1/verification/* endpointleri için IP/user bazlı limit",
+              "Static asset ve public site cache policy",
               "DNS: root + www + Vercel CNAME/A kayıtları doğrulandı"
             ]}
           />

@@ -46,7 +46,7 @@ export default async function HomePage() {
           <VerifyContainer className="relative py-10 sm:py-12 lg:py-16">
             <div className="mx-auto max-w-5xl text-center">
               <VerifyBadge tone="blue" className="shadow-sm">
-                Email verification infrastructure
+                Email verification infrastructure - up to 50,000 emails per job
               </VerifyBadge>
               <h1 className="mt-5 text-5xl font-semibold tracking-[-0.06em] text-slate-950 sm:text-6xl lg:text-7xl">
                 Bad email lists silently destroy campaign ROI.
@@ -72,6 +72,7 @@ export default async function HomePage() {
             </div>
 
             <HeroActivityStrip />
+            <ScaleLimitsBand />
 
             <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <HeroPromise icon={FileCheck2} title="Free pre-check" text="Estimate list size and credit need before you process." />
@@ -306,6 +307,61 @@ function HeroActivityStrip() {
               <span className="truncate text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500">{label}</span>
             </div>
             <span className="mt-1 block truncate text-sm font-semibold text-slate-950">{value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ScaleLimitsBand() {
+  const limits = [
+    {
+      icon: MailCheck,
+      label: "Paste limit",
+      value: "5,000 emails",
+      note: "Quick lists stay responsive and are checked before credits are used."
+    },
+    {
+      icon: UploadCloud,
+      label: "CSV / TXT size",
+      value: "25 MB",
+      note: "Files are parsed server-side so large uploads do not freeze the browser."
+    },
+    {
+      icon: DatabaseZap,
+      label: "Public job limit",
+      value: "50,000 emails",
+      note: "Duplicates are removed before credit calculation and processing."
+    },
+    {
+      icon: Users2,
+      label: "Larger volume",
+      value: "Split or contact support",
+      note: "100k+ lists need planned batching or an enterprise workflow."
+    }
+  ];
+
+  return (
+    <div className="mt-5 rounded-2xl border border-blue-100 bg-white/80 p-4 shadow-[0_14px_46px_rgba(15,23,42,.08)] backdrop-blur-xl">
+      <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-blue-700">Clear upload limits</p>
+          <h2 className="mt-1 text-xl font-semibold tracking-[-0.03em] text-slate-950">Built for real campaign lists without silent failures.</h2>
+        </div>
+        <p className="max-w-xl text-sm leading-6 text-slate-600">
+          If a list is over the current public limit, Zeylora tells the customer to split the file or contact support before charging credits.
+        </p>
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {limits.map(({ icon: Icon, label, value, note }) => (
+          <div key={label} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-center gap-2 text-blue-700">
+              <Icon size={18} />
+              <p className="text-xs font-semibold uppercase tracking-[0.08em]">{label}</p>
+            </div>
+            <p className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950">{value}</p>
+            <p className="mt-2 text-xs leading-5 text-slate-600">{note}</p>
           </div>
         ))}
       </div>

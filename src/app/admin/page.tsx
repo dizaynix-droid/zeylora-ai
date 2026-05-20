@@ -233,8 +233,10 @@ function trendNote(today: number, yesterday: number) {
 function JobStatusPill({ status }: { status: string }) {
   if (status === "COMPLETED") return <AdminStatusPill tone="good">Tamamlandı</AdminStatusPill>;
   if (status === "FAILED") return <AdminStatusPill tone="bad">Hatalı</AdminStatusPill>;
-  if (status === "CANCELLED") return <AdminStatusPill tone="bad">İptal</AdminStatusPill>;
+  if (status === "PARTIAL_FAILED") return <AdminStatusPill tone="bad">Kısmi hatalı</AdminStatusPill>;
+  if (status === "CANCELED" || status === "CANCELLED") return <AdminStatusPill tone="bad">İptal</AdminStatusPill>;
   if (status === "PROCESSING") return <AdminStatusPill tone="warn">İşleniyor</AdminStatusPill>;
+  if (status === "QUEUED") return <AdminStatusPill tone="warn">Sırada</AdminStatusPill>;
   if (status === "PENDING") return <AdminStatusPill tone="warn">Bekliyor</AdminStatusPill>;
   return <AdminStatusPill>{status}</AdminStatusPill>;
 }

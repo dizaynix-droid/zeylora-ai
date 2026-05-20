@@ -26,23 +26,23 @@ export default async function AdminAnalyticsPage() {
   });
 
   return (
-    <AppShell area="admin" title="Davranış funnel analizi" description="Landing, liste yükleme, pre-check, pricing, checkout ve payment yolculuğunu takip et.">
+    <AppShell area="admin" title="Davranış funnel analizi" description="Landing, liste yükleme, ön kontrol, pricing, checkout ve payment yolculuğunu takip et.">
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         <AdminMetricCard label="Günlük ziyaretçi" value={data.behavior.dailyVisitors} />
-        <AdminMetricCard label="Upload" value={data.behavior.uploads} note={`${data.behavior.landingToUploadRate}% landing → upload`} />
-        <AdminMetricCard label="Pre-check" value={data.behavior.previews} note={`${data.behavior.uploadToPreviewRate}% upload → pre-check`} />
+        <AdminMetricCard label="Liste yükleme" value={data.behavior.uploads} note={`${data.behavior.landingToUploadRate}% landing -> yükleme`} />
+        <AdminMetricCard label="Ön kontrol" value={data.behavior.previews} note={`${data.behavior.uploadToPreviewRate}% yükleme -> ön kontrol`} />
         <AdminMetricCard label="Checkout start" value={data.behavior.checkoutStarts} />
-        <AdminMetricCard label="Payment" value={data.behavior.payments} note={`${data.behavior.checkoutToPaymentRate}% checkout → payment`} />
+        <AdminMetricCard label="Payment" value={data.behavior.payments} note={`${data.behavior.checkoutToPaymentRate}% checkout -> payment`} />
       </div>
 
       <div className="mt-4">
         <AdminSection title="Funnel akışı" description="Son 30 günde ana dönüşüm adımları ve bir önceki adıma göre dönüşüm.">
           <div className="grid gap-3 md:grid-cols-6">
             {data.behavior.funnelSteps.map((step, index) => (
-              <div key={step.key} className="rounded-2xl border border-white/10 bg-white/[0.045] p-4">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan">{step.label}</p>
-                <p className="mt-2 text-3xl font-black text-white">{step.count}</p>
-                <p className="mt-1 text-xs font-bold text-slate-400">
+              <div key={step.key} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-blue-700">{step.label}</p>
+                <p className="mt-2 text-3xl font-black text-slate-950">{step.count}</p>
+                <p className="mt-1 text-xs font-bold text-slate-500">
                   {index === 0 ? "Başlangıç" : `%${step.conversionFromPrevious} önceki adımdan`}
                 </p>
               </div>
@@ -58,33 +58,33 @@ export default async function AdminAnalyticsPage() {
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-[1.1fr_.9fr]">
-        <AdminSection title="Günlük trend" description="Ziyaretçi, upload, pre-check, checkout ve payment trendleri.">
+        <AdminSection title="Günlük trend" description="Ziyaretçi, liste yükleme, ön kontrol, checkout ve payment trendleri.">
           <AdminTable>
-            <table className="min-w-[760px] w-full divide-y divide-white/10 text-sm">
-              <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
+            <table className="min-w-[760px] w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.16em] text-slate-500">
                 <tr>
                   <th className="px-4 py-3">Gün</th>
                   <th className="px-4 py-3">Ziyaretçi</th>
-                  <th className="px-4 py-3">Upload</th>
-                  <th className="px-4 py-3">Pre-check</th>
+                  <th className="px-4 py-3">Yükleme</th>
+                  <th className="px-4 py-3">Ön kontrol</th>
                   <th className="px-4 py-3">Checkout</th>
                   <th className="px-4 py-3">Payment</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/10">
+              <tbody className="divide-y divide-slate-200">
                 {data.behavior.dailyTrend.map((row) => (
                   <tr key={row.date}>
-                    <td className="px-4 py-3 font-black text-white">{row.date}</td>
-                    <td className="px-4 py-3 text-slate-300">{row.visitors}</td>
-                    <td className="px-4 py-3 text-slate-300">{row.uploads}</td>
-                    <td className="px-4 py-3 text-slate-300">{row.previews}</td>
-                    <td className="px-4 py-3 text-slate-300">{row.checkouts}</td>
-                    <td className="px-4 py-3 text-slate-300">{row.payments}</td>
+                    <td className="px-4 py-3 font-black text-slate-950">{row.date}</td>
+                    <td className="px-4 py-3 text-slate-600">{row.visitors}</td>
+                    <td className="px-4 py-3 text-slate-600">{row.uploads}</td>
+                    <td className="px-4 py-3 text-slate-600">{row.previews}</td>
+                    <td className="px-4 py-3 text-slate-600">{row.checkouts}</td>
+                    <td className="px-4 py-3 text-slate-600">{row.payments}</td>
                   </tr>
                 ))}
                 {data.behavior.dailyTrend.length === 0 ? (
                   <tr>
-                    <td className="px-4 py-8 text-center text-sm font-bold text-slate-400" colSpan={6}>Henüz funnel event yok.</td>
+                    <td className="px-4 py-8 text-center text-sm font-bold text-slate-500" colSpan={6}>Henüz funnel event yok.</td>
                   </tr>
                 ) : null}
               </tbody>
@@ -104,7 +104,7 @@ export default async function AdminAnalyticsPage() {
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
-        <AdminSection title="Creator Program funnel" description="Referral tıklama, signup ve ödül dağıtım performansı.">
+        <AdminSection title="Partner Program funnel" description="Referral tıklama, signup ve ödül dağıtım performansı.">
           <div className="grid gap-3 md:grid-cols-3">
             <AdminMetricCard label="Referral click" value={affiliate.clickCount} />
             <AdminMetricCard label="Referral signup" value={affiliate.signupCount} />
@@ -112,50 +112,50 @@ export default async function AdminAnalyticsPage() {
           </div>
           <div className="mt-4 grid gap-2">
             {affiliate.rewardGroups.map((group) => (
-              <div key={group.status} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-3">
-                <p className="font-black text-white">{group.status}</p>
-                <p className="text-sm font-bold text-slate-300">{group._count._all} reward · {group._sum.rewardCredits ?? 0} kredi</p>
+              <div key={group.status} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <p className="font-black text-slate-950">{group.status}</p>
+                <p className="text-sm font-bold text-slate-600">{group._count._all} reward - {group._sum.rewardCredits ?? 0} kredi</p>
               </div>
             ))}
-            {affiliate.rewardGroups.length === 0 ? <p className="text-sm font-bold text-slate-400">Henüz affiliate reward yok.</p> : null}
+            {affiliate.rewardGroups.length === 0 ? <p className="text-sm font-bold text-slate-500">Henüz affiliate reward yok.</p> : null}
           </div>
         </AdminSection>
 
         <AdminSection title="Kullanıcı yolculuğu" description="Son sessionlar: sayfa, liste yükleme, pre-check ve checkout adımları.">
           <div className="grid gap-3">
             {data.behavior.recentSessions.map((session) => (
-              <div key={session.id} className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
+              <div key={session.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                   <div>
-                    <p className="font-black text-white">{session.userId ? `User ${session.userId.slice(0, 8)}` : `Anon ${session.id.slice(0, 8)}`}</p>
+                    <p className="font-black text-slate-950">{session.userId ? `User ${session.userId.slice(0, 8)}` : `Anon ${session.id.slice(0, 8)}`}</p>
                     <p className="text-xs font-bold text-slate-500">{session.country || "country yok"} · {session.device || "device yok"} · {formatAdminDate(session.lastSeen)}</p>
                   </div>
-                  <p className="text-xs font-black uppercase tracking-[0.14em] text-cyan">{session.events.length} event</p>
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-blue-700">{session.events.length} event</p>
                 </div>
                 <div className="mt-3 grid gap-2">
                   {session.events.map((event) => (
-                    <div key={`${session.id}-${event.event}-${event.createdAt.toISOString()}`} className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-xs font-bold text-slate-300">
-                      <span className="text-white">{event.event}</span>
-                      {event.tool ? <span className="text-cyan"> · {event.tool}</span> : null}
+                    <div key={`${session.id}-${event.event}-${event.createdAt.toISOString()}`} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600">
+                      <span className="text-slate-950">{event.event}</span>
+                      {event.tool ? <span className="text-blue-700"> · {event.tool}</span> : null}
                       {event.page ? <span className="text-slate-500"> · {event.page}</span> : null}
                     </div>
                   ))}
                 </div>
               </div>
             ))}
-            {data.behavior.recentSessions.length === 0 ? <p className="text-sm font-bold text-slate-400">Henüz session davranışı yok.</p> : null}
+            {data.behavior.recentSessions.length === 0 ? <p className="text-sm font-bold text-slate-500">Henüz session davranışı yok.</p> : null}
           </div>
         </AdminSection>
 
         <AdminSection title="Sağlayıcı ve sistem eventleri" description="Provider split ve teknik failure eventleri için operasyon görünümü.">
           <div className="grid gap-2">
             {data.providerSplit.map((provider) => (
-              <div key={provider.providerKey} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 p-3">
-                <span className="font-black text-white">{provider.providerKey}</span>
-                <span className="text-2xl font-black text-cyan">{provider._count._all}</span>
+              <div key={provider.providerKey} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                <span className="font-black text-slate-950">{provider.providerKey}</span>
+                <span className="text-2xl font-black text-blue-700">{provider._count._all}</span>
               </div>
             ))}
-            {data.providerSplit.length === 0 ? <p className="text-sm text-slate-400">Sağlayıcı kullanımı yok.</p> : null}
+            {data.providerSplit.length === 0 ? <p className="text-sm text-slate-500">Sağlayıcı kullanımı yok.</p> : null}
           </div>
         </AdminSection>
       </div>
@@ -176,12 +176,12 @@ function Breakdown({
     <AdminSection title={title}>
       <div className="grid gap-2">
         {rows.map((row) => (
-          <div key={row.label} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-3">
-            <p className="font-black text-white">{row.label}</p>
-            <p className={compact ? "text-lg font-black text-cyan" : "text-2xl font-black text-cyan"}>{row.count}</p>
+          <div key={row.label} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <p className="font-black text-slate-950">{row.label}</p>
+            <p className={compact ? "text-lg font-black text-blue-700" : "text-2xl font-black text-blue-700"}>{row.count}</p>
           </div>
         ))}
-        {rows.length === 0 ? <p className="text-sm font-bold text-slate-400">Henüz veri yok.</p> : null}
+        {rows.length === 0 ? <p className="text-sm font-bold text-slate-500">Henüz veri yok.</p> : null}
       </div>
     </AdminSection>
   );

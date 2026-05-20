@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/db";
-import { getCleanExportMetadata } from "@/lib/jobs/clean-export";
 import { createResultPreviewUrl } from "@/lib/media/signed-url";
 
 export type DashboardFilter = "all" | "completed" | "failed" | "clean-export" | "preview-only";
@@ -220,7 +219,6 @@ async function getRecentJobs(userId: string, input: DashboardJobsInput) {
         createResultPreviewUrl(job.inputImage?.storageKey),
         createResultPreviewUrl(job.outputImage?.storageKey)
       ]);
-      const cleanExport = getCleanExportMetadata(job.outputImage?.metadataJson);
       const cleanExportUnlocked = job.creditTransactions.length > 0;
 
       return {
@@ -234,8 +232,8 @@ async function getRecentJobs(userId: string, input: DashboardJobsInput) {
         summary: getJobSummary(job.status, job.tool.name, cleanExportUnlocked),
         inputPreviewUrl,
         outputPreviewUrl,
-        downloadUrl: job.outputImage?.storageKey ? `/api/v1/jobs/${job.id}/download` : null,
-        cleanExportAvailable: Boolean(cleanExport || getLegacyExportMode(job.outputImage?.metadataJson) === "paid_clean"),
+        downloadUrl: null,
+        cleanExportAvailable: false,
         cleanExportUnlocked,
         relatedTicketId: job.tickets[0]?.id ?? null
       };
@@ -315,14 +313,8 @@ function getStatusLabel(status: string) {
 function getJobSummary(status: string, toolName: string, cleanExportUnlocked: boolean) {
   if (status === "FAILED") return `${toolName} failed. You can open a support ticket with this job attached.`;
   if (status !== "COMPLETED") return `${toolName} is still being prepared.`;
-  if (cleanExportUnlocked) return `${toolName} clean export is unlocked. Re-downloads do not spend credits again.`;
-  return `${toolName} preview is ready. Clean export uses credits and removes Zeylora branding.`;
-}
-
-function getLegacyExportMode(metadata: unknown) {
-  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
-  const value = (metadata as Record<string, unknown>).exportMode;
-  return typeof value === "string" ? value : null;
+  if (cleanExportUnlocked) return `${toolName} export is unlocked. Re-downloads do not spend credits again.`;
+  return `${toolName} result is ready.`;
 }
 
 function normalizePositiveInt(value: unknown, fallback: number) {
