@@ -239,15 +239,11 @@ export async function POST(request: Request) {
     });
 
     if (providerSettings?.status === "SUSPENDED" || providerSettings?.status === "INACTIVE") {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "Verification provider is temporarily unavailable. Please try again later.",
-          code: "provider_unavailable",
-          traceId
-        },
-        { status: 503 }
-      );
+      verificationStartLog(traceId, "provider_preflight_warning", {
+        providerKey: economics.providerKey,
+        dbStatus: providerSettings.status,
+        action: "job_will_be_created_and_worker_will_mark_failed_if_provider_remains_unavailable"
+      });
     }
 
     verificationStartLog(traceId, "job_creation_attempt", {
