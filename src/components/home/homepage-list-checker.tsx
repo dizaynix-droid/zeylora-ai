@@ -9,6 +9,7 @@ import { parseEmailList } from "@/lib/verification/email-parser";
 
 const DRAFT_STORAGE_KEY = "zeylora_verification_draft";
 const MAX_DRAFT_CHARS = 650_000;
+const MAX_HOMEPAGE_PRECHECK_BYTES = 1_000_000;
 
 type ParseState = "idle" | "parsing" | "ready" | "error";
 
@@ -36,6 +37,12 @@ export function HomepageListChecker() {
     if (!name.endsWith(".csv") && !name.endsWith(".txt")) {
       setParseState("error");
       setMessage("Please upload a CSV or TXT file.");
+      return;
+    }
+    if (file.size > MAX_HOMEPAGE_PRECHECK_BYTES) {
+      setFileName(file.name);
+      setParseState("error");
+      setMessage("This file is large. Please sign in and upload it from the dashboard so it can be parsed safely on the server.");
       return;
     }
 

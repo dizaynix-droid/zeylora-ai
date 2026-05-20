@@ -58,7 +58,12 @@ export default async function VerificationJobPage({
         providerKey: true,
         originalFilename: true,
         status: true,
+        totalEmails: true,
         uniqueEmails: true,
+        duplicateCount: true,
+        syntaxInvalidCount: true,
+        processedCount: true,
+        failedBatchCount: true,
         progressPercent: true,
         creditsUsed: true,
         creditsReserved: true,
@@ -117,13 +122,20 @@ export default async function VerificationJobPage({
             </Link>
           </div>
 
-          <div className="mt-6 grid gap-3 md:grid-cols-6">
+          <div className="mt-6 grid gap-3 md:grid-cols-4">
+            <Metric label="Total" value={job.totalEmails} />
             <Metric label="Unique" value={job.uniqueEmails} />
+            <Metric label="Duplicates" value={job.duplicateCount} />
+            <Metric label="Credits required" value={job.creditsReserved || job.uniqueEmails} />
+          </div>
+
+          <div className="mt-3 grid gap-3 md:grid-cols-6">
+            <Metric label="Processed" value={job.processedCount || resultTotal} />
             <Metric label="Valid" value={job.validCount} tone="good" />
             <Metric label="Invalid" value={job.invalidCount} tone="bad" />
             <Metric label="Risky" value={job.riskyCount + job.catchAllCount} tone="warn" />
             <Metric label="Disposable" value={job.disposableCount} tone="warn" />
-            <Metric label="Unknown" value={job.unknownCount} />
+            <Metric label="Failed" value={job.failedBatchCount + job.syntaxInvalidCount} tone={job.failedBatchCount + job.syntaxInvalidCount > 0 ? "bad" : undefined} />
           </div>
 
           {active ? (

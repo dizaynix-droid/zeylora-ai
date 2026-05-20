@@ -7,7 +7,7 @@ import { getStorageConfig, uploadPrivateObject } from "@/lib/storage/s3-client";
 import { ensureVerificationDatabaseReady } from "@/lib/verification/db-readiness";
 import { parseEmailList, looksLikeSupportedListFile } from "@/lib/verification/email-parser";
 import { getVerificationEconomicsSnapshot } from "@/lib/verification/economics";
-import { processVerificationQueue, refundVerificationCredits, reserveVerificationCredits } from "@/lib/verification/processor";
+import { getVerificationJobProcessingState, processVerificationQueue, refundVerificationCredits, reserveVerificationCredits } from "@/lib/verification/processor";
 
 export const runtime = "nodejs";
 
@@ -57,6 +57,9 @@ export async function GET(request: Request) {
         originalFilename: true,
         totalEmails: true,
         uniqueEmails: true,
+        syntaxInvalidCount: true,
+        processedCount: true,
+        failedBatchCount: true,
         validCount: true,
         invalidCount: true,
         riskyCount: true,
@@ -206,6 +209,7 @@ export async function POST(request: Request) {
     parsedEmailCount: parsed.totalRows,
     uniqueEmailCount: parsed.uniqueEmails.length,
     duplicateEmailCount: parsed.duplicateEmails.length,
+    syntaxInvalidCount: parsed.syntaxInvalidCount,
     sourceBytes: Buffer.byteLength(sourceText, "utf8")
   });
 
@@ -294,6 +298,7 @@ export async function POST(request: Request) {
       totalRows: parsed.totalRows,
       uniqueEmails: parsed.uniqueEmails.length,
       duplicateEmails: parsed.duplicateEmails.length,
+      syntaxInvalidCount: parsed.syntaxInvalidCount,
       inlineInputAllowed
     });
 
@@ -399,6 +404,9 @@ export async function POST(request: Request) {
         totalEmails: parsed.totalRows,
         uniqueEmails: parsed.uniqueEmails.length,
         duplicateCount: parsed.duplicateEmails.length,
+        syntaxInvalidCount: parsed.syntaxInvalidCount,
+        processedCount: 0,
+        failedBatchCount: 0,
         creditsReserved: parsed.uniqueEmails.length,
         creditsUsed: 0,
         creditValueAtRun: economics.creditValue,
@@ -411,8 +419,10 @@ export async function POST(request: Request) {
         metadataJson: {
           parser: "regex_email_extractor",
           duplicateEmails: parsed.duplicateEmails.slice(0, 100),
+          invalidSyntaxSamples: parsed.invalidSyntaxSamples,
           queuedAt: new Date().toISOString(),
           queueMode: "chunked_worker",
+          batchSize: Number(process.env.VERIFICATION_PROVIDER_BATCH_SIZE || 500),
           inputMode: inlineInputAllowed ? "inline_pending_storage" : "storage_required",
           idempotencyKey,
           limits: {
@@ -527,8 +537,10 @@ export async function POST(request: Request) {
         metadataJson: {
           parser: "regex_email_extractor",
           duplicateEmails: parsed.duplicateEmails.slice(0, 100),
+          invalidSyntaxSamples: parsed.invalidSyntaxSamples,
           queuedAt: new Date().toISOString(),
           queueMode: "chunked_worker",
+          batchSize: Number(process.env.VERIFICATION_PROVIDER_BATCH_SIZE || 500),
           inputMode: storageReady ? "storage" : "inline_fallback",
           idempotencyKey,
           limits: {
@@ -573,6 +585,14 @@ export async function POST(request: Request) {
           processedEmails: result.processedEmails,
           durationMs: Date.now() - backgroundStartedAt
         });
+        await scheduleWorkerContinuationIfNeeded({
+          traceId,
+          requestUrl: request.url,
+          jobId: queuedJob.id,
+          chainDepth: 1,
+          maxEmails: Math.max(1, Math.min(STARTER_WORKER_EMAIL_LIMIT, parsed.uniqueEmails.length)),
+          timeBudgetMs: STARTER_WORKER_TIME_BUDGET_MS
+        });
       } catch (backgroundError) {
         console.error("[verification-job-background-worker-failed]", {
           traceId,
@@ -606,6 +626,44 @@ export async function POST(request: Request) {
       { status: 202 }
     );
   } catch (error) {
+    if (!job && isPrismaUniqueConstraintError(error)) {
+      const existingJob = await prisma.verificationJob.findFirst({
+        where: {
+          userId: user.id,
+          providerRequestId,
+          deletedAt: null
+        },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          status: true,
+          uniqueEmails: true,
+          creditsReserved: true,
+          progressPercent: true
+        }
+      });
+
+      if (existingJob) {
+        verificationStartLog(traceId, "idempotent_race_reused", {
+          userId: user.id,
+          jobId: existingJob.id,
+          status: existingJob.status,
+          idempotencyKey: idempotencyKey.slice(0, 12)
+        });
+        return NextResponse.json(
+          {
+            ok: true,
+            traceId,
+            queued: true,
+            reused: true,
+            job: existingJob,
+            message: "Verification job is already queued for this list."
+          },
+          { status: 202 }
+        );
+      }
+    }
+
     if (job && creditsReserved) {
       await refundVerificationCredits({
         userId: user.id,
@@ -778,4 +836,63 @@ function buildIdempotencyKey(userId: string, emails: string[], clientKey: string
   return createHash("sha256")
     .update(`${userId}:${emails.join("\n")}`)
     .digest("hex");
+}
+
+function isPrismaUniqueConstraintError(error: unknown) {
+  return Boolean(error && typeof error === "object" && "code" in error && (error as { code?: unknown }).code === "P2002");
+}
+
+async function scheduleWorkerContinuationIfNeeded(input: {
+  traceId: string;
+  requestUrl: string;
+  jobId: string;
+  chainDepth: number;
+  maxEmails: number;
+  timeBudgetMs: number;
+}) {
+  const maxChainDepth = Math.max(0, Number(process.env.VERIFICATION_WORKER_CHAIN_MAX_DEPTH || 20));
+  if (input.chainDepth > maxChainDepth) return;
+
+  const state = await getVerificationJobProcessingState(input.jobId).catch(() => null);
+  if (!state?.active || state.remainingEmails <= 0) return;
+
+  const secret = process.env.CRON_SECRET?.trim();
+  if (!secret) {
+    console.warn("[verification-worker-continuation-skipped]", {
+      traceId: input.traceId,
+      jobId: input.jobId,
+      reason: "CRON_SECRET is not configured",
+      remainingEmails: state.remainingEmails
+    });
+    return;
+  }
+
+  const url = new URL("/api/v1/verification/worker", input.requestUrl);
+  url.searchParams.set("jobId", input.jobId);
+  url.searchParams.set("maxJobs", "1");
+  url.searchParams.set("maxEmails", String(input.maxEmails));
+  url.searchParams.set("timeBudgetMs", String(input.timeBudgetMs));
+  url.searchParams.set("chainDepth", String(input.chainDepth));
+
+  console.info("[verification-worker-continuation-scheduled]", {
+    traceId: input.traceId,
+    jobId: input.jobId,
+    remainingEmails: state.remainingEmails,
+    chainDepth: input.chainDepth
+  });
+
+  void fetch(url, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${secret}`,
+      "x-verification-worker-chain": "1"
+    },
+    cache: "no-store"
+  }).catch((error) => {
+    console.error("[verification-worker-continuation-failed]", {
+      traceId: input.traceId,
+      jobId: input.jobId,
+      message: error instanceof Error ? error.message : "Worker continuation request failed"
+    });
+  });
 }

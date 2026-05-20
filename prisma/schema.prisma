@@ -615,6 +615,9 @@ model VerificationJob {
   totalEmails                Int                   @default(0)
   uniqueEmails               Int                   @default(0)
   duplicateCount             Int                   @default(0)
+  syntaxInvalidCount         Int                   @default(0)
+  processedCount             Int                   @default(0)
+  failedBatchCount           Int                   @default(0)
   validCount                 Int                   @default(0)
   invalidCount               Int                   @default(0)
   riskyCount                 Int                   @default(0)
@@ -640,6 +643,7 @@ model VerificationJob {
 
   user               User                      @relation(fields: [userId], references: [id])
   results            VerificationEmailResult[]
+  batches            VerificationBatch[]
   creditTransactions CreditTransaction[]
   tickets            Ticket[]
 
@@ -668,11 +672,41 @@ model VerificationEmailResult {
 
   verificationJob VerificationJob @relation(fields: [verificationJobId], references: [id], onDelete: Cascade)
 
+  @@unique([verificationJobId, normalizedEmail])
   @@index([verificationJobId, status])
   @@index([verificationJobId, createdAt])
   @@index([verificationJobId, status, createdAt])
   @@index([normalizedEmail])
   @@index([domain])
+}
+
+model VerificationBatch {
+  id                String   @id @default(cuid())
+  verificationJobId String
+  batchIndex        Int
+  status            String   @default("PENDING")
+  emailStart        Int
+  emailEnd          Int
+  emailCount        Int
+  attemptCount      Int      @default(0)
+  processedCount    Int      @default(0)
+  validCount        Int      @default(0)
+  invalidCount      Int      @default(0)
+  riskyCount        Int      @default(0)
+  catchAllCount     Int      @default(0)
+  disposableCount   Int      @default(0)
+  unknownCount      Int      @default(0)
+  errorMessage      String?
+  startedAt         DateTime?
+  completedAt       DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  verificationJob VerificationJob @relation(fields: [verificationJobId], references: [id], onDelete: Cascade)
+
+  @@unique([verificationJobId, batchIndex])
+  @@index([verificationJobId, status, batchIndex])
+  @@index([status, updatedAt])
 }
 
 model CreditPackage {

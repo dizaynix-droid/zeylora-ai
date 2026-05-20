@@ -2,8 +2,10 @@ import type { VerificationEmailStatus } from "@prisma/client";
 
 export type ParsedEmailList = {
   totalRows: number;
+  syntaxInvalidCount: number;
   uniqueEmails: string[];
   duplicateEmails: string[];
+  invalidSyntaxSamples: string[];
 };
 
 export type VerificationProviderResult = {

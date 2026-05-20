@@ -43,6 +43,9 @@ const statements = [
     "totalEmails" INTEGER NOT NULL DEFAULT 0,
     "uniqueEmails" INTEGER NOT NULL DEFAULT 0,
     "duplicateCount" INTEGER NOT NULL DEFAULT 0,
+    "syntaxInvalidCount" INTEGER NOT NULL DEFAULT 0,
+    "processedCount" INTEGER NOT NULL DEFAULT 0,
+    "failedBatchCount" INTEGER NOT NULL DEFAULT 0,
     "validCount" INTEGER NOT NULL DEFAULT 0,
     "invalidCount" INTEGER NOT NULL DEFAULT 0,
     "riskyCount" INTEGER NOT NULL DEFAULT 0,
@@ -83,6 +86,29 @@ const statements = [
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "VerificationEmailResult_pkey" PRIMARY KEY ("id")
   )`,
+  `CREATE TABLE IF NOT EXISTS "VerificationBatch" (
+    "id" TEXT NOT NULL,
+    "verificationJobId" TEXT NOT NULL,
+    "batchIndex" INTEGER NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'PENDING',
+    "emailStart" INTEGER NOT NULL,
+    "emailEnd" INTEGER NOT NULL,
+    "emailCount" INTEGER NOT NULL,
+    "attemptCount" INTEGER NOT NULL DEFAULT 0,
+    "processedCount" INTEGER NOT NULL DEFAULT 0,
+    "validCount" INTEGER NOT NULL DEFAULT 0,
+    "invalidCount" INTEGER NOT NULL DEFAULT 0,
+    "riskyCount" INTEGER NOT NULL DEFAULT 0,
+    "catchAllCount" INTEGER NOT NULL DEFAULT 0,
+    "disposableCount" INTEGER NOT NULL DEFAULT 0,
+    "unknownCount" INTEGER NOT NULL DEFAULT 0,
+    "errorMessage" TEXT,
+    "startedAt" TIMESTAMP(3),
+    "completedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "VerificationBatch_pkey" PRIMARY KEY ("id")
+  )`,
   `ALTER TABLE "VerificationJob" ADD COLUMN IF NOT EXISTS "sourceType" TEXT NOT NULL DEFAULT 'upload'`,
   `ALTER TABLE "VerificationJob" ADD COLUMN IF NOT EXISTS "originalFilename" TEXT`,
   `ALTER TABLE "VerificationJob" ADD COLUMN IF NOT EXISTS "inputStorageKey" TEXT`,
@@ -96,6 +122,9 @@ const statements = [
   `ALTER TABLE "VerificationJob" ADD COLUMN IF NOT EXISTS "totalEmails" INTEGER NOT NULL DEFAULT 0`,
   `ALTER TABLE "VerificationJob" ADD COLUMN IF NOT EXISTS "uniqueEmails" INTEGER NOT NULL DEFAULT 0`,
   `ALTER TABLE "VerificationJob" ADD COLUMN IF NOT EXISTS "duplicateCount" INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE "VerificationJob" ADD COLUMN IF NOT EXISTS "syntaxInvalidCount" INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE "VerificationJob" ADD COLUMN IF NOT EXISTS "processedCount" INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE "VerificationJob" ADD COLUMN IF NOT EXISTS "failedBatchCount" INTEGER NOT NULL DEFAULT 0`,
   `ALTER TABLE "VerificationJob" ADD COLUMN IF NOT EXISTS "validCount" INTEGER NOT NULL DEFAULT 0`,
   `ALTER TABLE "VerificationJob" ADD COLUMN IF NOT EXISTS "invalidCount" INTEGER NOT NULL DEFAULT 0`,
   `ALTER TABLE "VerificationJob" ADD COLUMN IF NOT EXISTS "riskyCount" INTEGER NOT NULL DEFAULT 0`,
@@ -136,6 +165,31 @@ const statements = [
   `CREATE INDEX IF NOT EXISTS "VerificationJob_completedAt_idx" ON "VerificationJob"("completedAt")`,
   `CREATE INDEX IF NOT EXISTS "VerificationJob_createdAt_status_idx" ON "VerificationJob"("createdAt", "status")`,
   `CREATE INDEX IF NOT EXISTS "VerificationJob_userId_providerRequestId_idx" ON "VerificationJob"("userId", "providerRequestId")`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "VerificationBatch_verificationJobId_batchIndex_key" ON "VerificationBatch"("verificationJobId", "batchIndex")`,
+  `CREATE INDEX IF NOT EXISTS "VerificationBatch_verificationJobId_status_batchIndex_idx" ON "VerificationBatch"("verificationJobId", "status", "batchIndex")`,
+  `CREATE INDEX IF NOT EXISTS "VerificationBatch_status_updatedAt_idx" ON "VerificationBatch"("status", "updatedAt")`,
+  `DELETE FROM "VerificationEmailResult" newer
+    USING "VerificationEmailResult" older
+    WHERE newer."verificationJobId" = older."verificationJobId"
+      AND newer."normalizedEmail" = older."normalizedEmail"
+      AND (newer."createdAt", newer."id") > (older."createdAt", older."id")`,
+  `WITH duplicate_jobs AS (
+      SELECT
+        "id",
+        row_number() OVER (
+          PARTITION BY "userId", "providerRequestId"
+          ORDER BY "createdAt" DESC, "id" DESC
+        ) AS duplicate_rank
+      FROM "VerificationJob"
+      WHERE "providerRequestId" IS NOT NULL
+    )
+    UPDATE "VerificationJob" job
+    SET "providerRequestId" = CONCAT(job."providerRequestId", ':legacy-duplicate:', job."id")
+    FROM duplicate_jobs
+    WHERE job."id" = duplicate_jobs."id"
+      AND duplicate_jobs.duplicate_rank > 1`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "VerificationJob_userId_providerRequestId_key" ON "VerificationJob"("userId", "providerRequestId") WHERE "providerRequestId" IS NOT NULL`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "VerificationEmailResult_verificationJobId_normalizedEmail_key" ON "VerificationEmailResult"("verificationJobId", "normalizedEmail")`,
   `CREATE INDEX IF NOT EXISTS "VerificationEmailResult_verificationJobId_status_idx" ON "VerificationEmailResult"("verificationJobId", "status")`,
   `CREATE INDEX IF NOT EXISTS "VerificationEmailResult_verificationJobId_createdAt_idx" ON "VerificationEmailResult"("verificationJobId", "createdAt")`,
   `CREATE INDEX IF NOT EXISTS "VerificationEmailResult_verificationJobId_status_createdAt_idx" ON "VerificationEmailResult"("verificationJobId", "status", "createdAt")`,
@@ -155,6 +209,11 @@ const statements = [
   `DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'VerificationEmailResult_verificationJobId_fkey') THEN
       ALTER TABLE "VerificationEmailResult" ADD CONSTRAINT "VerificationEmailResult_verificationJobId_fkey" FOREIGN KEY ("verificationJobId") REFERENCES "VerificationJob"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+  END $$`,
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'VerificationBatch_verificationJobId_fkey') THEN
+      ALTER TABLE "VerificationBatch" ADD CONSTRAINT "VerificationBatch_verificationJobId_fkey" FOREIGN KEY ("verificationJobId") REFERENCES "VerificationJob"("id") ON DELETE CASCADE ON UPDATE CASCADE;
     END IF;
   END $$`,
   `DO $$ BEGIN
@@ -219,13 +278,18 @@ async function hasRequiredVerificationSchema() {
     "creditsUsed",
     "progressPercent",
     "metadataJson",
-    "costPerVerificationAtRun"
+    "costPerVerificationAtRun",
+    "processedCount",
+    "syntaxInvalidCount",
+    "failedBatchCount"
   ];
   const requiredResultColumns = ["normalizedEmail", "status", "rawJson"];
+  const requiredBatchColumns = ["verificationJobId", "batchIndex", "status", "emailStart", "emailEnd", "attemptCount"];
   const rows = await prisma.$queryRawUnsafe<Array<{ ready: boolean }>>(
     `SELECT (
       to_regclass('"VerificationJob"') IS NOT NULL
       AND to_regclass('"VerificationEmailResult"') IS NOT NULL
+      AND to_regclass('"VerificationBatch"') IS NOT NULL
       AND EXISTS (
         SELECT 1 FROM information_schema.columns
         WHERE table_schema = current_schema()
@@ -252,12 +316,21 @@ async function hasRequiredVerificationSchema() {
           AND table_name = 'VerificationEmailResult'
           AND column_name = ANY($3::text[])
       ) = $4
+      AND (
+        SELECT COUNT(*)
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = 'VerificationBatch'
+          AND column_name = ANY($5::text[])
+      ) = $6
     ) AS ready`
     ,
     requiredVerificationJobColumns,
     requiredVerificationJobColumns.length,
     requiredResultColumns,
-    requiredResultColumns.length
+    requiredResultColumns.length,
+    requiredBatchColumns,
+    requiredBatchColumns.length
   );
 
   return Boolean(rows[0]?.ready);

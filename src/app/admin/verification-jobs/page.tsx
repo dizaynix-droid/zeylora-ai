@@ -48,6 +48,7 @@ export default async function AdminVerificationJobsPage({
             <option value="all">Tüm durumlar</option>
             <option value="COMPLETED">Tamamlandı</option>
             <option value="FAILED">Hatalı</option>
+            <option value="PARTIAL_FAILED">Kısmi hatalı</option>
             <option value="PROCESSING">İşleniyor</option>
             <option value="QUEUED">Sırada</option>
           </select>
@@ -62,7 +63,7 @@ export default async function AdminVerificationJobsPage({
                 <th className="px-4 py-3">Job</th>
                 <th className="px-4 py-3">Durum</th>
                 <th className="px-4 py-3">Kullanıcı</th>
-                <th className="px-4 py-3">Email</th>
+                <th className="px-4 py-3">Email / Progress</th>
                 <th className="px-4 py-3">Valid / Risk</th>
                 <th className="px-4 py-3">Kredi</th>
                 <th className="px-4 py-3">Kâr snapshot</th>
@@ -79,7 +80,10 @@ export default async function AdminVerificationJobsPage({
                   </td>
                   <td className="px-4 py-3"><Status status={job.status} /></td>
                   <td className="px-4 py-3 text-slate-700">{job.user.email}</td>
-                  <td className="px-4 py-3 text-slate-700">{job.uniqueEmails.toLocaleString()}</td>
+                  <td className="px-4 py-3 text-slate-700">
+                    {job.processedCount.toLocaleString()} / {job.uniqueEmails.toLocaleString()}
+                    <p className="text-xs text-slate-500">syntax hata {job.syntaxInvalidCount.toLocaleString()} · batch hata {job.failedBatchCount.toLocaleString()}</p>
+                  </td>
                   <td className="px-4 py-3 text-slate-700">{job.validCount.toLocaleString()} / {(job.invalidCount + job.riskyCount + job.catchAllCount + job.disposableCount).toLocaleString()}</td>
                   <td className="px-4 py-3 text-slate-700">{job.creditsUsed.toLocaleString()}</td>
                   <td className="px-4 py-3 text-slate-700">
@@ -116,6 +120,9 @@ async function getSafeVerificationJobs(where: Record<string, unknown>, page: num
           providerKey: true,
           originalFilename: true,
           uniqueEmails: true,
+          syntaxInvalidCount: true,
+          processedCount: true,
+          failedBatchCount: true,
           validCount: true,
           invalidCount: true,
           riskyCount: true,
@@ -147,6 +154,8 @@ async function getSafeVerificationJobs(where: Record<string, unknown>, page: num
 function Status({ status }: { status: string }) {
   if (status === "COMPLETED") return <AdminStatusPill tone="good">Tamamlandı</AdminStatusPill>;
   if (status === "FAILED") return <AdminStatusPill tone="bad">Hatalı</AdminStatusPill>;
+  if (status === "PARTIAL_FAILED") return <AdminStatusPill tone="bad">Kısmi hatalı</AdminStatusPill>;
+  if (status === "CANCELED" || status === "CANCELLED") return <AdminStatusPill tone="bad">İptal</AdminStatusPill>;
   if (status === "PROCESSING") return <AdminStatusPill tone="warn">İşleniyor</AdminStatusPill>;
   if (status === "QUEUED") return <AdminStatusPill tone="warn">Sırada</AdminStatusPill>;
   return <AdminStatusPill>{status}</AdminStatusPill>;

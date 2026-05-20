@@ -14,6 +14,9 @@ type VerificationJob = {
   originalFilename: string | null;
   totalEmails: number;
   uniqueEmails: number;
+  syntaxInvalidCount: number;
+  processedCount: number;
+  failedBatchCount: number;
   validCount: number;
   invalidCount: number;
   riskyCount: number;
@@ -48,6 +51,9 @@ type Package = {
 };
 
 const DRAFT_STORAGE_KEY = "zeylora_verification_draft";
+const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
+const MAX_PASTE_EMAILS = 5_000;
+const MAX_EMAILS_PER_JOB = 50_000;
 
 export function VerificationDashboardClient({
   email,
@@ -155,6 +161,26 @@ export function VerificationDashboardClient({
   async function submitVerification(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (submitStatus === "running") return;
+    if (file && file.size > MAX_UPLOAD_BYTES) {
+      setSubmitStatus("error");
+      setMessage("This file is too large. Maximum upload size is 25 MB. Please split your list into smaller files and try again.");
+      return;
+    }
+    if (file && !looksLikeSupportedFile(file)) {
+      setSubmitStatus("error");
+      setMessage("We could not read this file. Please upload a CSV or TXT file with one email per row.");
+      return;
+    }
+    if (!file && estimatedEmails > MAX_PASTE_EMAILS) {
+      setSubmitStatus("error");
+      setMessage(`Paste verification supports up to ${MAX_PASTE_EMAILS.toLocaleString()} emails at once. Please upload a CSV/TXT file for larger lists.`);
+      return;
+    }
+    if (!file && estimatedEmails > MAX_EMAILS_PER_JOB) {
+      setSubmitStatus("error");
+      setMessage(`This list contains more emails than the current job limit. Please upload up to ${MAX_EMAILS_PER_JOB.toLocaleString()} emails per job or contact support for larger volume.`);
+      return;
+    }
     setSubmitStatus("running");
     setMessage(null);
 
@@ -228,7 +254,7 @@ export function VerificationDashboardClient({
             <label className="grid cursor-pointer gap-3 rounded-lg border border-dashed border-blue-300 bg-blue-50 p-6 text-center transition hover:bg-blue-100/70">
               <UploadCloud className="mx-auto text-blue-700" size={32} />
               <span className="text-lg font-semibold text-slate-950">{file ? file.name : "Choose CSV or TXT list"}</span>
-              <span className="text-sm text-slate-500">CSV/TXT supported. Large lists are queued and processed in background chunks.</span>
+              <span className="text-sm text-slate-500">CSV/TXT supported up to 25 MB and 50,000 emails per job. Larger lists should be split or sent to support.</span>
               <input type="file" accept=".csv,.txt,text/csv,text/plain" className="sr-only" onChange={onFileChange} />
             </label>
 
@@ -488,6 +514,11 @@ function getFriendlyVerificationError(error: unknown) {
   return message || "Verification could not be started. Please try again.";
 }
 
+function looksLikeSupportedFile(file: File) {
+  const name = file.name.toLowerCase();
+  return name.endsWith(".csv") || name.endsWith(".txt");
+}
+
 function SettingRow({ icon, label, value }: { icon?: ReactNode; label: string; value: string }) {
   return (
     <div className="flex gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
@@ -527,11 +558,11 @@ function JobRow({ job }: { job: VerificationJob }) {
         </div>
         <div className="mt-3 grid gap-2 text-sm md:grid-cols-6">
           <Count label="Unique" value={job.uniqueEmails} />
+          <Count label="Processed" value={job.processedCount} />
           <Count label="Valid" value={job.validCount} tone="good" />
           <Count label="Invalid" value={job.invalidCount} tone="bad" />
           <Count label="Risky" value={job.riskyCount + job.catchAllCount} tone="warn" />
-          <Count label="Disposable" value={job.disposableCount} tone="warn" />
-          <Count label="Credits" value={job.creditsUsed || job.creditsReserved || job.uniqueEmails} />
+          <Count label="Failed" value={job.failedBatchCount + job.syntaxInvalidCount} tone={job.failedBatchCount + job.syntaxInvalidCount > 0 ? "bad" : undefined} />
         </div>
         {active ? (
           <div className="mt-3">

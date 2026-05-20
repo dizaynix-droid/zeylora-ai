@@ -8,8 +8,9 @@ import { getVerificationProvider } from "@/lib/verification/providers";
 import type { VerificationProviderResult } from "@/lib/verification/types";
 
 const DEFAULT_WORKER_EMAILS_PER_RUN = 1000;
-const DEFAULT_PROVIDER_BATCH_SIZE = 50;
+const DEFAULT_PROVIDER_BATCH_SIZE = 500;
 const DEFAULT_WORKER_TIME_BUDGET_MS = 22_000;
+const DEFAULT_BATCH_MAX_RETRIES = 3;
 
 export type VerificationWorkerResult = {
   ok: boolean;
@@ -19,6 +20,26 @@ export type VerificationWorkerResult = {
   failedJobs: number;
   message?: string;
 };
+
+export async function getVerificationJobProcessingState(jobId: string) {
+  const job = await prisma.verificationJob.findUnique({
+    where: { id: jobId },
+    select: {
+      id: true,
+      status: true,
+      uniqueEmails: true,
+      processedCount: true,
+      progressPercent: true
+    }
+  });
+
+  if (!job) return null;
+  return {
+    ...job,
+    remainingEmails: Math.max(0, job.uniqueEmails - job.processedCount),
+    active: job.status === "QUEUED" || job.status === "PROCESSING"
+  };
+}
 
 export async function processVerificationQueue(options: {
   jobId?: string | null;
@@ -91,6 +112,7 @@ export async function processVerificationJobChunk(jobId: string, options: { maxE
       inputStorageKey: true,
       providerKey: true,
       uniqueEmails: true,
+      processedCount: true,
       providerBatchCount: true,
       metadataJson: true
     }
@@ -110,19 +132,25 @@ export async function processVerificationJobChunk(jobId: string, options: { maxE
 
   const inputText = await readVerificationJobInput(job);
   const parsed = parseEmailList(inputText);
+  const providerBatchSize = Math.max(1, Number(process.env.VERIFICATION_PROVIDER_BATCH_SIZE || DEFAULT_PROVIDER_BATCH_SIZE));
+  const maxBatchRetries = Math.max(1, Number(process.env.VERIFICATION_BATCH_MAX_RETRIES || DEFAULT_BATCH_MAX_RETRIES));
+  await ensureVerificationBatches(job.id, parsed.uniqueEmails.length, providerBatchSize);
   const processedCount = await prisma.verificationEmailResult.count({ where: { verificationJobId: job.id } });
-  const remaining = parsed.uniqueEmails.slice(processedCount);
+  const remainingCount = Math.max(0, parsed.uniqueEmails.length - processedCount);
 
   console.info("[verification-worker-checkpoint]", {
     checkpoint: "input_parsed",
     jobId: job.id,
     parsedEmailCount: parsed.totalRows,
     uniqueEmailCount: parsed.uniqueEmails.length,
+    syntaxInvalidCount: parsed.syntaxInvalidCount,
     alreadyProcessed: processedCount,
-    remainingEmails: remaining.length
+    remainingEmails: remainingCount,
+    providerBatchSize,
+    maxBatchRetries
   });
 
-  if (remaining.length === 0) {
+  if (remainingCount === 0) {
     await completeVerificationJob(job.id);
     return { processedEmails: 0, completed: true };
   }
@@ -164,16 +192,20 @@ export async function processVerificationJobChunk(jobId: string, options: { maxE
     baseUrl: readProviderBaseUrl(providerSettings?.configJson)
   });
 
-  const providerBatchSize = Math.max(1, Number(process.env.VERIFICATION_PROVIDER_BATCH_SIZE || DEFAULT_PROVIDER_BATCH_SIZE));
-  const targetEmails = remaining.slice(0, options.maxEmails);
   let processedEmails = 0;
   let batchCount = 0;
 
-  for (let index = 0; index < targetEmails.length; index += providerBatchSize) {
+  while (processedEmails < options.maxEmails) {
     if (Date.now() - startedAt > options.timeBudgetMs) break;
-    const batch = targetEmails.slice(index, index + providerBatchSize);
+    const batchRow = await claimNextVerificationBatch(job.id, maxBatchRetries);
+    if (!batchRow) break;
+    const batch = parsed.uniqueEmails.slice(batchRow.emailStart, batchRow.emailEnd);
+
     console.info("[verification-provider-request-payload]", {
       jobId: job.id,
+      batchId: batchRow.id,
+      batchIndex: batchRow.batchIndex,
+      attemptCount: batchRow.attemptCount + 1,
       providerKey: job.providerKey,
       batchSize: batch.length,
       domains: summarizeDomains(batch)
@@ -185,17 +217,48 @@ export async function processVerificationJobChunk(jobId: string, options: { maxE
     } catch (error) {
       console.error("[verification-provider-call-failed]", {
         jobId: job.id,
+        batchId: batchRow.id,
+        batchIndex: batchRow.batchIndex,
         providerKey: job.providerKey,
         batchSize: batch.length,
         domains: summarizeDomains(batch),
         message: error instanceof Error ? error.message : String(error || "Provider failed"),
         stack: error instanceof Error ? error.stack : null
       });
+      const retryable = batchRow.attemptCount + 1 < maxBatchRetries;
+      await markVerificationBatchFailed(batchRow.id, error, retryable);
+      await prisma.verificationJob.update({
+        where: { id: job.id },
+        data: {
+          status: retryable ? "QUEUED" : "PROCESSING",
+          ...(!retryable ? { failedBatchCount: { increment: 1 } } : {}),
+          errorMessage: retryable
+            ? `Batch ${batchRow.batchIndex + 1} failed and will retry automatically.`
+            : `Batch ${batchRow.batchIndex + 1} failed after ${maxBatchRetries} attempts.`,
+          metadataJson: mergeJobMetadata(job.metadataJson, {
+            worker: "chunked",
+            lastBatchErrorAt: new Date().toISOString(),
+            lastFailedBatchIndex: batchRow.batchIndex,
+            lastBatchError: error instanceof Error ? error.message : String(error || "Provider failed")
+          })
+        }
+      });
+      if (retryable) {
+        console.warn("[verification-batch-retry-queued]", {
+          jobId: job.id,
+          batchId: batchRow.id,
+          batchIndex: batchRow.batchIndex,
+          nextAttempt: batchRow.attemptCount + 2
+        });
+        break;
+      }
       throw error;
     }
 
     console.info("[verification-provider-results-ready]", {
       jobId: job.id,
+      batchId: batchRow.id,
+      batchIndex: batchRow.batchIndex,
       providerKey: job.providerKey,
       resultCount: providerResults.length,
       statusCounts: countStatuses(providerResults.map((result) => result.status))
@@ -204,12 +267,28 @@ export async function processVerificationJobChunk(jobId: string, options: { maxE
     const counts = countStatuses(providerResults.map((result) => result.status));
 
     await prisma.$transaction([
-      prisma.verificationEmailResult.createMany({ data: dbResults }),
+      prisma.verificationEmailResult.createMany({ data: dbResults, skipDuplicates: true }),
+      prisma.verificationBatch.update({
+        where: { id: batchRow.id },
+        data: {
+          status: "COMPLETED",
+          processedCount: providerResults.length,
+          validCount: counts.VALID,
+          invalidCount: counts.INVALID,
+          riskyCount: counts.RISKY,
+          catchAllCount: counts.CATCH_ALL,
+          disposableCount: counts.DISPOSABLE,
+          unknownCount: counts.UNKNOWN,
+          errorMessage: null,
+          completedAt: new Date()
+        }
+      }),
       prisma.verificationJob.update({
         where: { id: job.id },
         data: {
           status: "PROCESSING",
           providerBatchCount: { increment: 1 },
+          processedCount: { increment: providerResults.length },
           validCount: { increment: counts.VALID },
           invalidCount: { increment: counts.INVALID },
           riskyCount: { increment: counts.RISKY },
@@ -220,6 +299,7 @@ export async function processVerificationJobChunk(jobId: string, options: { maxE
           metadataJson: mergeJobMetadata(job.metadataJson, {
             worker: "chunked",
             lastProcessedAt: new Date().toISOString(),
+            lastCompletedBatchIndex: batchRow.batchIndex,
             processedEmails: processedCount + processedEmails + providerResults.length
           })
         }
@@ -230,10 +310,23 @@ export async function processVerificationJobChunk(jobId: string, options: { maxE
     processedEmails += providerResults.length;
   }
 
-  const totalProcessed = processedCount + processedEmails;
+  const totalProcessed = await prisma.verificationEmailResult.count({ where: { verificationJobId: job.id } });
   const completed = totalProcessed >= parsed.uniqueEmails.length;
   if (completed) {
     await completeVerificationJob(job.id);
+  } else if (processedEmails > 0) {
+    await prisma.verificationJob.update({
+      where: { id: job.id },
+      data: {
+        status: "QUEUED",
+        progressPercent: computeProgress(totalProcessed, parsed.uniqueEmails.length),
+        metadataJson: mergeJobMetadata(job.metadataJson, {
+          worker: "chunked",
+          lastChunkEndedAt: new Date().toISOString(),
+          processedEmails: totalProcessed
+        })
+      }
+    });
   }
 
   console.info("[verification-worker]", {
@@ -247,6 +340,101 @@ export async function processVerificationJobChunk(jobId: string, options: { maxE
   });
 
   return { processedEmails, completed };
+}
+
+async function ensureVerificationBatches(jobId: string, uniqueEmailCount: number, batchSize: number) {
+  const existingCount = await prisma.verificationBatch.count({ where: { verificationJobId: jobId } });
+  if (existingCount > 0 || uniqueEmailCount <= 0) return;
+
+  const batches = [];
+  for (let index = 0, batchIndex = 0; index < uniqueEmailCount; index += batchSize, batchIndex += 1) {
+    const emailEnd = Math.min(uniqueEmailCount, index + batchSize);
+    batches.push({
+      verificationJobId: jobId,
+      batchIndex,
+      status: "PENDING",
+      emailStart: index,
+      emailEnd,
+      emailCount: emailEnd - index
+    });
+  }
+
+  await prisma.verificationBatch.createMany({
+    data: batches,
+    skipDuplicates: true
+  });
+
+  console.info("[verification-batches-created]", {
+    jobId,
+    batchSize,
+    batchCount: batches.length,
+    uniqueEmailCount
+  });
+}
+
+async function claimNextVerificationBatch(jobId: string, maxRetries: number) {
+  const staleBefore = new Date(Date.now() - Number(process.env.VERIFICATION_BATCH_STALE_MS || 120_000));
+  const batch = await prisma.verificationBatch.findFirst({
+    where: {
+      verificationJobId: jobId,
+      OR: [
+        { status: "PENDING" },
+        { status: "FAILED", attemptCount: { lt: maxRetries } },
+        { status: "PROCESSING", updatedAt: { lt: staleBefore }, attemptCount: { lt: maxRetries } }
+      ]
+    },
+    orderBy: [{ batchIndex: "asc" }],
+    select: {
+      id: true,
+      batchIndex: true,
+      status: true,
+      updatedAt: true,
+      emailStart: true,
+      emailEnd: true,
+      emailCount: true,
+      attemptCount: true
+    }
+  });
+
+  if (!batch) return null;
+
+  const claimed = await prisma.verificationBatch.updateMany({
+    where: {
+      id: batch.id,
+      updatedAt: batch.updatedAt,
+      status: batch.status
+    },
+    data: {
+      status: "PROCESSING",
+      attemptCount: { increment: 1 },
+      startedAt: new Date(),
+      errorMessage: null
+    }
+  });
+
+  if (claimed.count !== 1) return null;
+
+  console.info("[verification-batch-status]", {
+    jobId,
+    batchId: batch.id,
+    batchIndex: batch.batchIndex,
+    status: "PROCESSING",
+    emailCount: batch.emailCount,
+    attempt: batch.attemptCount + 1
+  });
+
+  return batch;
+}
+
+async function markVerificationBatchFailed(batchId: string, error: unknown, retryable: boolean) {
+  await prisma.verificationBatch.update({
+    where: { id: batchId },
+    data: {
+      status: retryable ? "FAILED" : "FAILED",
+      errorMessage: error instanceof Error ? error.message : String(error || "Provider failed"),
+      completedAt: retryable ? null : new Date()
+    }
+  });
 }
 
 async function claimNextVerificationJob(jobId?: string | null) {
@@ -332,6 +520,7 @@ async function completeVerificationJob(jobId: string) {
     data: {
       status: "COMPLETED",
       progressPercent: 100,
+      processedCount: job.uniqueEmails,
       creditsUsed: job.uniqueEmails,
       fullReportStorageKey: fullReportKey,
       validExportStorageKey: validExportKey,
@@ -373,12 +562,15 @@ async function failVerificationJob(jobId: string, error: unknown) {
       userId: true,
       creditsReserved: true,
       creditsUsed: true,
+      uniqueEmails: true,
       providerKey: true
     }
   });
 
   if (!job) return;
-  const refundAmount = Math.max(0, job.creditsReserved - job.creditsUsed);
+  const processedCount = await prisma.verificationEmailResult.count({ where: { verificationJobId: job.id } });
+  const finalStatus = processedCount > 0 ? "PARTIAL_FAILED" : "FAILED";
+  const refundAmount = Math.max(0, job.creditsReserved - processedCount);
   if (refundAmount > 0) {
     await refundVerificationCredits({
       userId: job.userId,
@@ -391,8 +583,14 @@ async function failVerificationJob(jobId: string, error: unknown) {
   await prisma.verificationJob.update({
     where: { id: job.id },
     data: {
-      status: "FAILED",
-      errorMessage: error instanceof Error ? error.message : "Verification failed.",
+      status: finalStatus,
+      processedCount,
+      creditsUsed: processedCount,
+      progressPercent: computeProgress(processedCount, job.uniqueEmails),
+      errorMessage:
+        processedCount > 0
+          ? `${error instanceof Error ? error.message : "Verification failed."} Processed ${processedCount.toLocaleString()} emails; unprocessed credits were refunded.`
+          : error instanceof Error ? error.message : "Verification failed.",
       completedAt: new Date()
     }
   });
@@ -400,6 +598,9 @@ async function failVerificationJob(jobId: string, error: unknown) {
   console.error("[verification-worker-failed]", {
     jobId: job.id,
     provider: job.providerKey,
+    status: finalStatus,
+    processedCount,
+    refundedCredits: refundAmount,
     message: error instanceof Error ? error.message : "Verification failed."
   });
 }
@@ -535,6 +736,7 @@ function summarizeDomains(emails: string[]) {
 
 function computeProgress(processed: number, total: number) {
   if (total <= 0) return 10;
+  if (processed <= 0) return 5;
   return Math.min(95, Math.max(15, Math.round((processed / total) * 90)));
 }
 
