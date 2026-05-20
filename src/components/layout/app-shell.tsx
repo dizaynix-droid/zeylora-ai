@@ -19,7 +19,7 @@ export function AppShell({ title, description, area, children }: AppShellProps) 
   const isAdmin = area === "admin";
 
   return (
-    <main className="min-h-screen bg-[#f7f8fb] text-slate-950">
+    <main className="min-h-screen overflow-x-hidden bg-[#f7f8fb] text-slate-950">
       <div className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex h-14 w-full max-w-[1760px] items-center justify-between gap-3 px-4 sm:px-6">
           <Link href="/" className="flex min-w-0 items-center gap-2 text-sm font-semibold text-slate-950">

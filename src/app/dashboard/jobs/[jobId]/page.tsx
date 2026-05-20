@@ -112,35 +112,35 @@ export default async function VerificationJobPage({
       description="Review deliverability breakdown and download segmented CSV exports."
     >
       <JobAutoRefresh enabled={active} jobId={job.id} />
-      <div className="grid gap-5">
-        <VerifyPanel className="p-5 md:p-7">
+      <div className="grid min-w-0 gap-5">
+        <VerifyPanel className="min-w-0 overflow-hidden p-4 sm:p-5 md:p-7">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-            <div>
+            <div className="min-w-0">
               <p className="text-xs font-semibold uppercase tracking-[0.08em] text-blue-700">{job.providerKey}</p>
-              <h2 className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-slate-950">{job.originalFilename || "Pasted email list"}</h2>
+              <h2 className="mt-2 break-words text-2xl font-semibold tracking-[-0.03em] text-slate-950 sm:text-3xl">{job.originalFilename || "Pasted email list"}</h2>
               <p className="mt-2 text-sm font-semibold text-slate-500">
                 {job.status} · {job.uniqueEmails.toLocaleString()} unique emails · {job.creditsUsed || job.creditsReserved} credits
               </p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Link href="/dashboard#jobs" className="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50">
+            <div className="grid gap-2 sm:flex sm:flex-wrap">
+              <Link href="/dashboard#jobs" className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50">
                 Back to history
               </Link>
-              <Link href={`/dashboard/support?jobId=${job.id}`} className="rounded-md border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100">
+              <Link href={`/dashboard/support?jobId=${job.id}`} className="inline-flex min-h-10 items-center justify-center rounded-md border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100">
                 Contact support
               </Link>
               {canCancel ? <JobCancelButton jobId={job.id} /> : null}
             </div>
           </div>
 
-          <div className="mt-6 grid gap-3 md:grid-cols-4">
+          <div className="mt-6 grid min-w-0 grid-cols-2 gap-3 lg:grid-cols-4">
             <Metric label="Total" value={job.totalEmails} />
             <Metric label="Unique" value={job.uniqueEmails} />
             <Metric label="Duplicates" value={job.duplicateCount} />
             <Metric label="Credits required" value={job.creditsReserved || job.uniqueEmails} />
           </div>
 
-          <div className="mt-3 grid gap-3 md:grid-cols-6">
+          <div className="mt-3 grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             <Metric label="Processed" value={job.processedCount || resultTotal} />
             <Metric label="Valid" value={job.validCount} tone="good" />
             <Metric label="Invalid" value={job.invalidCount} tone="bad" />
@@ -150,10 +150,10 @@ export default async function VerificationJobPage({
           </div>
 
           {active ? (
-            <div className="mt-6 rounded-lg border border-blue-200 bg-blue-50 p-4">
-              <div className="flex items-center justify-between gap-3 text-sm font-semibold text-blue-900">
+            <div className="mt-6 min-w-0 rounded-lg border border-blue-200 bg-blue-50 p-4">
+              <div className="flex min-w-0 items-center justify-between gap-3 text-sm font-semibold text-blue-900">
                 <span>{job.status === "QUEUED" ? "Queued for worker processing" : "Processing in safe chunks"}</span>
-                <span>{Math.max(0, Math.min(100, job.progressPercent || 0))}%</span>
+                <span className="shrink-0">{Math.max(0, Math.min(100, job.progressPercent || 0))}%</span>
               </div>
               <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
                 <div
@@ -161,8 +161,9 @@ export default async function VerificationJobPage({
                   style={{ width: `${Math.max(5, Math.min(100, job.progressPercent || 5))}%` }}
                 />
               </div>
-              <p className="mt-3 text-sm leading-6 text-blue-900/75">
-                Large lists do not run inside the browser request. Zeylora verifies this list in background chunks, nudges the worker while this page is open, and refreshes this report automatically.
+              <p className="mt-3 max-w-full break-words text-sm leading-6 text-blue-900/75">
+                <span className="sm:hidden">Zeylora verifies the list in the background and refreshes this report automatically.</span>
+                <span className="hidden sm:inline">Large lists do not run inside the browser request. Zeylora verifies this list in background chunks, nudges the worker while this page is open, and refreshes this report automatically.</span>
               </p>
             </div>
           ) : null}
@@ -174,7 +175,7 @@ export default async function VerificationJobPage({
           ) : null}
 
           {downloadLinks.length > 0 ? (
-            <div className="mt-6 flex flex-wrap gap-3">
+            <div className="mt-6 grid gap-3 sm:flex sm:flex-wrap">
               {downloadLinks.map((link) => (
                 <a
                   key={link.label}
@@ -189,14 +190,32 @@ export default async function VerificationJobPage({
           ) : null}
         </VerifyPanel>
 
-        <VerifyPanel className="p-5 md:p-6">
+        <VerifyPanel className="min-w-0 overflow-hidden p-4 sm:p-5 md:p-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs font-semibold uppercase tracking-[0.08em] text-blue-700">Result rows</p>
             <p className="text-sm font-semibold text-slate-500">
               Showing {resultTotal === 0 ? 0 : skip + 1}-{Math.min(resultTotal, skip + RESULT_PAGE_SIZE)} of {resultTotal}
             </p>
           </div>
-          <div className="mt-4 overflow-x-auto">
+          <div className="mt-4 grid gap-3 md:hidden">
+            {job.results.length > 0 ? (
+              job.results.map((result) => (
+                <div key={result.email} className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <p className="break-all text-sm font-semibold text-slate-950">{result.email}</p>
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                    <MobileResultField label="Status" value={result.status} />
+                    <MobileResultField label="Domain" value={result.domain || "-"} />
+                    <MobileResultField label="Reason" value={result.reason || "-"} wide />
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm font-semibold text-slate-500">
+                Results will appear here as soon as verification starts processing.
+              </div>
+            )}
+          </div>
+          <div className="mt-4 hidden max-w-full overflow-x-auto md:block">
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead className="text-xs uppercase tracking-[0.16em] text-slate-500">
                 <tr>
@@ -240,9 +259,18 @@ function hasProviderFile(metadata: unknown) {
 function Metric({ label, value, tone }: { label: string; value: number; tone?: "good" | "bad" | "warn" }) {
   const color = tone === "good" ? "text-emerald-700" : tone === "bad" ? "text-rose-700" : tone === "warn" ? "text-amber-700" : "text-slate-950";
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">{label}</p>
-      <p className={`mt-2 text-3xl font-semibold ${color}`}>{value.toLocaleString()}</p>
+    <div className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:p-4">
+      <p className="break-words text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500 sm:text-xs">{label}</p>
+      <p className={`mt-2 break-words text-2xl font-semibold sm:text-3xl ${color}`}>{value.toLocaleString()}</p>
+    </div>
+  );
+}
+
+function MobileResultField({ label, value, wide }: { label: string; value: string; wide?: boolean }) {
+  return (
+    <div className={`min-w-0 rounded-md border border-slate-200 bg-white p-2 ${wide ? "col-span-2" : ""}`}>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">{label}</p>
+      <p className="mt-1 break-words text-xs font-semibold text-slate-900">{value}</p>
     </div>
   );
 }
