@@ -488,50 +488,10 @@ export async function deleteCreditPackageAction(formData: FormData) {
 
 export async function syncLaunchCreditPackagesAction() {
   const admin = await requireAdmin();
+  const { ensureLaunchCreditPackageDefaults } = await import("@/lib/pricing/packages");
   const { creditPackages } = await import("@/config/pricing");
 
-  await prisma.$transaction(async (tx) => {
-    for (const [index, pack] of creditPackages.entries()) {
-      const existing = await tx.creditPackage.findFirst({
-        where: {
-          deletedAt: null,
-          OR: [
-            { name: pack.name },
-            { featureFlagKey: pack.featureFlagKey }
-          ]
-        },
-        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-        select: { id: true }
-      });
-      const data = {
-        credits: pack.credits,
-        bonusCredits: pack.bonusCredits,
-        price: pack.price,
-        currency: pack.currency.toLowerCase(),
-        sortOrder: index + 1,
-        featureFlagKey: pack.featureFlagKey,
-        description: pack.description,
-        audience: pack.audience,
-        badgeText: pack.badgeText ?? null,
-        highlight: pack.highlight,
-        status: "ACTIVE" as const
-      };
-
-      if (existing) {
-        await tx.creditPackage.update({
-          where: { id: existing.id },
-          data
-        });
-      } else {
-        await tx.creditPackage.create({
-          data: {
-            name: pack.name,
-            ...data
-          }
-        });
-      }
-    }
-  });
+  await ensureLaunchCreditPackageDefaults();
 
   await logAdminAction({
     admin,

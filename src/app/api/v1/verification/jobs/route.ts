@@ -160,81 +160,87 @@ export async function POST(request: Request) {
     );
   }
 
-  const economics = await getVerificationEconomicsSnapshot(parsed.uniqueEmails.length);
-  const providerSettings = await prisma.providerSetting.findUnique({
-    where: { providerKey: economics.providerKey },
-    select: {
-      status: true
-    }
-  });
-
-  if (providerSettings?.status === "SUSPENDED" || providerSettings?.status === "INACTIVE") {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: "Verification provider is temporarily unavailable. Please try again later.",
-        code: "provider_unavailable"
-      },
-      { status: 503 }
-    );
-  }
-
   const inputKey = `verification/${user.id}/${crypto.randomUUID()}/input.txt`;
-  const job = await prisma.verificationJob.create({
-    data: {
-      userId: user.id,
-      status: "QUEUED",
-      sourceType: file instanceof File ? "upload" : "paste",
-      originalFilename,
-      inputStorageKey: inputKey,
-      providerKey: economics.providerKey,
-      totalEmails: parsed.totalRows,
-      uniqueEmails: parsed.uniqueEmails.length,
-      duplicateCount: parsed.duplicateEmails.length,
-      creditsReserved: parsed.uniqueEmails.length,
-      creditsUsed: 0,
-      creditValueAtRun: economics.creditValue,
-      costPerVerificationAtRun: economics.costPerVerification,
-      providerCostAtRun: economics.providerCost,
-      providerCostCurrency: economics.providerCostCurrency,
-      estimatedRevenueAtRun: economics.estimatedRevenue,
-      estimatedProfitAtRun: economics.estimatedProfit,
-      progressPercent: 2,
-      metadataJson: {
-        parser: "regex_email_extractor",
-        duplicateEmails: parsed.duplicateEmails.slice(0, 100),
-        queuedAt: new Date().toISOString(),
-        queueMode: "chunked_worker"
-      }
-    },
-    select: {
-      id: true,
-      status: true,
-      uniqueEmails: true,
-      creditsReserved: true,
-      progressPercent: true
-    }
-  });
-
-  const reservation = await reserveVerificationCredits({
-    userId: user.id,
-    jobId: job.id,
-    amount: parsed.uniqueEmails.length
-  });
-
-  if (!reservation.ok) {
-    await prisma.verificationJob.update({
-      where: { id: job.id },
-      data: {
-        status: "FAILED",
-        errorMessage: "Insufficient credits during reservation.",
-        completedAt: new Date()
-      }
-    });
-    return NextResponse.json({ ok: false, error: "Insufficient credits.", code: "insufficient_credits" }, { status: 402 });
-  }
+  let job: { id: string; status: string; uniqueEmails: number; creditsReserved: number; progressPercent: number } | null = null;
+  let creditsReserved = false;
+  let providerKey = "millionverifier";
 
   try {
+    const economics = await getVerificationEconomicsSnapshot(parsed.uniqueEmails.length);
+    providerKey = economics.providerKey;
+    const providerSettings = await prisma.providerSetting.findUnique({
+      where: { providerKey: economics.providerKey },
+      select: {
+        status: true
+      }
+    });
+
+    if (providerSettings?.status === "SUSPENDED" || providerSettings?.status === "INACTIVE") {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Verification provider is temporarily unavailable. Please try again later.",
+          code: "provider_unavailable"
+        },
+        { status: 503 }
+      );
+    }
+
+    job = await prisma.verificationJob.create({
+      data: {
+        userId: user.id,
+        status: "QUEUED",
+        sourceType: file instanceof File ? "upload" : "paste",
+        originalFilename,
+        inputStorageKey: inputKey,
+        providerKey: economics.providerKey,
+        totalEmails: parsed.totalRows,
+        uniqueEmails: parsed.uniqueEmails.length,
+        duplicateCount: parsed.duplicateEmails.length,
+        creditsReserved: parsed.uniqueEmails.length,
+        creditsUsed: 0,
+        creditValueAtRun: economics.creditValue,
+        costPerVerificationAtRun: economics.costPerVerification,
+        providerCostAtRun: economics.providerCost,
+        providerCostCurrency: economics.providerCostCurrency,
+        estimatedRevenueAtRun: economics.estimatedRevenue,
+        estimatedProfitAtRun: economics.estimatedProfit,
+        progressPercent: 2,
+        metadataJson: {
+          parser: "regex_email_extractor",
+          duplicateEmails: parsed.duplicateEmails.slice(0, 100),
+          queuedAt: new Date().toISOString(),
+          queueMode: "chunked_worker"
+        }
+      },
+      select: {
+        id: true,
+        status: true,
+        uniqueEmails: true,
+        creditsReserved: true,
+        progressPercent: true
+      }
+    });
+
+    const reservation = await reserveVerificationCredits({
+      userId: user.id,
+      jobId: job.id,
+      amount: parsed.uniqueEmails.length
+    });
+
+    if (!reservation.ok) {
+      await prisma.verificationJob.update({
+        where: { id: job.id },
+        data: {
+          status: "FAILED",
+          errorMessage: "Insufficient credits during reservation.",
+          completedAt: new Date()
+        }
+      });
+      return NextResponse.json({ ok: false, error: "Insufficient credits.", code: "insufficient_credits" }, { status: 402 });
+    }
+    creditsReserved = true;
+
     await uploadPrivateObject({
       key: inputKey,
       body: Buffer.from(sourceText),
@@ -274,38 +280,43 @@ export async function POST(request: Request) {
       { status: 202 }
     );
   } catch (error) {
-    await refundVerificationCredits({
-      userId: user.id,
-      jobId: job.id,
-      amount: parsed.uniqueEmails.length,
-      note: "Verification job setup failed refund"
-    }).catch((refundError) => {
-      console.error("[verification-job-refund-failed]", {
-        jobId: job.id,
+    if (job && creditsReserved) {
+      await refundVerificationCredits({
         userId: user.id,
-        message: refundError instanceof Error ? refundError.message : "Refund failed."
-      });
-    });
-    await prisma.verificationJob.update({
-      where: { id: job.id },
-      data: {
-        status: "FAILED",
-        errorMessage: error instanceof Error ? error.message : "Verification setup failed.",
-        completedAt: new Date()
-      }
-    }).catch((updateError) => {
-      console.error("[verification-job-fail-update-failed]", {
         jobId: job.id,
-        userId: user.id,
-        message: updateError instanceof Error ? updateError.message : "Job failed update failed."
+        amount: parsed.uniqueEmails.length,
+        note: "Verification job setup failed refund"
+      }).catch((refundError) => {
+        console.error("[verification-job-refund-failed]", {
+          jobId: job?.id,
+          userId: user.id,
+          message: refundError instanceof Error ? refundError.message : "Refund failed."
+        });
       });
-    });
+    }
+
+    if (job) {
+      await prisma.verificationJob.update({
+        where: { id: job.id },
+        data: {
+          status: "FAILED",
+          errorMessage: error instanceof Error ? error.message : "Verification setup failed.",
+          completedAt: new Date()
+        }
+      }).catch((updateError) => {
+        console.error("[verification-job-fail-update-failed]", {
+          jobId: job?.id,
+          userId: user.id,
+          message: updateError instanceof Error ? updateError.message : "Job failed update failed."
+        });
+      });
+    }
 
     const classified = classifyVerificationStartError(error);
 
     console.error("[verification-job-queue-failed]", {
-      jobId: job.id,
-      provider: economics.providerKey,
+      jobId: job?.id ?? null,
+      provider: providerKey,
       emails: parsed.uniqueEmails.length,
       code: classified.code,
       message: error instanceof Error ? error.message : "Verification setup failed."
@@ -316,7 +327,7 @@ export async function POST(request: Request) {
         ok: false,
         code: classified.code,
         error: classified.error,
-        jobId: job.id
+        jobId: job?.id ?? null
       },
       { status: classified.status }
     );
@@ -341,7 +352,16 @@ function classifyVerificationStartError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error || "");
   const lower = message.toLowerCase();
 
-  if (lower.includes("storage is not configured") || lower.includes("r2") || lower.includes("s3")) {
+  if (
+    lower.includes("storage is not configured") ||
+    lower.includes("r2") ||
+    lower.includes("s3") ||
+    lower.includes("bucket") ||
+    lower.includes("accessdenied") ||
+    lower.includes("invalidaccesskey") ||
+    lower.includes("signature") ||
+    lower.includes("putobject")
+  ) {
     return {
       code: "storage_not_configured",
       status: 503,
@@ -349,7 +369,17 @@ function classifyVerificationStartError(error: unknown) {
     };
   }
 
-  if (lower.includes("verificationjob") || lower.includes("does not exist") || lower.includes("p2021")) {
+  if (
+    lower.includes("verificationjob") ||
+    lower.includes("credittransaction") ||
+    lower.includes("providersetting") ||
+    lower.includes("does not exist") ||
+    lower.includes("table") ||
+    lower.includes("column") ||
+    lower.includes("relation") ||
+    lower.includes("p2021") ||
+    lower.includes("p2022")
+  ) {
     return {
       code: "database_not_ready",
       status: 503,

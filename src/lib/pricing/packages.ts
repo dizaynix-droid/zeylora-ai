@@ -139,7 +139,7 @@ export async function ensureLaunchCreditPackageDefaults() {
 
   for (const [index, pack] of creditPackages.entries()) {
     const legacyNames = getPackageLegacyNames(pack.key, pack.name);
-    const existing = await prisma.creditPackage.findFirst({
+    const existingPackages = await prisma.creditPackage.findMany({
       where: {
         deletedAt: null,
         OR: [
@@ -161,7 +161,8 @@ export async function ensureLaunchCreditPackageDefaults() {
         currency: true,
         sortOrder: true,
         featureFlagKey: true,
-        status: true
+        status: true,
+        createdAt: true
       }
     });
 
@@ -180,17 +181,36 @@ export async function ensureLaunchCreditPackageDefaults() {
       status: "ACTIVE" as const
     };
 
-    if (!existing) {
+    if (existingPackages.length === 0) {
       await prisma.creditPackage.create({
         data: launchData
       });
       continue;
     }
 
+    const existing =
+      existingPackages.find((item) => item.featureFlagKey === pack.featureFlagKey && item.name === pack.name) ??
+      existingPackages.find((item) => item.featureFlagKey === pack.featureFlagKey) ??
+      existingPackages.find((item) => item.name === pack.name) ??
+      existingPackages[0];
+
     if (shouldRepairLaunchPackage(existing, pack.name, pack.credits, pack.bonusCredits, pack.price, pack.featureFlagKey)) {
       await prisma.creditPackage.update({
         where: { id: existing.id },
         data: launchData
+      });
+    }
+
+    const duplicateIds = existingPackages.filter((item) => item.id !== existing.id).map((item) => item.id);
+    if (duplicateIds.length > 0) {
+      await prisma.creditPackage.updateMany({
+        where: {
+          id: { in: duplicateIds },
+          deletedAt: null
+        },
+        data: {
+          status: "INACTIVE"
+        }
       });
     }
   }
