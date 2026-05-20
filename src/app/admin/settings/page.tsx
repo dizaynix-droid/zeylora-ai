@@ -67,7 +67,7 @@ export default async function AdminSettingsPage({
               name="estimatedCreditUsdValue"
               defaultValue={operations.estimatedCreditUsdValue}
               step="0.0001"
-              note="Raporlarda gelir/kâr tahmini için kullanılır. Provider maliyeti ayrı olarak provider sayfasından girilir."
+              note="Raporlarda gelir/kâr tahmini için kullanılır. MillionVerifier maliyeti otomatik env varsayılanından hesaplanır."
             />
             <InfoCard title="Büyük liste notu" value="Queue gerekli" note="100K+ listeler request içinde değil, chunk/background worker ile işlenmeli." tone="warn" />
             <InfoCard title="Ekonomi kuralı" value="1 email = 1 hak" note="Müşteri tarafında 1 doğrulama hakkı, provider tarafında 1 email sorgusu demektir." />
@@ -133,7 +133,7 @@ export default async function AdminSettingsPage({
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <InfoCard title="Provider" value="MillionVerifier" note="API durumu Provider Yönetimi sayfasından kontrol edilir." />
             <InfoCard title="Paket mantığı" value="Doğrulama hakkı" note="Paketlerde kredi yerine doğrulama adedi gösterilir." />
-            <InfoCard title="Raporlama" value="Email başı maliyet" note="Provider maliyeti / satın alınan API kotası ile girilmeli." />
+            <InfoCard title="Raporlama" value="Otomatik maliyet" note="MillionVerifier için email başı maliyet env varsayılanından rapora işlenir." />
             <InfoCard title="Büyük listeler" value="Chunk işlem" note="1M liste için background queue zorunlu; senkron request yeterli değil." tone="warn" />
           </div>
         </AdminSection>

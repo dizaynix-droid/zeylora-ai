@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 
 const DEFAULT_CREDIT_USD_VALUE = 0.0008;
-const DEFAULT_COST_PER_VERIFICATION = 0;
+const DEFAULT_COST_PER_VERIFICATION = 0.0001;
 
 export async function getVerificationEconomicsSnapshot(uniqueEmailCount: number) {
   const [creditValueSetting, provider] = await Promise.all([
@@ -36,7 +36,7 @@ export async function getVerificationEconomicsSnapshot(uniqueEmailCount: number)
   ]);
 
   const creditValue = readNumericSetting(creditValueSetting?.valueJson, DEFAULT_CREDIT_USD_VALUE);
-  const costPerVerification = provider?.estimatedCostPerRun ? Number(provider.estimatedCostPerRun) : DEFAULT_COST_PER_VERIFICATION;
+  const costPerVerification = provider?.estimatedCostPerRun ? Number(provider.estimatedCostPerRun) : readCostEnv();
   const providerCost = roundMoney(uniqueEmailCount * costPerVerification);
   const estimatedRevenue = roundMoney(uniqueEmailCount * creditValue);
   const estimatedProfit = roundMoney(estimatedRevenue - providerCost);
@@ -50,6 +50,11 @@ export async function getVerificationEconomicsSnapshot(uniqueEmailCount: number)
     estimatedRevenue,
     estimatedProfit
   };
+}
+
+function readCostEnv() {
+  const configured = Number(process.env.MILLIONVERIFIER_COST_PER_EMAIL || process.env.VERIFICATION_PROVIDER_COST_PER_EMAIL);
+  return Number.isFinite(configured) && configured > 0 ? configured : DEFAULT_COST_PER_VERIFICATION;
 }
 
 function readNumericSetting(value: unknown, fallback: number) {

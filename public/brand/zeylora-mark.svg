@@ -1,20 +1,16 @@
-<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Zeylora AI mark">
-  <rect width="256" height="256" rx="56" fill="#050814"/>
-  <rect x="1" y="1" width="254" height="254" rx="55" stroke="url(#border)" stroke-opacity=".7" stroke-width="2"/>
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Zeylora mark">
+  <rect width="256" height="256" rx="56" fill="#FFFFFF"/>
+  <rect x="1" y="1" width="254" height="254" rx="55" stroke="#DBEAFE" stroke-width="2"/>
+  <rect x="18" y="18" width="220" height="220" rx="44" fill="#F8FBFF"/>
   <path d="M70 72H186L92 184H190" stroke="url(#zeyloraGradient)" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M88 128C88 105.9 105.9 88 128 88C150.1 88 168 105.9 168 128C168 150.1 150.1 168 128 168" stroke="white" stroke-opacity=".22" stroke-width="10" stroke-linecap="round"/>
+  <path d="M88 128C88 105.9 105.9 88 128 88C150.1 88 168 105.9 168 128C168 150.1 150.1 168 128 168" stroke="#2563EB" stroke-opacity=".16" stroke-width="10" stroke-linecap="round"/>
   <circle cx="128" cy="128" r="16" fill="url(#zeyloraGradient)"/>
-  <circle cx="128" cy="128" r="34" stroke="url(#zeyloraGradient)" stroke-opacity=".28" stroke-width="2"/>
+  <circle cx="128" cy="128" r="34" stroke="url(#zeyloraGradient)" stroke-opacity=".3" stroke-width="2"/>
   <defs>
     <linearGradient id="zeyloraGradient" x1="66" y1="68" x2="193" y2="190" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#20D3FF"/>
-      <stop offset=".52" stop-color="#8B5CF6"/>
-      <stop offset="1" stop-color="#EC4899"/>
-    </linearGradient>
-    <linearGradient id="border" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#20D3FF"/>
-      <stop offset=".5" stop-color="#8B5CF6"/>
-      <stop offset="1" stop-color="#EC4899"/>
+      <stop stop-color="#0EA5E9"/>
+      <stop offset=".52" stop-color="#2563EB"/>
+      <stop offset="1" stop-color="#10B981"/>
     </linearGradient>
   </defs>
 </svg>

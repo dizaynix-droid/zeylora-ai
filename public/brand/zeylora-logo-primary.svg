@@ -10,7 +10,7 @@
   <text x="174" y="93" fill="#F8FAFC" font-family="Inter, Arial, sans-serif" font-size="52" font-weight="900" letter-spacing="0">ZEYLORA</text>
   <rect x="450" y="53" width="70" height="48" rx="24" fill="url(#brand)" fill-opacity=".16" stroke="url(#brand)" stroke-opacity=".55"/>
   <text x="474" y="86" fill="#A5F3FC" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="900" letter-spacing="0">AI</text>
-  <text x="176" y="125" fill="#94A3B8" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="700" letter-spacing="0">CINEMATIC AI PHOTO STUDIO</text>
+  <text x="176" y="125" fill="#94A3B8" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="700" letter-spacing="0">EMAIL VERIFICATION PLATFORM</text>
   <defs>
     <linearGradient id="brand" x1="26" y1="28" x2="80" y2="80" gradientUnits="userSpaceOnUse">
       <stop stop-color="#20D3FF"/>

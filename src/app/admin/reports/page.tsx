@@ -441,6 +441,7 @@ function buildProviderRows(
   settings: Array<{ providerKey: string; name: string; estimatedCostPerRun: unknown }>
 ) {
   const names = new Map(settings.map((provider) => [provider.providerKey, provider.name]));
+  const costByProvider = new Map(settings.map((provider) => [provider.providerKey, getProviderUnitCost(provider.providerKey, provider.estimatedCostPerRun)]));
   const rows = new Map<string, { providerKey: string; name: string; completedJobs: number; failedJobs: number; verifications: number; providerCost: number }>();
 
   for (const group of groups) {
@@ -454,9 +455,11 @@ function buildProviderRows(
     };
 
     if (group.status === "COMPLETED") {
+      const verifications = group._sum.creditsUsed ?? group._sum.uniqueEmails ?? 0;
+      const snapshotCost = decimalToNumber(group._sum.providerCostAtRun);
       row.completedJobs += group._count._all;
-      row.verifications += group._sum.creditsUsed ?? group._sum.uniqueEmails ?? 0;
-      row.providerCost += decimalToNumber(group._sum.providerCostAtRun);
+      row.verifications += verifications;
+      row.providerCost += snapshotCost > 0 ? snapshotCost : verifications * (costByProvider.get(group.providerKey) ?? getProviderUnitCost(group.providerKey, null));
     }
     if (group.status === "FAILED") row.failedJobs += group._count._all;
     rows.set(group.providerKey, row);
@@ -479,6 +482,16 @@ function buildProviderRows(
     ...row,
     costPerThousand: row.verifications > 0 ? (row.providerCost / row.verifications) * 1000 : 0
   })).sort((a, b) => b.verifications - a.verifications);
+}
+
+function getProviderUnitCost(providerKey: string, storedCost: unknown) {
+  const stored = decimalToNumber(storedCost);
+  if (stored > 0) return stored;
+  if (providerKey.toLowerCase() === "millionverifier") {
+    const configured = Number(process.env.MILLIONVERIFIER_COST_PER_EMAIL || process.env.VERIFICATION_PROVIDER_COST_PER_EMAIL);
+    return Number.isFinite(configured) && configured > 0 ? configured : 0.0001;
+  }
+  return 0;
 }
 
 function buildPackageRows(payments: Array<{ amount: unknown; creditsDelivered: number; rawEventJson: unknown }>) {

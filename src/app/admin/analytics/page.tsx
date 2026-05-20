@@ -1,5 +1,5 @@
 import { AppShell } from "@/components/layout/app-shell";
-import { AdminMetricCard, AdminSection, AdminTable, formatAdminDate } from "@/components/admin/admin-ui";
+import { AdminMetricCard, AdminSection, AdminTable } from "@/components/admin/admin-ui";
 import { requireAdmin } from "@/lib/admin/auth";
 import { getAdminAnalyticsData } from "@/lib/admin/data";
 import { getAffiliateAnalyticsData } from "@/lib/affiliate/data";
@@ -118,32 +118,6 @@ export default async function AdminAnalyticsPage() {
               </div>
             ))}
             {affiliate.rewardGroups.length === 0 ? <p className="text-sm font-bold text-slate-500">Henüz affiliate reward yok.</p> : null}
-          </div>
-        </AdminSection>
-
-        <AdminSection title="Kullanıcı yolculuğu" description="Son sessionlar: sayfa, liste yükleme, pre-check ve checkout adımları.">
-          <div className="grid gap-3">
-            {data.behavior.recentSessions.map((session) => (
-              <div key={session.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <p className="font-black text-slate-950">{session.userId ? `User ${session.userId.slice(0, 8)}` : `Anon ${session.id.slice(0, 8)}`}</p>
-                    <p className="text-xs font-bold text-slate-500">{session.country || "country yok"} · {session.device || "device yok"} · {formatAdminDate(session.lastSeen)}</p>
-                  </div>
-                  <p className="text-xs font-black uppercase tracking-[0.14em] text-blue-700">{session.events.length} event</p>
-                </div>
-                <div className="mt-3 grid gap-2">
-                  {session.events.map((event) => (
-                    <div key={`${session.id}-${event.event}-${event.createdAt.toISOString()}`} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600">
-                      <span className="text-slate-950">{event.event}</span>
-                      {event.tool ? <span className="text-blue-700"> · {event.tool}</span> : null}
-                      {event.page ? <span className="text-slate-500"> · {event.page}</span> : null}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-            {data.behavior.recentSessions.length === 0 ? <p className="text-sm font-bold text-slate-500">Henüz session davranışı yok.</p> : null}
           </div>
         </AdminSection>
 

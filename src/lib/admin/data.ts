@@ -12,9 +12,13 @@ import type { ExpenseCategory, Prisma } from "@prisma/client";
 const ADMIN_PAGE_SIZE = 25;
 const ADMIN_OVERVIEW_CACHE_TTL_MS = 15_000;
 const ADMIN_ANALYTICS_CACHE_TTL_MS = 30_000;
+const ADMIN_PROVIDERS_CACHE_TTL_MS = 30_000;
+const ADMIN_PAYMENTS_DIAGNOSTICS_CACHE_TTL_MS = 20_000;
 
 let adminOverviewCache: AdminCacheEntry<AdminOverviewData> | null = null;
 let adminAnalyticsCache: AdminCacheEntry<AdminAnalyticsData> | null = null;
+let adminProvidersCache: AdminCacheEntry<AdminProvider[]> | null = null;
+let adminPaymentDiagnosticsCache: AdminCacheEntry<Awaited<ReturnType<typeof buildAdminPaymentDiagnosticsData>>> | null = null;
 
 export const LAUNCH_TOOL_SLUGS = [
   "hd-upscale",
@@ -805,6 +809,15 @@ export async function getAdminPaymentsData(input: { page?: number; pageSize?: nu
 }
 
 export async function getAdminPaymentDiagnosticsData() {
+  const cached = getAdminCache(adminPaymentDiagnosticsCache);
+  if (cached) return cached;
+
+  const result = await buildAdminPaymentDiagnosticsData();
+  adminPaymentDiagnosticsCache = createAdminCacheEntry(result, ADMIN_PAYMENTS_DIAGNOSTICS_CACHE_TTL_MS);
+  return result;
+}
+
+async function buildAdminPaymentDiagnosticsData() {
   const fallback = {
     stripeSecretConfigured: Boolean(process.env.STRIPE_SECRET_KEY),
     stripeWebhookConfigured: Boolean(process.env.STRIPE_WEBHOOK_SECRET),
@@ -820,94 +833,84 @@ export async function getAdminPaymentDiagnosticsData() {
     diagnosticsError: null as string | null
   };
 
-  try {
-    const [lastWebhook, webhookEvents, lastSuccessfulPayment, failedPaymentCount, duplicatePayments] = await Promise.all([
-      measureAdminQuery(
-        "payments.diagnostics.lastWebhook",
-        prisma.webhookLog.findFirst({
-          where: { source: "stripe" },
-          orderBy: { createdAt: "desc" },
-          select: {
-            id: true,
-            externalEventId: true,
-            eventType: true,
-            status: true,
-            errorMessage: true,
-            paymentId: true,
-            userId: true,
-            createdAt: true,
-            processedAt: true
-          }
-        })
-      ),
-      measureAdminQuery(
-        "payments.diagnostics.webhooks",
-        prisma.webhookLog.findMany({
-          where: { source: "stripe" },
-          orderBy: { createdAt: "desc" },
-          take: 10,
-          select: {
-            id: true,
-            externalEventId: true,
-            eventType: true,
-            status: true,
-            errorMessage: true,
-            paymentId: true,
-            userId: true,
-            createdAt: true,
-            processedAt: true
-          }
-        }),
-        { take: 10 }
-      ),
-      measureAdminQuery(
-        "payments.diagnostics.lastPaid",
-        prisma.payment.findFirst({
-          where: { deletedAt: null, status: "PAID" },
-          orderBy: { createdAt: "desc" },
-          select: {
-            id: true,
-            amount: true,
-            currency: true,
-            creditsDelivered: true,
-            stripeCheckoutSessionId: true,
-            createdAt: true,
-            user: { select: { email: true } }
-          }
-        })
-      ),
-      measureAdminQuery(
-        "payments.diagnostics.failedCount",
-        prisma.payment.count({ where: { deletedAt: null, status: { in: ["FAILED", "CANCELLED"] } } })
-      ),
-      measureAdminQuery(
-        "payments.diagnostics.duplicateSessions",
-        prisma.payment.groupBy({
-          by: ["stripeCheckoutSessionId"],
-          where: { stripeCheckoutSessionId: { not: null } },
-          _count: { _all: true },
-          having: { stripeCheckoutSessionId: { _count: { gt: 1 } } },
-          orderBy: { _count: { stripeCheckoutSessionId: "desc" } },
-          take: 1
-        })
-      )
-    ]);
+  const webhookSelect = {
+    id: true,
+    externalEventId: true,
+    eventType: true,
+    status: true,
+    errorMessage: true,
+    paymentId: true,
+    userId: true,
+    createdAt: true,
+    processedAt: true
+  } as const;
 
-    return {
-      ...fallback,
-      duplicateSessionRisk: duplicatePayments.length > 0,
-      lastWebhook,
-      webhookEvents,
-      lastSuccessfulPayment,
-      failedPaymentCount
-    };
-  } catch (error) {
-    console.warn("[admin-payments-diagnostics-fallback]", error instanceof Error ? error.message : error);
-    return {
-      ...fallback,
-      diagnosticsError: error instanceof Error ? error.message : "Payment diagnostics could not be loaded."
-    };
-  }
+  const [lastWebhook, webhookEvents, lastSuccessfulPayment, failedPaymentCount, duplicatePayments] = await Promise.all([
+    measureAdminQuery(
+      "payments.diagnostics.lastWebhook",
+      prisma.webhookLog.findFirst({
+        where: { source: "stripe" },
+        orderBy: { createdAt: "desc" },
+        select: webhookSelect
+      })
+    ).catch((error) => {
+      console.warn("[admin-payments-webhook-diagnostics-unavailable]", error instanceof Error ? error.message : error);
+      return null;
+    }),
+    measureAdminQuery(
+      "payments.diagnostics.webhooks",
+      prisma.webhookLog.findMany({
+        where: { source: "stripe" },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+        select: webhookSelect
+      }),
+      { take: 10 }
+    ).catch(() => []),
+    measureAdminQuery(
+      "payments.diagnostics.lastPaid",
+      prisma.payment.findFirst({
+        where: { deletedAt: null, status: "PAID" },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          amount: true,
+          currency: true,
+          creditsDelivered: true,
+          stripeCheckoutSessionId: true,
+          createdAt: true,
+          user: { select: { email: true } }
+        }
+      })
+    ).catch((error) => {
+      console.warn("[admin-payments-last-paid-unavailable]", error instanceof Error ? error.message : error);
+      return null;
+    }),
+    measureAdminQuery(
+      "payments.diagnostics.failedCount",
+      prisma.payment.count({ where: { deletedAt: null, status: { in: ["FAILED", "CANCELLED"] } } })
+    ).catch(() => 0),
+    measureAdminQuery(
+      "payments.diagnostics.duplicateSessions",
+      prisma.payment.groupBy({
+        by: ["stripeCheckoutSessionId"],
+        where: { stripeCheckoutSessionId: { not: null } },
+        _count: { _all: true },
+        having: { stripeCheckoutSessionId: { _count: { gt: 1 } } },
+        orderBy: { _count: { stripeCheckoutSessionId: "desc" } },
+        take: 1
+      })
+    ).catch(() => [])
+  ]);
+
+  return {
+    ...fallback,
+    duplicateSessionRisk: duplicatePayments.length > 0,
+    lastWebhook,
+    webhookEvents,
+    lastSuccessfulPayment,
+    failedPaymentCount
+  };
 }
 
 export async function getAdminAnalyticsData() {
@@ -1036,15 +1039,9 @@ async function buildAdminAnalyticsData() {
         orderBy: { createdAt: "desc" },
         take: 300,
         select: {
-          event: true,
-          sessionId: true,
-          anonymousId: true,
-          userId: true,
-          page: true,
           country: true,
           device: true,
-          metadataJson: true,
-          createdAt: true
+          metadataJson: true
         }
       })
     ),
@@ -1092,15 +1089,9 @@ function buildBehaviorAnalytics(
   eventGroups: Array<{ event: string; _count: { _all: number } }>,
   todayVisitors: Array<{ sessionId: string | null; anonymousId: string | null; userId: string | null }>,
   breakdownRows: Array<{
-    event: string;
-    sessionId: string | null;
-    anonymousId: string | null;
-    userId: string | null;
-    page: string | null;
     country: string | null;
     device: string | null;
     metadataJson: Prisma.JsonValue | null;
-    createdAt: Date;
   }>,
   dailyRows: Array<{ event: string; createdAt: Date; sessionId: string | null; anonymousId: string | null }>
 ) {
@@ -1153,8 +1144,7 @@ function buildBehaviorAnalytics(
         })
         .filter(Boolean)
     ),
-    dailyTrend: buildDailyTrend(dailyRows),
-    recentSessions: buildRecentSessions(breakdownRows)
+    dailyTrend: buildDailyTrend(dailyRows)
   };
 }
 
@@ -1195,66 +1185,6 @@ function buildDailyTrend(rows: Array<{ event: string; createdAt: Date; sessionId
   }));
 }
 
-function buildRecentSessions(rows: Array<{
-  event: string;
-  sessionId: string | null;
-  anonymousId: string | null;
-  userId: string | null;
-  page: string | null;
-  country: string | null;
-  device: string | null;
-  metadataJson: Prisma.JsonValue | null;
-  createdAt: Date;
-}>) {
-  const sessions = new Map<string, {
-    id: string;
-    userId: string | null;
-    anonymousId: string | null;
-    country: string | null;
-    device: string | null;
-    firstSeen: Date;
-    lastSeen: Date;
-    events: Array<{ event: string; page: string | null; createdAt: Date; tool?: string }>;
-  }>();
-
-  for (const row of rows) {
-    const id = row.sessionId || row.anonymousId || row.userId || "unknown";
-    const current = sessions.get(id) ?? {
-      id,
-      userId: row.userId,
-      anonymousId: row.anonymousId,
-      country: row.country,
-      device: row.device,
-      firstSeen: row.createdAt,
-      lastSeen: row.createdAt,
-      events: []
-    };
-    const metadata = asRecord(row.metadataJson);
-    current.userId ||= row.userId;
-    current.country ||= row.country;
-    current.device ||= row.device;
-    current.firstSeen = row.createdAt < current.firstSeen ? row.createdAt : current.firstSeen;
-    current.lastSeen = row.createdAt > current.lastSeen ? row.createdAt : current.lastSeen;
-    current.events.push({
-      event: row.event,
-      page: row.page,
-      createdAt: row.createdAt,
-      tool: typeof metadata.tool === "string" ? metadata.tool : undefined
-    });
-    sessions.set(id, current);
-  }
-
-  return Array.from(sessions.values())
-    .sort((a, b) => b.lastSeen.getTime() - a.lastSeen.getTime())
-    .slice(0, 12)
-    .map((session) => ({
-      ...session,
-      events: session.events
-        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
-        .slice(-10)
-    }));
-}
-
 function asRecord(value: Prisma.JsonValue | null): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   return value as Record<string, unknown>;
@@ -1271,7 +1201,33 @@ const PROVIDER_RUNTIME_DEFAULTS = [
   { providerKey: "email-fallback", name: "Fallback Email Provider", providerType: "email-verification", envKeyName: "EMAIL_VERIFICATION_FALLBACK_API_KEY", priority: 50, defaultStatus: "INACTIVE" }
 ] as const;
 
-export async function getAdminProvidersData() {
+export type AdminProvider = {
+  id: string;
+  providerKey: string;
+  name: string;
+  providerType: string;
+  envKeyName: string | null;
+  apiBaseUrl: string;
+  configured: boolean;
+  apiKeyStored: boolean;
+  status: string;
+  dbBacked: boolean;
+  dailyBudgetLimit: unknown;
+  monthlyBudgetLimit: unknown;
+  monthlyBudgetUsed: unknown;
+  estimatedCostPerRun: number;
+  estimatedCostCurrency: string;
+  budgetEnforcementMode: string;
+  priority: number;
+  notes: string;
+  updatedAt: Date | null;
+  source: "db" | "runtime";
+};
+
+export async function getAdminProvidersData(): Promise<AdminProvider[]> {
+  const cached = getAdminCache(adminProvidersCache);
+  if (cached) return cached;
+
   const startedAt = adminPerfNow();
   const dbProviders = await measureAdminQuery(
     "providers.settings.list",
@@ -1300,11 +1256,12 @@ export async function getAdminProvidersData() {
   );
   const emailDbProviders = dbProviders.filter((provider) => provider.providerType === "email-verification" || provider.providerKey === "millionverifier" || provider.providerKey === "email-fallback");
   const byKey = new Map(emailDbProviders.map((provider) => [provider.providerKey, provider]));
-  const providers = [
+  const providers: AdminProvider[] = [
     ...PROVIDER_RUNTIME_DEFAULTS.map((runtime) => {
       const db = byKey.get(runtime.providerKey);
       const config = asRecord(db?.configJson ?? null);
       const apiBaseUrl = typeof config.apiBaseUrl === "string" ? config.apiBaseUrl : "";
+      const estimatedCostPerRun = getProviderEstimatedCostPerRun(runtime.providerKey, db?.estimatedCostPerRun);
       return {
         id: db?.id || "",
         providerKey: runtime.providerKey,
@@ -1319,24 +1276,29 @@ export async function getAdminProvidersData() {
         dailyBudgetLimit: db?.dailyBudgetLimit || null,
         monthlyBudgetLimit: db?.monthlyBudgetLimit || null,
         monthlyBudgetUsed: db?.monthlyBudgetUsed || 0,
-        estimatedCostPerRun: db?.estimatedCostPerRun || null,
+        estimatedCostPerRun,
         estimatedCostCurrency: db?.estimatedCostCurrency || "usd",
         budgetEnforcementMode: db?.budgetEnforcementMode || "NOTIFY_ONLY",
         priority: db?.priority ?? runtime.priority,
         notes: db?.notes || "",
         updatedAt: db?.updatedAt || null,
-        source: db ? "db" : "runtime"
+        source: db ? ("db" as const) : ("runtime" as const)
       };
     }),
     ...emailDbProviders
       .filter((provider) => !PROVIDER_RUNTIME_DEFAULTS.some((runtime) => runtime.providerKey === provider.providerKey))
       .map((provider) => {
         const config = asRecord(provider.configJson ?? null);
+        const estimatedCostPerRun = getProviderEstimatedCostPerRun(provider.providerKey, provider.estimatedCostPerRun);
         return {
           ...provider,
           apiBaseUrl: typeof config.apiBaseUrl === "string" ? config.apiBaseUrl : "",
           configured: provider.envKeyName ? Boolean(process.env[provider.envKeyName]) || Boolean(provider.apiKeyEncrypted) : Boolean(provider.apiKeyEncrypted),
           apiKeyStored: Boolean(provider.apiKeyEncrypted),
+          estimatedCostPerRun,
+          estimatedCostCurrency: provider.estimatedCostCurrency || "usd",
+          budgetEnforcementMode: provider.budgetEnforcementMode || "NOTIFY_ONLY",
+          notes: provider.notes || "",
           dbBacked: true,
           source: "db" as const
         };
@@ -1350,10 +1312,11 @@ export async function getAdminProvidersData() {
     dbCount: emailDbProviders.length
   });
 
+  adminProvidersCache = createAdminCacheEntry(providers, ADMIN_PROVIDERS_CACHE_TTL_MS);
   return providers;
 }
 
-export type AdminProvidersData = Awaited<ReturnType<typeof getAdminProvidersData>>;
+export type AdminProvidersData = AdminProvider[];
 
 export async function getAdminProviderMonitoringData() {
   const todayStart = startOfDay(new Date());
@@ -2211,6 +2174,24 @@ function buildMissingActiveCostWarnings(
       providerKey: tool.providerKey,
       providerName: providerDefaults.get(tool.providerKey)?.name || tool.providerKey
     }));
+}
+
+function getProviderEstimatedCostPerRun(providerKey: string, dbCost: unknown) {
+  const storedCost = decimalToNumber(dbCost);
+  if (storedCost > 0) return storedCost;
+  const normalized = providerKey.toLowerCase();
+  if (normalized === "millionverifier") {
+    return readPositiveEnvNumber(["MILLIONVERIFIER_COST_PER_EMAIL", "VERIFICATION_PROVIDER_COST_PER_EMAIL"], 0.0001);
+  }
+  return 0;
+}
+
+function readPositiveEnvNumber(keys: string[], fallback: number) {
+  for (const key of keys) {
+    const value = Number(process.env[key]);
+    if (Number.isFinite(value) && value > 0) return value;
+  }
+  return fallback;
 }
 
 function getJobEstimatedCost(

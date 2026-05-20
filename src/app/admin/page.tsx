@@ -158,7 +158,7 @@ const operationModules: Array<{
 }> = [
   { title: "Kullanıcılar", description: "Kredi bakiyesi, manuel düzenleme ve job özeti.", Icon: Users, href: "/admin/users" },
   { title: "Fiyatlama", description: "Kredi paketleri, bonuslar ve Stripe hazırlığı.", Icon: CreditCard, href: "/admin/pricing" },
-  { title: "Provider ekonomisi", description: "MillionVerifier maliyeti, fallback ve health takibi.", Icon: Database, href: "/admin/providers" },
+  { title: "Provider ekonomisi", description: "MillionVerifier maliyeti, otomatik raporlama ve health takibi.", Icon: Database, href: "/admin/providers" },
   { title: "Operasyon ayarları", description: "Verification, checkout, kayıt ve rate limit kontrolleri.", Icon: Settings, href: "/admin/settings" },
   { title: "Audit", description: "Admin aksiyonları ve sistem kayıtları.", Icon: ShieldCheck, href: "/admin/logs" },
   { title: "Raporlar", description: "Gelir, gider, sağlayıcı maliyeti ve kâr/zarar takibi.", Icon: Activity, href: "/admin/reports" }
@@ -167,13 +167,6 @@ const operationModules: Array<{
 function buildAlerts(data: Awaited<ReturnType<typeof getAdminOverviewData>>) {
   const alerts: Array<{ label: string; href: string; tone: "good" | "warn" | "bad" }> = [];
 
-  if (data.cockpit.missingActiveCostTargets.length) {
-    alerts.push({
-      label: `${data.cockpit.missingActiveCostTargets.length} aktif verification provider maliyeti eksik`,
-      href: "/admin/providers",
-      tone: "warn"
-    });
-  }
   if (data.cockpit.failedJobsToday > 0) {
     alerts.push({
       label: `${data.cockpit.failedJobsToday} hatalı verification job inceleme bekliyor`,

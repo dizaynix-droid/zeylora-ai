@@ -116,7 +116,7 @@ export default async function AdminProvidersPage({
               </select>
               <AdminInput className="lg:col-span-2" name="notes" defaultValue={provider.notes || ""} placeholder="Not" />
               <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-600 lg:col-span-8">
-                Email başı maliyet raporlarda provider maliyeti olarak kullanılır. Örn. API paketinde 5.000.000 doğrulama hakkını $500 aldıysan email başı maliyet $0.0001 gir.
+                Email başı maliyet boş bırakılırsa MillionVerifier için sistem otomatik varsayılan maliyeti kullanır. Sadece gerçek satın alma maliyetin farklıysa buradan override et.
               </div>
               <button className="h-10 rounded-md bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700 lg:col-span-4">
                 Kaydet
