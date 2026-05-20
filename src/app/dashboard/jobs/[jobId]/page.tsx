@@ -79,6 +79,7 @@ export default async function VerificationJobPage({
         riskyExportStorageKey: true,
         fullReportStorageKey: true,
         errorMessage: true,
+        metadataJson: true,
         results: {
           orderBy: { createdAt: "asc" },
           skip,
@@ -101,6 +102,8 @@ export default async function VerificationJobPage({
   const downloadable = ["COMPLETED", "PARTIAL_FAILED", "CANCELED", "CANCELLED"].includes(job.status);
   const downloadLinks = downloadable ? await buildDownloadLinks(job) : [];
   const active = job.status === "QUEUED" || job.status === "PROCESSING";
+  const providerStarted = hasProviderFile(job.metadataJson);
+  const canCancel = job.status === "QUEUED" && !providerStarted && job.processedCount === 0;
 
   return (
     <AppShell
@@ -126,7 +129,7 @@ export default async function VerificationJobPage({
               <Link href={`/dashboard/support?jobId=${job.id}`} className="rounded-md border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100">
                 Contact support
               </Link>
-              {active ? <JobCancelButton jobId={job.id} /> : null}
+              {canCancel ? <JobCancelButton jobId={job.id} /> : null}
             </div>
           </div>
 
@@ -226,6 +229,12 @@ export default async function VerificationJobPage({
       </div>
     </AppShell>
   );
+}
+
+function hasProviderFile(metadata: unknown) {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return false;
+  const value = metadata as { providerFileId?: unknown; millionVerifierFileId?: unknown };
+  return Boolean(value.providerFileId || value.millionVerifierFileId);
 }
 
 function Metric({ label, value, tone }: { label: string; value: number; tone?: "good" | "bad" | "warn" }) {

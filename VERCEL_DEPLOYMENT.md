@@ -36,9 +36,14 @@ MILLIONVERIFIER_BULK_API_BASE_URL="https://bulkapi.millionverifier.com/bulkapi/v
 MILLIONVERIFIER_COST_PER_EMAIL="0.0001"
 VERIFICATION_BULK_EMAIL_THRESHOLD="500"
 VERIFICATION_BULK_POLL_INTERVAL_MS="15000"
+VERIFICATION_WORKER_STALE_MS="600000"
+VERIFICATION_LIST_FINGERPRINT_REUSE_MS="86400000"
+MAX_ACTIVE_VERIFICATION_JOBS_PER_USER="3"
+MAX_ACTIVE_VERIFICATION_JOBS_GLOBAL="20"
 ```
 
 Lists at or above `VERIFICATION_BULK_EMAIL_THRESHOLD` are sent to MillionVerifier Bulk API, then polled until the provider report is ready. Smaller lists can still use the real-time API path.
+The fingerprint and active-job guards prevent accidental double submission, duplicated provider uploads, and queue overload while ads are running.
 
 ### Supabase + Prisma
 

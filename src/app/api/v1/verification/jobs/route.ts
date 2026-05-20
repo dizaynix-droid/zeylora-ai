@@ -20,6 +20,9 @@ const MAX_PASTE_EMAILS = Number(process.env.MAX_VERIFICATION_PASTE_EMAILS || 5_0
 const MAX_EMAILS_PER_JOB = Number(process.env.MAX_VERIFICATION_EMAILS_PER_JOB || 50_000);
 const STARTER_WORKER_EMAIL_LIMIT = Number(process.env.VERIFICATION_STARTER_WORKER_EMAIL_LIMIT || 1_000);
 const STARTER_WORKER_TIME_BUDGET_MS = Number(process.env.VERIFICATION_STARTER_WORKER_TIME_BUDGET_MS || 25_000);
+const LIST_FINGERPRINT_REUSE_MS = Number(process.env.VERIFICATION_LIST_FINGERPRINT_REUSE_MS || 24 * 60 * 60 * 1000);
+const MAX_ACTIVE_JOBS_PER_USER = Number(process.env.MAX_ACTIVE_VERIFICATION_JOBS_PER_USER || 3);
+const MAX_ACTIVE_JOBS_GLOBAL = Number(process.env.MAX_ACTIVE_VERIFICATION_JOBS_GLOBAL || 20);
 
 export async function GET(request: Request) {
   const startedAt = Date.now();
@@ -165,6 +168,46 @@ export async function POST(request: Request) {
       action: "job"
     });
     return rateLimitResponse(rateLimit);
+  }
+
+  const [activeJobsForUser, activeJobsGlobal] = await Promise.all([
+    prisma.verificationJob.count({
+      where: {
+        userId: user.id,
+        deletedAt: null,
+        status: { in: ["QUEUED", "PROCESSING"] }
+      }
+    }),
+    prisma.verificationJob.count({
+      where: {
+        deletedAt: null,
+        status: { in: ["QUEUED", "PROCESSING"] }
+      }
+    })
+  ]);
+
+  if (activeJobsForUser >= MAX_ACTIVE_JOBS_PER_USER) {
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "too_many_active_jobs",
+        error: `You already have ${activeJobsForUser.toLocaleString("en-US")} verification jobs running. Please wait for one to finish before starting another list.`,
+        traceId
+      },
+      { status: 429 }
+    );
+  }
+
+  if (activeJobsGlobal >= MAX_ACTIVE_JOBS_GLOBAL) {
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "verification_queue_busy",
+        error: "Verification is busy right now. Please try again in a few minutes; your credits were not charged.",
+        traceId
+      },
+      { status: 503 }
+    );
   }
 
   const formData = await request.formData();
@@ -313,7 +356,8 @@ export async function POST(request: Request) {
         userId: user.id,
         providerRequestId,
         deletedAt: null,
-        createdAt: { gte: new Date(Date.now() - 10 * 60 * 1000) }
+        createdAt: { gte: new Date(Date.now() - LIST_FINGERPRINT_REUSE_MS) },
+        status: { not: "FAILED" }
       },
       orderBy: { createdAt: "desc" },
       select: {
@@ -383,11 +427,35 @@ export async function POST(request: Request) {
     });
 
     if (providerSettings?.status === "SUSPENDED" || providerSettings?.status === "INACTIVE") {
-      verificationStartLog(traceId, "provider_preflight_warning", {
+      verificationStartLog(traceId, "provider_preflight_blocked", {
         providerKey: economics.providerKey,
-        dbStatus: providerSettings.status,
-        action: "job_will_be_created_and_worker_will_mark_failed_if_provider_remains_unavailable"
+        dbStatus: providerSettings.status
       });
+      return NextResponse.json(
+        {
+          ok: false,
+          code: "provider_not_ready",
+          error: "Verification could not start right now because the verification provider is not active. Your credits were not charged. Please try again or contact support.",
+          traceId
+        },
+        { status: 503 }
+      );
+    }
+
+    if (!providerSettings?.apiKeyEncrypted && !process.env.MILLIONVERIFIER_API_KEY) {
+      verificationStartLog(traceId, "provider_preflight_blocked", {
+        providerKey: economics.providerKey,
+        reason: "missing_api_key"
+      });
+      return NextResponse.json(
+        {
+          ok: false,
+          code: "provider_not_ready",
+          error: "Verification could not start right now because the verification provider is not configured. Your credits were not charged. Please contact support.",
+          traceId
+        },
+        { status: 503 }
+      );
     }
 
     verificationStartLog(traceId, "job_creation_attempt", {
@@ -845,10 +913,7 @@ function classifyVerificationStartError(error: unknown) {
 }
 
 function buildIdempotencyKey(userId: string, emails: string[], clientKey: string) {
-  if (clientKey.length >= 12 && clientKey.length <= 160) {
-    return createHash("sha256").update(`${userId}:${clientKey}`).digest("hex");
-  }
-
+  void clientKey;
   return createHash("sha256")
     .update(`${userId}:${emails.join("\n")}`)
     .digest("hex");

@@ -470,6 +470,7 @@ async function processBulkVerificationJob(input: {
     await updateBulkJobProgress({
       jobId: input.job.id,
       currentMetadata: input.job.metadataJson,
+      nextStatus: "QUEUED",
       info: {
         ...upload,
         ok: 0,
@@ -524,6 +525,7 @@ async function processBulkVerificationJob(input: {
   await updateBulkJobProgress({
     jobId: input.job.id,
     currentMetadata: input.job.metadataJson,
+    nextStatus: isBulkProviderComplete(info, bulkEmails.length) ? "PROCESSING" : "QUEUED",
     info,
     extraMetadata: {
       providerMode: "bulk",
@@ -853,19 +855,20 @@ async function failVerificationJob(jobId: string, error: unknown) {
 
   if (!job) return;
   const processedCount = await prisma.verificationEmailResult.count({ where: { verificationJobId: job.id } });
-  const finalStatus = processedCount > 0 ? "PARTIAL_FAILED" : "FAILED";
-  const requestedRefundAmount = Math.max(0, job.creditsReserved - processedCount);
+  const chargeableCount = Math.max(processedCount, job.creditsUsed);
+  const finalStatus = chargeableCount > 0 ? "PARTIAL_FAILED" : "FAILED";
+  const requestedRefundAmount = Math.max(0, job.creditsReserved - chargeableCount);
 
   await prisma.verificationJob.update({
     where: { id: job.id },
     data: {
       status: finalStatus,
       processedCount,
-      creditsUsed: processedCount,
-      progressPercent: computeProgress(processedCount, job.uniqueEmails),
+      creditsUsed: chargeableCount,
+      progressPercent: computeProgress(chargeableCount, job.uniqueEmails),
       errorMessage:
-        processedCount > 0
-          ? `${error instanceof Error ? error.message : "Verification failed."} Processed ${processedCount.toLocaleString()} emails; unprocessed credits were refunded.`
+        chargeableCount > 0
+          ? `${error instanceof Error ? error.message : "Verification failed."} ${chargeableCount.toLocaleString()} verification attempts were already processed; unprocessed credits were refunded.`
           : error instanceof Error ? error.message : "Verification failed.",
       completedAt: new Date()
     }
@@ -885,6 +888,7 @@ async function failVerificationJob(jobId: string, error: unknown) {
     provider: job.providerKey,
     status: finalStatus,
     processedCount,
+    chargeableCount,
     refundedCredits: refundResult.refundedCredits,
     message: error instanceof Error ? error.message : "Verification failed."
   });
@@ -900,8 +904,8 @@ async function failVerificationJob(jobId: string, error: unknown) {
       uniqueEmails: job.uniqueEmails,
       refundedCredits: refundResult.refundedCredits,
       errorMessage:
-        processedCount > 0
-          ? `Verification stopped after ${processedCount.toLocaleString("en-US")} processed emails.`
+        chargeableCount > 0
+          ? `Verification stopped after ${chargeableCount.toLocaleString("en-US")} verification attempts.`
           : error instanceof Error ? error.message : "Verification failed before processing started."
     }
   });
@@ -909,14 +913,45 @@ async function failVerificationJob(jobId: string, error: unknown) {
 
 export async function reserveVerificationCredits(input: { userId: string; jobId: string; amount: number }) {
   return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "VerificationJob" WHERE id = ${input.jobId} FOR UPDATE`;
+    const job = await tx.verificationJob.findFirst({
+      where: {
+        id: input.jobId,
+        userId: input.userId
+      },
+      select: {
+        creditsReserved: true,
+        creditsUsed: true
+      }
+    });
+    if (!job) {
+      return { ok: false as const, reason: "job_not_found" as const };
+    }
+    const existingUse = await tx.creditTransaction.aggregate({
+      where: {
+        userId: input.userId,
+        verificationJobId: input.jobId,
+        type: "USE"
+      },
+      _sum: { amount: true }
+    });
+    const alreadyReserved = Math.abs(Math.min(0, existingUse._sum.amount ?? 0));
+    if (alreadyReserved >= input.amount) {
+      const user = await tx.user.findUnique({
+        where: { id: input.userId },
+        select: { creditBalance: true }
+      });
+      return { ok: true as const, balanceAfter: user?.creditBalance ?? 0, alreadyReserved: true as const };
+    }
+    const amountToReserve = input.amount - alreadyReserved;
     const user = await tx.user.findUnique({
       where: { id: input.userId },
       select: { creditBalance: true }
     });
-    if (!user || user.creditBalance < input.amount) {
+    if (!user || user.creditBalance < amountToReserve) {
       return { ok: false as const };
     }
-    const balanceAfter = user.creditBalance - input.amount;
+    const balanceAfter = user.creditBalance - amountToReserve;
     await tx.user.update({
       where: { id: input.userId },
       data: { creditBalance: balanceAfter }
@@ -925,7 +960,7 @@ export async function reserveVerificationCredits(input: { userId: string; jobId:
       data: {
         userId: input.userId,
         type: "USE",
-        amount: -input.amount,
+        amount: -amountToReserve,
         balanceAfter,
         verificationJobId: input.jobId,
         note: "Email verification credits reserved"
@@ -1023,6 +1058,18 @@ export async function cancelVerificationJob(input: { userId: string; jobId: stri
     return { ok: true as const, alreadyFinal: true as const, refundedCredits: 0, processedCount: job.creditsUsed };
   }
 
+  if (job.status === "PROCESSING") {
+    console.warn("[verification-cancel-blocked-processing]", {
+      jobId: job.id,
+      providerKey: job.providerKey
+    });
+    return {
+      ok: false as const,
+      cancelBlocked: true as const,
+      error: "This verification is already processing and cannot be canceled safely. Please contact support if you need help with this job."
+    };
+  }
+
   const metadata = readJobMetadata(job.metadataJson);
   const providerFileId = metadata.providerFileId || metadata.millionVerifierFileId;
   if (providerFileId) {
@@ -1040,6 +1087,7 @@ export async function cancelVerificationJob(input: { userId: string; jobId: stri
 
   const allResults = await readAllResultsForExport(job.id);
   const processedCount = allResults.length;
+  const chargeableCount = Math.max(processedCount, job.creditsUsed);
   const resultCounts = countStatuses(allResults.map((result) => result.status));
   const exportFiles = await createVerificationExportFiles({
     jobId: job.id,
@@ -1047,21 +1095,21 @@ export async function cancelVerificationJob(input: { userId: string; jobId: stri
     allResults,
     label: "partial-canceled"
   });
-  const requestedRefundAmount = Math.max(0, job.creditsReserved - processedCount);
+  const requestedRefundAmount = Math.max(0, job.creditsReserved - chargeableCount);
 
   await prisma.verificationJob.update({
     where: { id: job.id },
     data: {
       status: "CANCELED",
       processedCount,
-      creditsUsed: processedCount,
+      creditsUsed: chargeableCount,
       validCount: resultCounts.VALID,
       invalidCount: resultCounts.INVALID,
       riskyCount: resultCounts.RISKY,
       catchAllCount: resultCounts.CATCH_ALL,
       disposableCount: resultCounts.DISPOSABLE,
       unknownCount: resultCounts.UNKNOWN,
-      progressPercent: computeProgress(processedCount, job.uniqueEmails),
+      progressPercent: computeProgress(chargeableCount, job.uniqueEmails),
       errorMessage: input.reason || "Verification job was canceled. Unused credits were refunded automatically.",
       fullReportStorageKey: exportFiles.fullReportKey,
       validExportStorageKey: exportFiles.validExportKey,
@@ -1100,6 +1148,7 @@ export async function cancelVerificationJob(input: { userId: string; jobId: stri
     jobId: job.id,
     userId: job.userId,
     processedCount,
+    chargeableCount,
     refundedCredits: refundResult.refundedCredits
   });
 
@@ -1110,6 +1159,7 @@ async function updateBulkJobProgress(input: {
   jobId: string;
   currentMetadata: Prisma.JsonValue | null;
   info: VerificationBulkInfoResult;
+  nextStatus?: "QUEUED" | "PROCESSING";
   extraMetadata?: Record<string, unknown>;
 }) {
   await prisma.verificationJob.updateMany({
@@ -1118,8 +1168,9 @@ async function updateBulkJobProgress(input: {
       status: { in: ["QUEUED", "PROCESSING"] }
     },
     data: {
-      status: "PROCESSING",
+      status: input.nextStatus || "PROCESSING",
       processedCount: input.info.verified,
+      creditsUsed: Math.max(0, Math.min(input.info.verified, input.info.uniqueEmails || input.info.totalRows || input.info.verified)),
       validCount: input.info.ok,
       invalidCount: input.info.invalid,
       riskyCount: 0,
