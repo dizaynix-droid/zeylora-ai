@@ -6,12 +6,14 @@ import { buildVerificationCsv, filterResultsForExport } from "@/lib/verification
 import { ensureVerificationDatabaseReady } from "@/lib/verification/db-readiness";
 import { parseEmailList } from "@/lib/verification/email-parser";
 import { getVerificationProvider } from "@/lib/verification/providers";
-import type { VerificationProviderResult } from "@/lib/verification/types";
+import type { ParsedEmailList, VerificationBulkInfoResult, VerificationProvider, VerificationProviderResult } from "@/lib/verification/types";
 
 const DEFAULT_WORKER_EMAILS_PER_RUN = 1000;
 const DEFAULT_PROVIDER_BATCH_SIZE = 500;
 const DEFAULT_WORKER_TIME_BUDGET_MS = 22_000;
 const DEFAULT_BATCH_MAX_RETRIES = 3;
+const DEFAULT_BULK_EMAIL_THRESHOLD = 500;
+const DEFAULT_BULK_POLL_INTERVAL_MS = 15_000;
 
 export type VerificationWorkerResult = {
   ok: boolean;
@@ -30,14 +32,27 @@ export async function getVerificationJobProcessingState(jobId: string) {
       status: true,
       uniqueEmails: true,
       processedCount: true,
-      progressPercent: true
+      progressPercent: true,
+      metadataJson: true
     }
   });
 
   if (!job) return null;
+  const metadata = readJobMetadata(job.metadataJson);
+  const isBulkJob = metadata.providerMode === "bulk";
+  const remainingEmails = isBulkJob && (job.status === "QUEUED" || job.status === "PROCESSING")
+    ? Math.max(1, job.uniqueEmails - job.processedCount)
+    : Math.max(0, job.uniqueEmails - job.processedCount);
+  const nextPollDelayMs = isBulkJob ? computeBulkPollDelayMs(metadata) : 0;
+
   return {
-    ...job,
-    remainingEmails: Math.max(0, job.uniqueEmails - job.processedCount),
+    id: job.id,
+    status: job.status,
+    uniqueEmails: job.uniqueEmails,
+    processedCount: job.processedCount,
+    progressPercent: job.progressPercent,
+    remainingEmails,
+    nextPollDelayMs,
     active: job.status === "QUEUED" || job.status === "PROCESSING"
   };
 }
@@ -110,6 +125,8 @@ export async function processVerificationJobChunk(jobId: string, options: { maxE
     },
     select: {
       id: true,
+      userId: true,
+      originalFilename: true,
       inputStorageKey: true,
       providerKey: true,
       uniqueEmails: true,
@@ -192,6 +209,15 @@ export async function processVerificationJobChunk(jobId: string, options: { maxE
     apiKey: providerSettings?.apiKeyEncrypted,
     baseUrl: readProviderBaseUrl(providerSettings?.configJson)
   });
+
+  if (shouldUseBulkProvider(job.metadataJson, parsed.uniqueEmails.length, provider)) {
+    return processBulkVerificationJob({
+      job,
+      parsed,
+      provider,
+      existingResultCount: processedCount
+    });
+  }
 
   let processedEmails = 0;
   let batchCount = 0;
@@ -343,6 +369,150 @@ export async function processVerificationJobChunk(jobId: string, options: { maxE
   return { processedEmails, completed };
 }
 
+async function processBulkVerificationJob(input: {
+  job: {
+    id: string;
+    userId: string;
+    originalFilename: string | null;
+    providerKey: string;
+    uniqueEmails: number;
+    processedCount: number;
+    metadataJson: Prisma.JsonValue | null;
+  };
+  parsed: ParsedEmailList;
+  provider: VerificationProvider;
+  existingResultCount: number;
+}) {
+  if (!input.provider.uploadBulkFile || !input.provider.getBulkFileInfo || !input.provider.downloadBulkReport) {
+    throw new Error(`${input.job.providerKey} does not support bulk verification.`);
+  }
+
+  const metadata = readJobMetadata(input.job.metadataJson);
+  const providerFileId = metadata.millionVerifierFileId || metadata.providerFileId;
+
+  if (!providerFileId) {
+    const upload = await input.provider.uploadBulkFile({
+      fileName: input.job.originalFilename || `zeylora-${input.job.id}.csv`,
+      emails: input.parsed.uniqueEmails
+    });
+
+    await updateBulkJobProgress({
+      jobId: input.job.id,
+      currentMetadata: input.job.metadataJson,
+      info: {
+        ...upload,
+        ok: 0,
+        catchAll: 0,
+        disposable: 0,
+        invalid: 0,
+        unknown: 0,
+        unverified: Math.max(0, upload.uniqueEmails - upload.verified)
+      },
+      extraMetadata: {
+        providerMode: "bulk",
+        providerFileId: upload.providerFileId,
+        millionVerifierFileId: upload.providerFileId,
+        bulkUploadedAt: new Date().toISOString()
+      }
+    });
+
+    return { processedEmails: 0, completed: false };
+  }
+
+  let info: VerificationBulkInfoResult;
+  try {
+    info = await input.provider.getBulkFileInfo(providerFileId);
+  } catch (error) {
+    await prisma.verificationJob.update({
+      where: { id: input.job.id },
+      data: {
+        status: "QUEUED",
+        errorMessage: "Provider progress could not be refreshed yet. The job will retry automatically.",
+        metadataJson: mergeJobMetadata(input.job.metadataJson, {
+          providerMode: "bulk",
+          providerFileId,
+          millionVerifierFileId: providerFileId,
+          lastProviderSyncAt: new Date().toISOString(),
+          lastProviderSyncError: error instanceof Error ? error.message : "Provider progress refresh failed"
+        })
+      }
+    });
+    console.warn("[verification-bulk-info-retry]", {
+      jobId: input.job.id,
+      providerFileId,
+      message: error instanceof Error ? error.message : "Provider progress refresh failed"
+    });
+    return { processedEmails: 0, completed: false };
+  }
+
+  await updateBulkJobProgress({
+    jobId: input.job.id,
+    currentMetadata: input.job.metadataJson,
+    info,
+    extraMetadata: {
+      providerMode: "bulk",
+      providerFileId,
+      millionVerifierFileId: providerFileId
+    }
+  });
+
+  if (isBulkProviderFailure(info)) {
+    throw new Error(`MillionVerifier bulk job failed with status ${info.providerStatus}.`);
+  }
+
+  if (!isBulkProviderComplete(info, input.parsed.uniqueEmails.length)) {
+    return {
+      processedEmails: Math.max(0, info.verified - input.existingResultCount),
+      completed: false
+    };
+  }
+
+  let providerResults: VerificationProviderResult[];
+  try {
+    providerResults = await input.provider.downloadBulkReport(providerFileId);
+  } catch (error) {
+    await prisma.verificationJob.update({
+      where: { id: input.job.id },
+      data: {
+        status: "QUEUED",
+        progressPercent: 95,
+        errorMessage: "Provider finished verification; report download will retry automatically.",
+        metadataJson: mergeJobMetadata(input.job.metadataJson, {
+          providerMode: "bulk",
+          providerFileId,
+          millionVerifierFileId: providerFileId,
+          providerStatus: info.providerStatus,
+          providerPercent: info.percent,
+          lastProviderSyncAt: new Date().toISOString(),
+          lastProviderReportDownloadError: error instanceof Error ? error.message : "Provider report download failed"
+        })
+      }
+    });
+    console.warn("[verification-bulk-report-retry]", {
+      jobId: input.job.id,
+      providerFileId,
+      message: error instanceof Error ? error.message : "Provider report download failed"
+    });
+    return { processedEmails: 0, completed: false };
+  }
+
+  const completeResults = fillMissingBulkResults(input.parsed.uniqueEmails, providerResults);
+  await createVerificationResultsInChunks(input.job.id, completeResults);
+  await prisma.verificationBatch.updateMany({
+    where: { verificationJobId: input.job.id, status: { not: "COMPLETED" } },
+    data: {
+      status: "COMPLETED",
+      completedAt: new Date()
+    }
+  });
+  await completeVerificationJob(input.job.id);
+
+  return {
+    processedEmails: Math.max(0, completeResults.length - input.existingResultCount),
+    completed: true
+  };
+}
+
 async function ensureVerificationBatches(jobId: string, uniqueEmailCount: number, batchSize: number) {
   const existingCount = await prisma.verificationBatch.count({ where: { verificationJobId: jobId } });
   if (existingCount > 0 || uniqueEmailCount <= 0) return;
@@ -444,10 +614,15 @@ async function claimNextVerificationJob(jobId?: string | null) {
     where: {
       deletedAt: null,
       ...(jobId ? { id: jobId } : {}),
-      OR: [
-        { status: "QUEUED" },
-        { status: "PROCESSING", updatedAt: { lt: staleBefore } }
-      ]
+      OR: jobId
+        ? [
+            { status: "QUEUED" },
+            { status: "PROCESSING" }
+          ]
+        : [
+            { status: "QUEUED" },
+            { status: "PROCESSING", updatedAt: { lt: staleBefore } }
+          ]
     },
     orderBy: { createdAt: "asc" },
     select: {
@@ -530,6 +705,12 @@ async function completeVerificationJob(jobId: string) {
       progressPercent: 100,
       processedCount: job.uniqueEmails,
       creditsUsed: job.uniqueEmails,
+      validCount: resultCounts.VALID,
+      invalidCount: resultCounts.INVALID,
+      riskyCount: resultCounts.RISKY,
+      catchAllCount: resultCounts.CATCH_ALL,
+      disposableCount: resultCounts.DISPOSABLE,
+      unknownCount: resultCounts.UNKNOWN,
       fullReportStorageKey: fullReportKey,
       validExportStorageKey: validExportKey,
       invalidExportStorageKey: invalidExportKey,
@@ -704,6 +885,48 @@ export async function refundVerificationCredits(input: { userId: string; jobId: 
   });
 }
 
+async function updateBulkJobProgress(input: {
+  jobId: string;
+  currentMetadata: Prisma.JsonValue | null;
+  info: VerificationBulkInfoResult;
+  extraMetadata?: Record<string, unknown>;
+}) {
+  await prisma.verificationJob.update({
+    where: { id: input.jobId },
+    data: {
+      status: "PROCESSING",
+      processedCount: input.info.verified,
+      validCount: input.info.ok,
+      invalidCount: input.info.invalid,
+      riskyCount: 0,
+      catchAllCount: input.info.catchAll,
+      disposableCount: input.info.disposable,
+      unknownCount: input.info.unknown,
+      progressPercent: computeBulkProgress(input.info),
+      errorMessage: null,
+      metadataJson: mergeJobMetadata(input.currentMetadata, {
+        ...(input.extraMetadata || {}),
+        providerStatus: input.info.providerStatus,
+        providerPercent: input.info.percent,
+        providerVerified: input.info.verified,
+        providerUnverified: input.info.unverified,
+        providerEstimatedTimeSec: input.info.estimatedTimeSec ?? null,
+        lastProviderSyncAt: new Date().toISOString()
+      })
+    }
+  });
+}
+
+async function createVerificationResultsInChunks(jobId: string, results: VerificationProviderResult[]) {
+  const chunkSize = 5_000;
+  for (let index = 0; index < results.length; index += chunkSize) {
+    await prisma.verificationEmailResult.createMany({
+      data: results.slice(index, index + chunkSize).map((result) => toDbResult(jobId, result)),
+      skipDuplicates: true
+    });
+  }
+}
+
 async function readAllResultsForExport(jobId: string) {
   const pageSize = 5_000;
   const rows = [];
@@ -786,6 +1009,50 @@ function computeProgress(processed: number, total: number) {
   return Math.min(95, Math.max(15, Math.round((processed / total) * 90)));
 }
 
+function computeBulkProgress(info: VerificationBulkInfoResult) {
+  if (info.percent > 0) return Math.min(95, Math.max(10, Math.round(info.percent * 0.95)));
+  const providerTotal = info.uniqueEmails || info.totalRows;
+  if (providerTotal > 0 && info.verified > 0) return computeProgress(info.verified, providerTotal);
+  return 10;
+}
+
+function shouldUseBulkProvider(metadataJson: unknown, uniqueEmailCount: number, provider: VerificationProvider) {
+  if (!provider.uploadBulkFile || !provider.getBulkFileInfo || !provider.downloadBulkReport) return false;
+  const metadata = readJobMetadata(metadataJson);
+  if (metadata.providerMode === "single") return false;
+  if (metadata.providerMode === "bulk" || metadata.providerFileId || metadata.millionVerifierFileId) return true;
+  const threshold = Math.max(1, Number(process.env.VERIFICATION_BULK_EMAIL_THRESHOLD || DEFAULT_BULK_EMAIL_THRESHOLD));
+  return uniqueEmailCount >= threshold;
+}
+
+function isBulkProviderComplete(info: VerificationBulkInfoResult, fallbackTotal: number) {
+  const status = info.providerStatus.toLowerCase();
+  if (["completed", "complete", "finished", "done"].includes(status)) return true;
+  const expectedTotal = info.uniqueEmails || info.totalRows || fallbackTotal;
+  return info.percent >= 100 || (expectedTotal > 0 && info.verified >= expectedTotal && info.unverified === 0);
+}
+
+function isBulkProviderFailure(info: VerificationBulkInfoResult) {
+  const status = info.providerStatus.toLowerCase();
+  return ["failed", "failure", "error", "cancelled", "canceled"].includes(status);
+}
+
+function fillMissingBulkResults(emails: string[], providerResults: VerificationProviderResult[]) {
+  const byEmail = new Map(providerResults.map((result) => [result.email.toLowerCase(), result]));
+  for (const email of emails) {
+    const normalized = email.toLowerCase();
+    if (!byEmail.has(normalized)) {
+      byEmail.set(normalized, {
+        email,
+        status: "UNKNOWN",
+        reason: "Provider report did not include this email.",
+        raw: { source: "zeylora_missing_bulk_report_row" }
+      });
+    }
+  }
+  return emails.map((email) => byEmail.get(email.toLowerCase())!);
+}
+
 function readBoolean(value: unknown) {
   return typeof value === "boolean" ? value : null;
 }
@@ -801,6 +1068,20 @@ function readInlineEmails(value: unknown) {
   const candidate = (value as { inlineEmails?: unknown }).inlineEmails;
   if (!Array.isArray(candidate)) return [];
   return candidate.filter((email): email is string => typeof email === "string" && email.includes("@"));
+}
+
+function readJobMetadata(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {} as Record<string, string>;
+  }
+  return value as Record<string, string>;
+}
+
+function computeBulkPollDelayMs(metadata: Record<string, string>) {
+  const lastSyncAt = metadata.lastProviderSyncAt ? Date.parse(metadata.lastProviderSyncAt) : 0;
+  if (!lastSyncAt || Number.isNaN(lastSyncAt)) return 0;
+  const pollIntervalMs = Math.max(5_000, Number(process.env.VERIFICATION_BULK_POLL_INTERVAL_MS || DEFAULT_BULK_POLL_INTERVAL_MS));
+  return Math.max(0, pollIntervalMs - (Date.now() - lastSyncAt));
 }
 
 function mergeJobMetadata(current: unknown, next: Record<string, unknown>) {

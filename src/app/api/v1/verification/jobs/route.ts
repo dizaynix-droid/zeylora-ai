@@ -11,6 +11,7 @@ import { getVerificationEconomicsSnapshot } from "@/lib/verification/economics";
 import { getVerificationJobProcessingState, processVerificationQueue, refundVerificationCredits, reserveVerificationCredits } from "@/lib/verification/processor";
 
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
 const MAX_UPLOAD_BYTES = Number(process.env.MAX_VERIFICATION_UPLOAD_BYTES || 25 * 1024 * 1024);
 const INLINE_INPUT_EMAIL_LIMIT = Number(process.env.VERIFICATION_INLINE_INPUT_EMAIL_LIMIT || 5_000);
@@ -918,8 +919,13 @@ async function scheduleWorkerContinuationIfNeeded(input: {
     traceId: input.traceId,
     jobId: input.jobId,
     remainingEmails: state.remainingEmails,
+    delayMs: state.nextPollDelayMs,
     chainDepth: input.chainDepth
   });
+
+  if (state.nextPollDelayMs > 0) {
+    await delay(state.nextPollDelayMs);
+  }
 
   void fetch(url, {
     method: "POST",
@@ -935,4 +941,8 @@ async function scheduleWorkerContinuationIfNeeded(input: {
       message: error instanceof Error ? error.message : "Worker continuation request failed"
     });
   });
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

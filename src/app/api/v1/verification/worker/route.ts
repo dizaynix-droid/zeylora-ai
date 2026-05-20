@@ -4,6 +4,7 @@ import { getVerificationJobProcessingState, processVerificationQueue } from "@/l
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 300;
 
 export async function GET(request: Request) {
   return runWorker(request);
@@ -107,8 +108,13 @@ async function scheduleWorkerContinuationIfNeeded(input: {
   console.info("[verification-worker-continuation-scheduled]", {
     jobId: input.jobId,
     remainingEmails: state.remainingEmails,
+    delayMs: state.nextPollDelayMs,
     chainDepth: input.chainDepth
   });
+
+  if (state.nextPollDelayMs > 0) {
+    await delay(state.nextPollDelayMs);
+  }
 
   void fetch(url, {
     method: "POST",
@@ -123,6 +129,10 @@ async function scheduleWorkerContinuationIfNeeded(input: {
       message: error instanceof Error ? error.message : "Worker continuation request failed"
     });
   });
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function isAuthorizedWorkerRequest(request: Request) {

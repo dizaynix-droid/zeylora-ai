@@ -27,6 +27,19 @@ EMAIL_FROM="Zeylora AI <support@zeylora.ai>"
 
 Verification started, verification completed/failed, payment, credit, and support emails use Resend. If these variables are missing, the app will keep running but email events will be marked failed in admin/system logs.
 
+### Email Verification Provider
+
+```env
+MILLIONVERIFIER_API_KEY="YOUR_MILLIONVERIFIER_KEY"
+MILLIONVERIFIER_API_BASE_URL="https://api.millionverifier.com/api/v3"
+MILLIONVERIFIER_BULK_API_BASE_URL="https://bulkapi.millionverifier.com/bulkapi/v2"
+MILLIONVERIFIER_COST_PER_EMAIL="0.0001"
+VERIFICATION_BULK_EMAIL_THRESHOLD="500"
+VERIFICATION_BULK_POLL_INTERVAL_MS="15000"
+```
+
+Lists at or above `VERIFICATION_BULK_EMAIL_THRESHOLD` are sent to MillionVerifier Bulk API, then polled until the provider report is ready. Smaller lists can still use the real-time API path.
+
 ### Supabase + Prisma
 
 ```env
