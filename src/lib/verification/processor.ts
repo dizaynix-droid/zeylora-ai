@@ -14,6 +14,7 @@ const DEFAULT_WORKER_TIME_BUDGET_MS = 22_000;
 const DEFAULT_BATCH_MAX_RETRIES = 3;
 const DEFAULT_BULK_EMAIL_THRESHOLD = 500;
 const DEFAULT_BULK_POLL_INTERVAL_MS = 15_000;
+const DEFAULT_WORKER_STALE_MS = 10 * 60 * 1000;
 
 export type VerificationWorkerResult = {
   ok: boolean;
@@ -406,15 +407,65 @@ async function processBulkVerificationJob(input: {
     : await getRemainingEmailsForBulkUpload(input.job.id, input.parsed.uniqueEmails);
 
   if (!providerFileId) {
+    if (metadata.bulkUploadStartedAt) {
+      await prisma.verificationJob.update({
+        where: { id: input.job.id },
+        data: {
+          status: "FAILED",
+          errorMessage: "Provider upload was started, but no provider file id was recorded. Support must review this job before retrying to avoid duplicate provider charges.",
+          completedAt: new Date(),
+          metadataJson: mergeJobMetadata(input.job.metadataJson, {
+            providerMode: "bulk",
+            providerUploadReviewRequired: true,
+            providerUploadReviewReason: "missing_provider_file_id_after_upload_start",
+            providerUploadReviewAt: new Date().toISOString()
+          })
+        }
+      });
+      throw new Error("Provider upload state is uncertain. Support review is required before retrying.");
+    }
+
     if (bulkEmails.length === 0) {
       await completeVerificationJob(input.job.id);
       return { processedEmails: 0, completed: true };
     }
 
-    const upload = await input.provider.uploadBulkFile({
-      fileName: input.job.originalFilename || `zeylora-${input.job.id}.csv`,
-      emails: bulkEmails
+    const bulkUploadStartedAt = new Date().toISOString();
+    await prisma.verificationJob.update({
+      where: { id: input.job.id },
+      data: {
+        status: "PROCESSING",
+        errorMessage: null,
+        metadataJson: mergeJobMetadata(input.job.metadataJson, {
+          providerMode: "bulk",
+          bulkUploadStartedAt,
+          bulkUploadEmailCount: bulkEmails.length
+        })
+      }
     });
+
+    let upload;
+    try {
+      upload = await input.provider.uploadBulkFile({
+        fileName: input.job.originalFilename || `zeylora-${input.job.id}.csv`,
+        emails: bulkEmails
+      });
+    } catch (error) {
+      await prisma.verificationJob.update({
+        where: { id: input.job.id },
+        data: {
+          errorMessage: "Provider upload failed before a file id was recorded. Support must review this job before retrying.",
+          metadataJson: mergeJobMetadata(input.job.metadataJson, {
+            providerMode: "bulk",
+            bulkUploadStartedAt,
+            bulkUploadFailedAt: new Date().toISOString(),
+            bulkUploadError: error instanceof Error ? error.message : "Provider bulk upload failed",
+            providerUploadReviewRequired: true
+          })
+        }
+      });
+      throw error;
+    }
 
     await updateBulkJobProgress({
       jobId: input.job.id,
@@ -435,7 +486,9 @@ async function processBulkVerificationJob(input: {
         bulkInputEmails: bulkEmails,
         bulkInputEmailCount: bulkEmails.length,
         preBulkProcessedCount: input.existingResultCount,
-        bulkUploadedAt: new Date().toISOString()
+        bulkUploadStartedAt,
+        bulkUploadedAt: new Date().toISOString(),
+        providerUploadReviewRequired: false
       }
     });
 
@@ -632,20 +685,16 @@ async function markVerificationBatchFailed(batchId: string, error: unknown, retr
 }
 
 async function claimNextVerificationJob(jobId?: string | null) {
-  const staleBefore = new Date(Date.now() - Number(process.env.VERIFICATION_WORKER_STALE_MS || 60_000));
+  const staleBefore = new Date(Date.now() - Number(process.env.VERIFICATION_WORKER_STALE_MS || DEFAULT_WORKER_STALE_MS));
+  const activeCondition = [
+    { status: "QUEUED" as const },
+    { status: "PROCESSING" as const, updatedAt: { lt: staleBefore } }
+  ];
   const candidate = await prisma.verificationJob.findFirst({
     where: {
       deletedAt: null,
       ...(jobId ? { id: jobId } : {}),
-      OR: jobId
-        ? [
-            { status: "QUEUED" },
-            { status: "PROCESSING" }
-          ]
-        : [
-            { status: "QUEUED" },
-            { status: "PROCESSING", updatedAt: { lt: staleBefore } }
-          ]
+      OR: activeCondition
     },
     orderBy: { createdAt: "asc" },
     select: {
@@ -805,15 +854,7 @@ async function failVerificationJob(jobId: string, error: unknown) {
   if (!job) return;
   const processedCount = await prisma.verificationEmailResult.count({ where: { verificationJobId: job.id } });
   const finalStatus = processedCount > 0 ? "PARTIAL_FAILED" : "FAILED";
-  const refundAmount = Math.max(0, job.creditsReserved - processedCount);
-  if (refundAmount > 0) {
-    await refundVerificationCredits({
-      userId: job.userId,
-      jobId: job.id,
-      amount: refundAmount,
-      note: "Verification job failed refund"
-    });
-  }
+  const requestedRefundAmount = Math.max(0, job.creditsReserved - processedCount);
 
   await prisma.verificationJob.update({
     where: { id: job.id },
@@ -830,12 +871,21 @@ async function failVerificationJob(jobId: string, error: unknown) {
     }
   });
 
+  const refundResult = requestedRefundAmount > 0
+    ? await refundVerificationCredits({
+        userId: job.userId,
+        jobId: job.id,
+        amount: requestedRefundAmount,
+        note: "Verification job failed refund"
+      })
+    : { refundedCredits: 0 };
+
   console.error("[verification-worker-failed]", {
     jobId: job.id,
     provider: job.providerKey,
     status: finalStatus,
     processedCount,
-    refundedCredits: refundAmount,
+    refundedCredits: refundResult.refundedCredits,
     message: error instanceof Error ? error.message : "Verification failed."
   });
 
@@ -848,7 +898,7 @@ async function failVerificationJob(jobId: string, error: unknown) {
       jobId: job.id,
       fileName: job.originalFilename || "Email list",
       uniqueEmails: job.uniqueEmails,
-      refundedCredits: refundAmount,
+      refundedCredits: refundResult.refundedCredits,
       errorMessage:
         processedCount > 0
           ? `Verification stopped after ${processedCount.toLocaleString("en-US")} processed emails.`
@@ -886,13 +936,47 @@ export async function reserveVerificationCredits(input: { userId: string; jobId:
 }
 
 export async function refundVerificationCredits(input: { userId: string; jobId: string; amount: number; note: string }) {
-  await prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "VerificationJob" WHERE id = ${input.jobId} FOR UPDATE`;
+    const job = await tx.verificationJob.findFirst({
+      where: {
+        id: input.jobId,
+        userId: input.userId
+      },
+      select: {
+        creditsReserved: true,
+        creditsUsed: true
+      }
+    });
+    if (!job) return { refundedCredits: 0, balanceAfter: null as number | null };
+    const existingRefund = await tx.creditTransaction.aggregate({
+      where: {
+        userId: input.userId,
+        verificationJobId: input.jobId,
+        type: "REFUND"
+      },
+      _sum: { amount: true }
+    });
+    const alreadyRefunded = Math.max(0, existingRefund._sum.amount ?? 0);
+    const refundableCredits = Math.max(0, job.creditsReserved - job.creditsUsed - alreadyRefunded);
+    const refundAmount = Math.max(0, Math.min(input.amount, refundableCredits));
+    if (refundAmount <= 0) {
+      console.warn("[verification-credit-refund-skipped]", {
+        userId: input.userId,
+        jobId: input.jobId,
+        requestedAmount: input.amount,
+        creditsReserved: job.creditsReserved,
+        creditsUsed: job.creditsUsed,
+        alreadyRefunded
+      });
+      return { refundedCredits: 0, balanceAfter: null as number | null };
+    }
     const user = await tx.user.findUnique({
       where: { id: input.userId },
       select: { creditBalance: true }
     });
-    if (!user) return;
-    const balanceAfter = user.creditBalance + input.amount;
+    if (!user) return { refundedCredits: 0, balanceAfter: null as number | null };
+    const balanceAfter = user.creditBalance + refundAmount;
     await tx.user.update({
       where: { id: input.userId },
       data: { creditBalance: balanceAfter }
@@ -901,12 +985,13 @@ export async function refundVerificationCredits(input: { userId: string; jobId: 
       data: {
         userId: input.userId,
         type: "REFUND",
-        amount: input.amount,
+        amount: refundAmount,
         balanceAfter,
         verificationJobId: input.jobId,
         note: input.note
       }
     });
+    return { refundedCredits: refundAmount, balanceAfter };
   });
 }
 
@@ -941,28 +1026,16 @@ export async function cancelVerificationJob(input: { userId: string; jobId: stri
   const metadata = readJobMetadata(job.metadataJson);
   const providerFileId = metadata.providerFileId || metadata.millionVerifierFileId;
   if (providerFileId) {
-    const provider = getVerificationProvider(job.providerKey);
-    if (!provider.stopBulkFile) {
-      return {
-        ok: false as const,
-        cancelBlocked: true as const,
-        error: "This provider job is already running and cannot be canceled automatically. Please contact support."
-      };
-    }
-    try {
-      await provider.stopBulkFile(providerFileId);
-    } catch (error) {
-      console.warn("[verification-provider-cancel-failed]", {
-        jobId: job.id,
-        providerFileId,
-        message: error instanceof Error ? error.message : "Provider cancel failed"
-      });
-      return {
-        ok: false as const,
-        cancelBlocked: true as const,
-        error: "This provider job is already processing and could not be canceled safely. Please contact support."
-      };
-    }
+    console.warn("[verification-cancel-blocked-provider-started]", {
+      jobId: job.id,
+      providerFileId,
+      providerKey: job.providerKey
+    });
+    return {
+      ok: false as const,
+      cancelBlocked: true as const,
+      error: "This verification is already running at the provider and cannot be canceled safely. Please contact support if you need help with this job."
+    };
   }
 
   const allResults = await readAllResultsForExport(job.id);
@@ -974,15 +1047,7 @@ export async function cancelVerificationJob(input: { userId: string; jobId: stri
     allResults,
     label: "partial-canceled"
   });
-  const refundAmount = Math.max(0, job.creditsReserved - processedCount);
-  if (refundAmount > 0) {
-    await refundVerificationCredits({
-      userId: job.userId,
-      jobId: job.id,
-      amount: refundAmount,
-      note: "Verification job canceled refund"
-    });
-  }
+  const requestedRefundAmount = Math.max(0, job.creditsReserved - processedCount);
 
   await prisma.verificationJob.update({
     where: { id: job.id },
@@ -997,7 +1062,7 @@ export async function cancelVerificationJob(input: { userId: string; jobId: stri
       disposableCount: resultCounts.DISPOSABLE,
       unknownCount: resultCounts.UNKNOWN,
       progressPercent: computeProgress(processedCount, job.uniqueEmails),
-      errorMessage: input.reason || `Verification job was canceled. ${refundAmount.toLocaleString("en-US")} unused credits were refunded.`,
+      errorMessage: input.reason || "Verification job was canceled. Unused credits were refunded automatically.",
       fullReportStorageKey: exportFiles.fullReportKey,
       validExportStorageKey: exportFiles.validExportKey,
       invalidExportStorageKey: exportFiles.invalidExportKey,
@@ -1005,7 +1070,26 @@ export async function cancelVerificationJob(input: { userId: string; jobId: stri
       completedAt: new Date(),
       metadataJson: mergeJobMetadata(job.metadataJson, {
         canceledAt: new Date().toISOString(),
-        refundedCredits: refundAmount,
+        exportRows: allResults.length,
+        ...(exportFiles.exportStorageError ? { exportStorageError: exportFiles.exportStorageError } : {})
+      })
+    }
+  });
+  const refundResult = requestedRefundAmount > 0
+    ? await refundVerificationCredits({
+        userId: job.userId,
+        jobId: job.id,
+        amount: requestedRefundAmount,
+        note: "Verification job canceled refund"
+      })
+    : { refundedCredits: 0 };
+  await prisma.verificationJob.update({
+    where: { id: job.id },
+    data: {
+      errorMessage: input.reason || `Verification job was canceled. ${refundResult.refundedCredits.toLocaleString("en-US")} unused credits were refunded automatically.`,
+      metadataJson: mergeJobMetadata(job.metadataJson, {
+        canceledAt: new Date().toISOString(),
+        refundedCredits: refundResult.refundedCredits,
         exportRows: allResults.length,
         ...(exportFiles.exportStorageError ? { exportStorageError: exportFiles.exportStorageError } : {})
       })
@@ -1016,10 +1100,10 @@ export async function cancelVerificationJob(input: { userId: string; jobId: stri
     jobId: job.id,
     userId: job.userId,
     processedCount,
-    refundedCredits: refundAmount
+    refundedCredits: refundResult.refundedCredits
   });
 
-  return { ok: true as const, refundedCredits: refundAmount, processedCount };
+  return { ok: true as const, refundedCredits: refundResult.refundedCredits, processedCount };
 }
 
 async function updateBulkJobProgress(input: {
