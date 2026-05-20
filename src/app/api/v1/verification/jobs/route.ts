@@ -1,8 +1,10 @@
 import { after, NextResponse } from "next/server";
+import { createHash } from "node:crypto";
 import { checkRateLimit, rateLimitResponse } from "@/lib/abuse/rate-limit";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db";
 import { getStorageConfig, uploadPrivateObject } from "@/lib/storage/s3-client";
+import { ensureVerificationDatabaseReady } from "@/lib/verification/db-readiness";
 import { parseEmailList, looksLikeSupportedListFile } from "@/lib/verification/email-parser";
 import { getVerificationEconomicsSnapshot } from "@/lib/verification/economics";
 import { processVerificationQueue, refundVerificationCredits, reserveVerificationCredits } from "@/lib/verification/processor";
@@ -12,6 +14,8 @@ export const runtime = "nodejs";
 const MAX_UPLOAD_BYTES = Number(process.env.MAX_VERIFICATION_UPLOAD_BYTES || 25 * 1024 * 1024);
 const INLINE_INPUT_EMAIL_LIMIT = Number(process.env.VERIFICATION_INLINE_INPUT_EMAIL_LIMIT || 5_000);
 const INLINE_INPUT_BYTES_LIMIT = Number(process.env.VERIFICATION_INLINE_INPUT_BYTES_LIMIT || 750_000);
+const MAX_PASTE_EMAILS = Number(process.env.MAX_VERIFICATION_PASTE_EMAILS || 5_000);
+const MAX_EMAILS_PER_JOB = Number(process.env.MAX_VERIFICATION_EMAILS_PER_JOB || 50_000);
 const STARTER_WORKER_EMAIL_LIMIT = Number(process.env.VERIFICATION_STARTER_WORKER_EMAIL_LIMIT || 1_000);
 const STARTER_WORKER_TIME_BUDGET_MS = Number(process.env.VERIFICATION_STARTER_WORKER_TIME_BUDGET_MS || 25_000);
 
@@ -22,6 +26,15 @@ export async function GET(request: Request) {
   if (!user) {
     return NextResponse.json({ ok: false, error: "Authentication required." }, { status: 401 });
   }
+
+  await ensureVerificationDatabaseReady("jobs-list").catch((error) => {
+    console.error("[verification-db-readiness-failed]", {
+      scope: "jobs-list",
+      message: error instanceof Error ? error.message : String(error || "Unknown readiness error"),
+      stack: error instanceof Error ? error.stack : null
+    });
+    throw error;
+  });
 
   const url = new URL(request.url);
   const page = Math.max(1, Number(url.searchParams.get("page") || 1));
@@ -103,7 +116,32 @@ export async function POST(request: Request) {
   });
 
   if (!user) {
-    return NextResponse.json({ ok: false, error: "Sign in before verifying a list.", code: "unauthenticated", traceId }, { status: 401 });
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "Please sign in to start verification. Your list has been saved and will be restored after login.",
+        code: "unauthenticated",
+        traceId
+      },
+      { status: 401 }
+    );
+  }
+
+  try {
+    verificationStartLog(traceId, "database_readiness_attempt", { userId: user.id });
+    await ensureVerificationDatabaseReady(traceId);
+    verificationStartLog(traceId, "database_readiness_ready", { userId: user.id });
+  } catch (error) {
+    verificationStartError(traceId, "database_readiness_failed", error, { userId: user.id });
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "database_not_ready",
+        error: "Verification database is not ready yet. Please contact support.",
+        traceId
+      },
+      { status: 503 }
+    );
   }
 
   const rateLimit = checkRateLimit(request, {
@@ -123,8 +161,10 @@ export async function POST(request: Request) {
   const formData = await request.formData();
   const file = formData.get("file");
   const pasted = String(formData.get("emails") || "");
+  const clientIdempotencyKey = String(formData.get("idempotencyKey") || request.headers.get("x-idempotency-key") || "").trim();
   let sourceText = pasted;
   let originalFilename: string | null = null;
+  const sourceType = file instanceof File && file.size > 0 ? "upload" : "paste";
 
   if (file instanceof File && file.size > 0) {
     verificationStartLog(traceId, "file_received", {
@@ -137,14 +177,23 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           ok: false,
-          error: `Upload limit is ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)}MB. Split larger lists or contact support for bulk verification.`,
+          code: "file_too_large",
+          error: `This file is too large. Maximum upload size is ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)} MB. Please split your list into smaller files and try again.`,
           traceId
         },
         { status: 413 }
       );
     }
     if (!looksLikeSupportedListFile(file)) {
-      return NextResponse.json({ ok: false, error: "Please upload a CSV or TXT file.", traceId }, { status: 400 });
+      return NextResponse.json(
+        {
+          ok: false,
+          code: "invalid_file_format",
+          error: "We could not read this file. Please upload a CSV or TXT file with one email per row.",
+          traceId
+        },
+        { status: 400 }
+      );
     }
     originalFilename = file.name;
     sourceText = await file.text();
@@ -153,7 +202,7 @@ export async function POST(request: Request) {
   const parsed = parseEmailList(sourceText);
   verificationStartLog(traceId, "emails_parsed", {
     userId: user.id,
-    sourceType: file instanceof File ? "upload" : "paste",
+    sourceType,
     parsedEmailCount: parsed.totalRows,
     uniqueEmailCount: parsed.uniqueEmails.length,
     duplicateEmailCount: parsed.duplicateEmails.length,
@@ -161,7 +210,43 @@ export async function POST(request: Request) {
   });
 
   if (parsed.uniqueEmails.length === 0) {
-    return NextResponse.json({ ok: false, error: "No valid email addresses were found.", traceId }, { status: 400 });
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "no_valid_emails",
+        error: "We could not find valid email addresses in this list. Please check your file and try again.",
+        traceId
+      },
+      { status: 400 }
+    );
+  }
+
+  if (sourceType === "paste" && parsed.uniqueEmails.length > MAX_PASTE_EMAILS) {
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "paste_limit_exceeded",
+        error: `Paste verification supports up to ${MAX_PASTE_EMAILS.toLocaleString("en-US")} emails at once. Please upload a CSV/TXT file for larger lists.`,
+        maxPasteEmails: MAX_PASTE_EMAILS,
+        uniqueEmails: parsed.uniqueEmails.length,
+        traceId
+      },
+      { status: 413 }
+    );
+  }
+
+  if (parsed.uniqueEmails.length > MAX_EMAILS_PER_JOB) {
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "job_email_limit_exceeded",
+        error: `This list contains more emails than the current job limit. Please upload up to ${MAX_EMAILS_PER_JOB.toLocaleString("en-US")} emails per job or contact support for larger volume.`,
+        maxEmailsPerJob: MAX_EMAILS_PER_JOB,
+        uniqueEmails: parsed.uniqueEmails.length,
+        traceId
+      },
+      { status: 413 }
+    );
   }
 
   verificationStartLog(traceId, "credits_checked", {
@@ -175,7 +260,7 @@ export async function POST(request: Request) {
       {
         ok: false,
         code: "insufficient_credits",
-        error: `This list has ${parsed.uniqueEmails.length} unique emails. You need ${parsed.uniqueEmails.length} credits.`,
+        error: `You need ${parsed.uniqueEmails.length.toLocaleString("en-US")} verification credits for this list. Please buy more credits to continue.`,
         requiredCredits: parsed.uniqueEmails.length,
         creditBalance: user.creditBalance,
         traceId
@@ -185,6 +270,8 @@ export async function POST(request: Request) {
   }
 
   const inputKey = `verification/${user.id}/${crypto.randomUUID()}/input.txt`;
+  const idempotencyKey = buildIdempotencyKey(user.id, parsed.uniqueEmails, clientIdempotencyKey);
+  const providerRequestId = `start:${idempotencyKey}`;
   const inlineInputAllowed =
     parsed.uniqueEmails.length <= INLINE_INPUT_EMAIL_LIMIT &&
     Buffer.byteLength(sourceText, "utf8") <= INLINE_INPUT_BYTES_LIMIT;
@@ -195,7 +282,8 @@ export async function POST(request: Request) {
   try {
     verificationStartLog(traceId, "economics_snapshot_attempt", {
       userId: user.id,
-      uniqueEmailCount: parsed.uniqueEmails.length
+      uniqueEmailCount: parsed.uniqueEmails.length,
+      idempotencyKey: idempotencyKey.slice(0, 12)
     });
 
     console.info("[verification-job-start]", {
@@ -209,6 +297,43 @@ export async function POST(request: Request) {
       inlineInputAllowed
     });
 
+    const existingJob = await prisma.verificationJob.findFirst({
+      where: {
+        userId: user.id,
+        providerRequestId,
+        deletedAt: null,
+        createdAt: { gte: new Date(Date.now() - 10 * 60 * 1000) }
+      },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        status: true,
+        uniqueEmails: true,
+        creditsReserved: true,
+        progressPercent: true
+      }
+    });
+
+    if (existingJob) {
+      verificationStartLog(traceId, "idempotent_job_reused", {
+        userId: user.id,
+        jobId: existingJob.id,
+        status: existingJob.status,
+        idempotencyKey: idempotencyKey.slice(0, 12)
+      });
+      return NextResponse.json(
+        {
+          ok: true,
+          traceId,
+          queued: true,
+          reused: true,
+          job: existingJob,
+          message: "Verification job is already queued for this list."
+        },
+        { status: 202 }
+      );
+    }
+
     const economics = await getVerificationEconomicsSnapshot(parsed.uniqueEmails.length);
     providerKey = economics.providerKey;
     verificationStartLog(traceId, "economics_snapshot_ready", {
@@ -221,14 +346,22 @@ export async function POST(request: Request) {
       estimatedProfit: economics.estimatedProfit
     });
 
-    const providerSettings = await prisma.providerSetting.findUnique({
-      where: { providerKey: economics.providerKey },
-      select: {
-        status: true,
-        envKeyName: true,
-        apiKeyEncrypted: true
-      }
-    });
+    const providerSettings = await prisma.providerSetting
+      .findUnique({
+        where: { providerKey: economics.providerKey },
+        select: {
+          status: true,
+          envKeyName: true,
+          apiKeyEncrypted: true
+        }
+      })
+      .catch((error) => {
+        verificationStartError(traceId, "provider_settings_optional_read_failed", error, {
+          providerKey: economics.providerKey,
+          action: "continuing_with_env_provider_config"
+        });
+        return null;
+      });
 
     verificationStartLog(traceId, "provider_settings_checked", {
       providerKey: economics.providerKey,
@@ -250,17 +383,19 @@ export async function POST(request: Request) {
       userId: user.id,
       providerKey: economics.providerKey,
       uniqueEmailCount: parsed.uniqueEmails.length,
-      inlineInputAllowed
+      inlineInputAllowed,
+      idempotencyKey: idempotencyKey.slice(0, 12)
     });
 
     job = await prisma.verificationJob.create({
       data: {
         userId: user.id,
         status: "QUEUED",
-        sourceType: file instanceof File ? "upload" : "paste",
+        sourceType,
         originalFilename,
         inputStorageKey: null,
         providerKey: economics.providerKey,
+        providerRequestId,
         totalEmails: parsed.totalRows,
         uniqueEmails: parsed.uniqueEmails.length,
         duplicateCount: parsed.duplicateEmails.length,
@@ -279,6 +414,12 @@ export async function POST(request: Request) {
           queuedAt: new Date().toISOString(),
           queueMode: "chunked_worker",
           inputMode: inlineInputAllowed ? "inline_pending_storage" : "storage_required",
+          idempotencyKey,
+          limits: {
+            maxPasteEmails: MAX_PASTE_EMAILS,
+            maxUploadBytes: MAX_UPLOAD_BYTES,
+            maxEmailsPerJob: MAX_EMAILS_PER_JOB
+          },
           ...(inlineInputAllowed ? { inlineEmails: parsed.uniqueEmails } : {})
         }
       },
@@ -389,6 +530,12 @@ export async function POST(request: Request) {
           queuedAt: new Date().toISOString(),
           queueMode: "chunked_worker",
           inputMode: storageReady ? "storage" : "inline_fallback",
+          idempotencyKey,
+          limits: {
+            maxPasteEmails: MAX_PASTE_EMAILS,
+            maxUploadBytes: MAX_UPLOAD_BYTES,
+            maxEmailsPerJob: MAX_EMAILS_PER_JOB
+          },
           ...(inlineInputAllowed ? { inlineEmails: parsed.uniqueEmails } : {}),
           ...(storageWarning ? { storageWarning } : {})
         }
@@ -512,6 +659,7 @@ export async function POST(request: Request) {
         ok: false,
         code: classified.code,
         error: classified.error,
+        safeReason: classified.safeReason,
         jobId: job?.id ?? null,
         traceId
       },
@@ -575,7 +723,8 @@ function classifyVerificationStartError(error: unknown) {
     return {
       code: "storage_not_configured",
       status: 503,
-      error: "Verification storage is not configured yet. Please contact support before starting verification."
+      error: "Verification could not start right now due to a storage issue. Your credits were not charged. Please try again or contact support.",
+      safeReason: "storage_setup_failed"
     };
   }
 
@@ -589,7 +738,8 @@ function classifyVerificationStartError(error: unknown) {
     return {
       code: "provider_not_ready",
       status: 503,
-      error: "Verification provider is not ready right now. Please check provider settings or try again shortly."
+      error: "Verification could not start right now due to a processing issue. Your credits were not charged. Please try again or contact support.",
+      safeReason: "provider_setup_failed"
     };
   }
 
@@ -607,13 +757,25 @@ function classifyVerificationStartError(error: unknown) {
     return {
       code: "database_not_ready",
       status: 503,
-      error: "Verification database is not ready yet. Please contact support."
+      error: "Verification database is not ready yet. Please contact support.",
+      safeReason: "database_schema_missing"
     };
   }
 
   return {
     code: "verification_queue_failed",
     status: 500,
-    error: "Verification could not be started. Please try again or contact support."
+    error: "Verification could not start right now due to a processing issue. Your credits were not charged. Please try again or contact support.",
+    safeReason: "unknown_queue_failure"
   };
+}
+
+function buildIdempotencyKey(userId: string, emails: string[], clientKey: string) {
+  if (clientKey.length >= 12 && clientKey.length <= 160) {
+    return createHash("sha256").update(`${userId}:${clientKey}`).digest("hex");
+  }
+
+  return createHash("sha256")
+    .update(`${userId}:${emails.join("\n")}`)
+    .digest("hex");
 }

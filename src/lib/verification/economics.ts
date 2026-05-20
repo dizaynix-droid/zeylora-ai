@@ -5,18 +5,34 @@ const DEFAULT_COST_PER_VERIFICATION = 0;
 
 export async function getVerificationEconomicsSnapshot(uniqueEmailCount: number) {
   const [creditValueSetting, provider] = await Promise.all([
-    prisma.siteSetting.findUnique({
-      where: { key: "estimatedVerificationCreditUsdValue" },
-      select: { valueJson: true }
-    }),
-    prisma.providerSetting.findUnique({
-      where: { providerKey: "millionverifier" },
-      select: {
-        estimatedCostPerRun: true,
-        estimatedCostCurrency: true,
-        status: true
-      }
-    })
+    prisma.siteSetting
+      .findUnique({
+        where: { key: "estimatedVerificationCreditUsdValue" },
+        select: { valueJson: true }
+      })
+      .catch((error) => {
+        console.warn("[verification-economics-fallback]", {
+          scope: "site_setting",
+          message: error instanceof Error ? error.message : "SiteSetting read failed"
+        });
+        return null;
+      }),
+    prisma.providerSetting
+      .findUnique({
+        where: { providerKey: "millionverifier" },
+        select: {
+          estimatedCostPerRun: true,
+          estimatedCostCurrency: true,
+          status: true
+        }
+      })
+      .catch((error) => {
+        console.warn("[verification-economics-fallback]", {
+          scope: "provider_setting",
+          message: error instanceof Error ? error.message : "ProviderSetting read failed"
+        });
+        return null;
+      })
   ]);
 
   const creditValue = readNumericSetting(creditValueSetting?.valueJson, DEFAULT_CREDIT_USD_VALUE);

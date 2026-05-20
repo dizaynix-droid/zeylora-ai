@@ -2,6 +2,7 @@ import type { Prisma, VerificationEmailStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getPrivateObjectText, uploadPrivateObject } from "@/lib/storage/s3-client";
 import { buildVerificationCsv, filterResultsForExport } from "@/lib/verification/csv";
+import { ensureVerificationDatabaseReady } from "@/lib/verification/db-readiness";
 import { parseEmailList } from "@/lib/verification/email-parser";
 import { getVerificationProvider } from "@/lib/verification/providers";
 import type { VerificationProviderResult } from "@/lib/verification/types";
@@ -25,6 +26,7 @@ export async function processVerificationQueue(options: {
   maxEmails?: number;
   timeBudgetMs?: number;
 } = {}): Promise<VerificationWorkerResult> {
+  await ensureVerificationDatabaseReady(options.jobId ? `worker:${options.jobId}` : "worker:queue");
   const startedAt = Date.now();
   const maxJobs = Math.max(1, options.maxJobs ?? Number(process.env.VERIFICATION_WORKER_MAX_JOBS || 1));
   const maxEmails = Math.max(1, options.maxEmails ?? Number(process.env.VERIFICATION_WORKER_EMAILS_PER_RUN || DEFAULT_WORKER_EMAILS_PER_RUN));
@@ -125,14 +127,24 @@ export async function processVerificationJobChunk(jobId: string, options: { maxE
     return { processedEmails: 0, completed: true };
   }
 
-  const providerSettings = await prisma.providerSetting.findUnique({
-    where: { providerKey: job.providerKey },
-    select: {
-      apiKeyEncrypted: true,
-      configJson: true,
-      status: true
-    }
-  });
+  const providerSettings = await prisma.providerSetting
+    .findUnique({
+      where: { providerKey: job.providerKey },
+      select: {
+        apiKeyEncrypted: true,
+        configJson: true,
+        status: true
+      }
+    })
+    .catch((error) => {
+      console.warn("[verification-worker-provider-settings-fallback]", {
+        jobId: job.id,
+        providerKey: job.providerKey,
+        message: error instanceof Error ? error.message : "ProviderSetting read failed",
+        action: "continuing_with_env_provider_config"
+      });
+      return null;
+    });
 
   console.info("[verification-worker-checkpoint]", {
     checkpoint: "provider_settings_loaded",
