@@ -36,7 +36,7 @@ export function HomepageListChecker() {
     if (!file) return;
     setFileName(file.name);
     setFileSize(file.size);
-    setMessage("File selected. Reading the list now...");
+    setMessage("File selected. Reading your email list now...");
     const name = file.name.toLowerCase();
     if (!name.endsWith(".csv") && !name.endsWith(".txt")) {
       setParseState("error");
@@ -60,7 +60,7 @@ export function HomepageListChecker() {
       const text = await file.text();
       setEmails(text);
       setParseState("ready");
-      setMessage("List parsed. Review the estimate, then continue.");
+      setMessage("List parsed. Review credits, then start verification.");
       trackEvent({
         event: "homepage_list_parsed",
         properties: {
@@ -214,8 +214,8 @@ export function HomepageListChecker() {
       <div className="border-b border-slate-200 px-5 py-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold text-slate-500">List checker</p>
-            <h2 className="mt-1 text-xl font-semibold text-slate-950">Check list quality</h2>
+            <p className="text-sm font-semibold text-slate-500">Free pre-check</p>
+            <h2 className="mt-1 text-xl font-semibold text-slate-950">Upload CSV and estimate credits</h2>
           </div>
           <div className="text-right">
             <VerifyBadge tone={ready ? "green" : "blue"}>
@@ -245,7 +245,7 @@ export function HomepageListChecker() {
           <div className={`mx-auto flex h-11 w-11 items-center justify-center rounded-md bg-white text-blue-700 shadow-sm ${dragActive || parseState === "parsing" ? "animate-pulse" : ""}`}>
             <FileText size={22} />
           </div>
-          <p className="mt-3 text-sm font-semibold text-slate-950">{fileName || "Drop CSV or TXT file"}</p>
+          <p className="mt-3 text-sm font-semibold text-slate-950">{fileName || "Drop your CSV or TXT file"}</p>
           <p className="mt-1 text-xs text-slate-500">
             {fileName ? `${formatBytes(fileSize)} selected` : "or browse from your device"}
           </p>
@@ -295,7 +295,7 @@ export function HomepageListChecker() {
 
         <div className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Live verification flow</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">What happens next</p>
             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">
               <span className="size-1.5 animate-pulse rounded-full bg-emerald-300" />
               {ready ? "Scanning ready" : "Waiting for list"}
@@ -315,7 +315,7 @@ export function HomepageListChecker() {
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-blue-700">Ready workflow</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-blue-700">Credit estimate</p>
               <p className="mt-1 text-sm text-slate-700">
                 {ready
                   ? `${uniqueCount.toLocaleString()} unique emails will use ${uniqueCount.toLocaleString()} verification credits. Recommended package: ${recommendedPackage.name}.`
@@ -328,7 +328,7 @@ export function HomepageListChecker() {
 
         <VerifyAction type="button" disabled={!ready || parseState === "parsing"} onClick={() => void continueFlow()} className="h-12 w-full text-base">
           {parseState === "parsing" ? <Loader2 className="animate-spin" size={18} /> : <MailCheck size={18} />}
-          {ready ? "Continue with this list" : "Check list quality"}
+          {ready ? "Start verification" : "Check list quality"}
           <ArrowRight size={18} />
         </VerifyAction>
 
@@ -338,7 +338,7 @@ export function HomepageListChecker() {
       </div>
 
       <div className="border-t border-slate-200 bg-slate-50 px-5 py-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Quality preview</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Estimated result split</p>
         <div className="mt-3 grid gap-2 sm:grid-cols-3">
           <MiniResult label="Likely valid" value={`${quality.valid}%`} tone="green" />
           <MiniResult label="Risky" value={`${quality.risk}%`} tone="amber" />

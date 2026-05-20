@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { MailCheck, ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import { appConfig } from "@/config/app";
 import { brandIdentity } from "@/config/brand";
 import { marketingNav } from "@/config/navigation";
@@ -38,13 +38,6 @@ export function SiteHeader() {
               {item.label}
             </Link>
           ))}
-          <Link
-            href="/#top"
-            className="inline-flex items-center gap-1 rounded-full bg-blue-600 px-3 py-2 font-semibold text-white transition hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-sm"
-          >
-            <MailCheck size={15} />
-            Verify list
-          </Link>
         </nav>
 
         <SiteHeaderAuthActions />

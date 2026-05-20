@@ -95,7 +95,9 @@ export function SiteHeaderAuthActions() {
   return (
     <div className="flex items-center gap-2">
       {authState === "loading" ? (
-        <span className="hidden h-10 w-20 animate-pulse rounded-lg border border-slate-200 bg-slate-100 sm:inline-flex" />
+        <VerifyAction href="/auth/sign-in" variant="quiet" className="hidden sm:inline-flex">
+          Sign in
+        </VerifyAction>
       ) : isSignedIn ? (
         <>
           <VerifyAction href="/dashboard" variant="quiet" className="hidden sm:inline-flex">

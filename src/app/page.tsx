@@ -31,9 +31,12 @@ import {
 } from "@/components/verify-ui/core";
 import { getCreditPackagesForDisplay } from "@/lib/pricing/packages";
 
+type DisplayPackage = Awaited<ReturnType<typeof getCreditPackagesForDisplay>>[number];
+
 export default async function HomePage() {
   const packages = await getCreditPackagesForDisplay();
   const compactPackages = packages.slice(0, 4);
+  const starterPackage = packages.find((pack) => pack.key === "starter") ?? compactPackages[0];
 
   return (
     <>
@@ -43,51 +46,54 @@ export default async function HomePage() {
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(37,99,235,.13),transparent_34%),radial-gradient(circle_at_82%_16%,rgba(14,165,233,.16),transparent_30%),linear-gradient(rgba(15,23,42,.035)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,.035)_1px,transparent_1px)] bg-[size:auto,auto,44px_44px,44px_44px]" />
           <div className="pointer-events-none absolute left-1/2 top-12 h-72 w-[min(900px,90vw)] -translate-x-1/2 rounded-full bg-blue-200/30 blur-3xl" />
 
-          <VerifyContainer className="relative py-10 sm:py-12 lg:py-16">
-            <div className="mx-auto max-w-5xl text-center">
-              <VerifyBadge tone="blue" className="shadow-sm">
-                Email verification infrastructure - up to 50,000 emails per job
-              </VerifyBadge>
-              <h1 className="mt-5 text-5xl font-semibold tracking-[-0.06em] text-slate-950 sm:text-6xl lg:text-7xl">
-                Bad email lists silently destroy campaign ROI.
-              </h1>
-              <p className="mx-auto mt-5 max-w-3xl text-base leading-7 text-slate-600 sm:text-lg">
-                Verify every address before it damages inbox placement, burns campaign budget, or lowers sender reputation.
-              </p>
-              <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
-                <VerifyAction href="#verify-list" className="h-12 px-6 text-base shadow-lg shadow-blue-600/20">
-                  Verify a list now
-                  <ArrowRight size={18} />
-                </VerifyAction>
-                <VerifyAction href="#live-demo" variant="secondary" className="h-12 px-6 text-base">
-                  See live engine
-                </VerifyAction>
+          <VerifyContainer className="relative py-8 sm:py-10 lg:py-14">
+            <div className="grid gap-6 xl:grid-cols-[0.88fr_1.12fr] xl:items-start">
+              <div className="pt-2 xl:sticky xl:top-24">
+                <VerifyBadge tone="blue" className="shadow-sm">
+                  Bulk email verification & list cleaning
+                </VerifyBadge>
+                <h1 className="mt-5 max-w-3xl text-4xl font-semibold text-slate-950 sm:text-5xl lg:text-6xl">
+                  Clean your email list before you send.
+                </h1>
+                <p className="mt-5 max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
+                  Upload a CSV or paste emails, remove duplicates, verify deliverability, and download clean valid/risky/invalid CSV reports for your next campaign.
+                </p>
+                <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                  <VerifyAction href="#verify-list" className="h-12 px-5 text-base shadow-lg shadow-blue-600/20">
+                    Upload list now
+                    <ArrowRight size={18} />
+                  </VerifyAction>
+                  <VerifyAction href="#pricing" variant="secondary" className="h-12 px-5 text-base">
+                    Start at ${starterPackage?.price ?? 9}
+                  </VerifyAction>
+                </div>
+                <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                  <HeroPromise icon={FileCheck2} title="Free pre-check" text="See unique emails and credit need before the paid verification job starts." />
+                  <HeroPromise icon={MailCheck} title="1 credit = 1 unique email" text="Duplicates are removed before credits are calculated." />
+                  <HeroPromise icon={ShieldCheck} title="Protect sender reputation" text="Separate invalid, disposable, risky, and catch-all addresses before sending." />
+                  <HeroPromise icon={Download} title="Download clean CSVs" text="Export valid-only, risky, invalid, disposable, and full reports." />
+                </div>
+                <div className="mt-5 flex flex-wrap gap-2 text-sm font-semibold text-slate-600">
+                  <AudiencePill icon={Users2} label="Lead lists" />
+                  <AudiencePill icon={Building2} label="Agencies" />
+                  <AudiencePill icon={DatabaseZap} label="B2B sales" />
+                  <AudiencePill icon={MailCheck} label="Email campaigns" />
+                </div>
+                {starterPackage ? <HeroOfferCard starterPackage={starterPackage} /> : null}
               </div>
-              <div className="mt-7 flex flex-wrap items-center justify-center gap-2 text-sm font-semibold text-slate-600">
-                <AudiencePill icon={Users2} label="Marketers" />
-                <AudiencePill icon={Building2} label="Agencies" />
-                <AudiencePill icon={DatabaseZap} label="B2B operators" />
-                <AudiencePill icon={MailCheck} label="SaaS GTM teams" />
+
+              <div id="verify-list" className="relative">
+                <div className="absolute -inset-3 rounded-2xl bg-white/60 blur-xl" />
+                <div className="relative rounded-2xl border border-white/70 bg-white/75 p-2 shadow-[0_24px_80px_rgba(15,23,42,.12)] backdrop-blur-xl">
+                  <HomepageListChecker />
+                </div>
               </div>
             </div>
 
             <HeroActivityStrip />
             <ScaleLimitsBand />
 
-            <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <HeroPromise icon={FileCheck2} title="Free pre-check" text="Estimate list size and credit need before you process." />
-              <HeroPromise icon={MailCheck} title="1 credit = 1 email" text="Only unique addresses are counted after deduplication." />
-              <HeroPromise icon={ShieldCheck} title="Reputation-first" text="Isolate invalid, disposable, risky, and catch-all emails." />
-              <HeroPromise icon={Download} title="Clean CSV exports" text="Download valid-only, risky, invalid, and full reports." />
-            </div>
-
-            <div id="verify-list" className="mt-6 grid gap-5 xl:grid-cols-[1.02fr_.98fr] xl:items-start">
-              <div className="relative">
-                <div className="absolute -inset-3 rounded-2xl bg-white/60 blur-xl" />
-                <div className="relative rounded-2xl border border-white/70 bg-white/75 p-2 shadow-[0_24px_80px_rgba(15,23,42,.12)] backdrop-blur-xl">
-                  <HomepageListChecker />
-                </div>
-              </div>
+            <div className="mt-6">
               <VerificationEnginePanel />
             </div>
           </VerifyContainer>
@@ -283,6 +289,46 @@ function AudiencePill({ icon: Icon, label }: { icon: LucideIcon; label: string }
       {label}
     </span>
   );
+}
+
+function HeroOfferCard({ starterPackage }: { starterPackage: DisplayPackage }) {
+  return (
+    <VerifyPanel className="mt-6 overflow-hidden border-blue-200 bg-white/90 p-5 shadow-[0_18px_60px_rgba(37,99,235,.10)] backdrop-blur-xl">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-blue-700">Starter package</p>
+          <p className="mt-1 text-3xl font-semibold text-slate-950">${starterPackage.price}</p>
+          <p className="mt-1 text-sm font-semibold text-slate-600">
+            {starterPackage.totalCredits.toLocaleString()} email verifications
+          </p>
+        </div>
+        <VerifyBadge tone="green">No subscription</VerifyBadge>
+      </div>
+      <div className="mt-4 grid gap-2 text-sm font-medium text-slate-700">
+        <OfferLine text="CSV/TXT upload, paste lists, duplicate removal, and server-side verification." />
+        <OfferLine text="Recent production test: 1,171 emails completed in about 1-2 minutes." />
+        <OfferLine text="Clear public limits: 5,000 pasted emails, 25 MB files, 50,000 emails per job." />
+      </div>
+      <CheckoutButton
+        packageId={starterPackage.id}
+        label="Buy 1,000 verifications"
+        className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-md bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700"
+      />
+    </VerifyPanel>
+  );
+}
+
+function OfferLine({ text }: { text: string }) {
+  return (
+    <div className="flex gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+      <CheckDot />
+      <span>{text}</span>
+    </div>
+  );
+}
+
+function CheckDot() {
+  return <span className="mt-1 size-2 shrink-0 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,.12)]" />;
 }
 
 function HeroActivityStrip() {
