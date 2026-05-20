@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, CheckCircle2, ClipboardList, FileText, Loader2, MailCheck, ShieldCheck, TrendingDown, XCircle } from "lucide-react";
 import { VerifyAction, VerifyBadge, VerifyPanel } from "@/components/verify-ui/core";
 import { trackEvent } from "@/lib/analytics/events";
+import { releaseMobileInputViewport } from "@/lib/dom/mobile-viewport";
 import { parseEmailList } from "@/lib/verification/email-parser";
 
 const DRAFT_STORAGE_KEY = "zeylora_verification_draft";
@@ -115,6 +116,7 @@ export function HomepageListChecker() {
     }
 
     saveDraft();
+    releaseMobileInputViewport();
     setParseState("parsing");
 
     try {
@@ -126,6 +128,7 @@ export function HomepageListChecker() {
           event: "homepage_auth_required",
           properties: { uniqueEmails: uniqueCount }
         });
+        releaseMobileInputViewport();
         router.push(`/auth/sign-in?next=${encodeURIComponent("/dashboard?resumeVerification=1")}`);
         return;
       }
@@ -140,6 +143,7 @@ export function HomepageListChecker() {
           properties: { uniqueEmails: uniqueCount, creditBalance: balance }
         });
         setMessage(`You need ${uniqueCount.toLocaleString()} verification credits. ${recommendedPackage.name} is the best fit for this list; taking you to pricing.`);
+        releaseMobileInputViewport();
         router.push(`/pricing?checkoutPackage=${recommendedPackage.key}&resumeVerification=1`);
         return;
       }
@@ -167,6 +171,7 @@ export function HomepageListChecker() {
       }
       if (jobResponse.status === 402 || jobPayload?.code === "insufficient_credits") {
         setMessage(`You need ${uniqueCount.toLocaleString()} verification credits. ${recommendedPackage.name} is the best fit for this list; taking you to pricing.`);
+        releaseMobileInputViewport();
         router.push(`/pricing?checkoutPackage=${recommendedPackage.key}&resumeVerification=1`);
         return;
       }
@@ -175,6 +180,7 @@ export function HomepageListChecker() {
       }
       sessionStorage.removeItem(DRAFT_STORAGE_KEY);
       localStorage.removeItem(DRAFT_STORAGE_KEY);
+      releaseMobileInputViewport();
       router.push(jobPayload.job?.id ? `/dashboard/jobs/${jobPayload.job.id}` : "/dashboard#jobs");
     } catch (error) {
       setParseState("error");

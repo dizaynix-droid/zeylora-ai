@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AlertCircle, Bell, CheckCircle2, Clock, CreditCard, Download, FileText, HelpCircle, Loader2, MailCheck, ReceiptText, Settings, Shield, ShieldCheck, Trash2, UploadCloud, UserCircle, XCircle } from "lucide-react";
 import { CheckoutButton } from "@/components/billing/checkout-button";
 import { trackEvent } from "@/lib/analytics/events";
+import { releaseMobileInputViewport } from "@/lib/dom/mobile-viewport";
 import { VerifyAction, VerifyBadge, VerifyPanel } from "@/components/verify-ui/core";
 
 type VerificationJob = {
@@ -227,6 +228,7 @@ export function VerificationDashboardClient({
       setMessage(`This list contains more emails than the current job limit. Please upload up to ${MAX_EMAILS_PER_JOB.toLocaleString()} emails per job or contact support for larger volume.`);
       return;
     }
+    releaseMobileInputViewport();
     setSubmitStatus("running");
     setMessage(null);
 
@@ -256,6 +258,7 @@ export function VerificationDashboardClient({
       setIdempotencyKey(createIdempotencyKey());
       setJobsPage(1);
       if (payload?.job?.id) {
+        releaseMobileInputViewport();
         router.push(`/dashboard/jobs/${payload.job.id}`);
       }
     } catch (error) {

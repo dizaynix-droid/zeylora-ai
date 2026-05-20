@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { releaseMobileInputViewport } from "@/lib/dom/mobile-viewport";
 
 export function JobAutoRefresh({
   enabled,
@@ -13,6 +14,10 @@ export function JobAutoRefresh({
   intervalMs?: number;
 }) {
   const router = useRouter();
+
+  useEffect(() => {
+    releaseMobileInputViewport();
+  }, []);
 
   useEffect(() => {
     if (!enabled) return;
