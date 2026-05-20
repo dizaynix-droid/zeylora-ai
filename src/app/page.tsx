@@ -368,7 +368,7 @@ function VerificationEnginePanel() {
         </div>
       </VerifyPanel>
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_.9fr]">
+      <div className="grid gap-4 lg:grid-cols-3">
         <VerifyPanel className="p-4 shadow-[0_16px_50px_rgba(15,23,42,.08)]">
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Verification activity</p>
@@ -412,7 +412,56 @@ function VerificationEnginePanel() {
             <span className="text-emerald-700">-74% risk</span>
           </div>
         </VerifyPanel>
+
+        <VerifyPanel className="p-4 shadow-[0_16px_50px_rgba(15,23,42,.08)]">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Export segments</p>
+            <Download size={16} className="text-blue-700" />
+          </div>
+          <div className="mt-4 grid gap-2">
+            {[
+              ["Valid-only CSV", "18,642"],
+              ["Risk review CSV", "2,184"],
+              ["Blocked CSV", "5,209"],
+              ["Full report", "26,035"]
+            ].map(([label, value]) => (
+              <div key={label} className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                <span className="text-sm font-semibold text-slate-800">{label}</span>
+                <span className="text-sm font-semibold text-slate-950">{value}</span>
+              </div>
+            ))}
+          </div>
+        </VerifyPanel>
       </div>
+
+      <VerifyPanel className="overflow-hidden p-4 shadow-[0_16px_50px_rgba(15,23,42,.08)]">
+        <div className="grid gap-4 lg:grid-cols-[1.1fr_.9fr] lg:items-center">
+          <div>
+            <div className="flex items-center gap-2">
+              <DatabaseZap size={16} className="text-blue-700" />
+              <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Provider-backed workflow</p>
+            </div>
+            <h3 className="mt-2 text-xl font-semibold tracking-[-0.03em] text-slate-950">From raw list to clean exports without guessing.</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Zeylora extracts unique addresses, reserves one verification per email, checks provider signals, and prepares segmented CSV downloads for campaign teams.
+            </p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-3">
+            <MiniReadout label="Provider" value="MillionVerifier" />
+            <MiniReadout label="Mode" value="Queued + safe" />
+            <MiniReadout label="Credits" value="1 / email" />
+          </div>
+        </div>
+      </VerifyPanel>
+    </div>
+  );
+}
+
+function MiniReadout({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.09em] text-slate-500">{label}</p>
+      <p className="mt-1 text-sm font-semibold text-slate-950">{value}</p>
     </div>
   );
 }

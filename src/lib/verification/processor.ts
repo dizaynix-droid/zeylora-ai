@@ -82,11 +82,11 @@ export async function processVerificationJobChunk(jobId: string, options: { maxE
     }
   });
 
-  if (!job?.inputStorageKey) {
-    throw new Error("Verification job input file is missing.");
+  if (!job) {
+    throw new Error("Verification job was not found.");
   }
 
-  const inputText = await getPrivateObjectText(job.inputStorageKey);
+  const inputText = await readVerificationJobInput(job);
   const parsed = parseEmailList(inputText);
   const processedCount = await prisma.verificationEmailResult.count({ where: { verificationJobId: job.id } });
   const remaining = parsed.uniqueEmails.slice(processedCount);
@@ -223,18 +223,32 @@ async function completeVerificationJob(jobId: string) {
   if (!job) return;
 
   const exportBase = `verification/${job.userId}/${job.id}`;
-  const fullReportKey = `${exportBase}/full-report.csv`;
-  const validExportKey = `${exportBase}/valid-emails.csv`;
-  const invalidExportKey = `${exportBase}/invalid-emails.csv`;
-  const riskyExportKey = `${exportBase}/risky-catch-all-disposable.csv`;
+  let fullReportKey: string | null = `${exportBase}/full-report.csv`;
+  let validExportKey: string | null = `${exportBase}/valid-emails.csv`;
+  let invalidExportKey: string | null = `${exportBase}/invalid-emails.csv`;
+  let riskyExportKey: string | null = `${exportBase}/risky-catch-all-disposable.csv`;
+  let exportStorageError: string | null = null;
   const allResults = await readAllResultsForExport(job.id);
 
-  await Promise.all([
-    uploadCsv(fullReportKey, buildVerificationCsv(allResults)),
-    uploadCsv(validExportKey, buildVerificationCsv(filterResultsForExport(allResults, "valid"))),
-    uploadCsv(invalidExportKey, buildVerificationCsv(filterResultsForExport(allResults, "invalid"))),
-    uploadCsv(riskyExportKey, buildVerificationCsv(filterResultsForExport(allResults, "risky")))
-  ]);
+  try {
+    await Promise.all([
+      uploadCsv(fullReportKey, buildVerificationCsv(allResults)),
+      uploadCsv(validExportKey, buildVerificationCsv(filterResultsForExport(allResults, "valid"))),
+      uploadCsv(invalidExportKey, buildVerificationCsv(filterResultsForExport(allResults, "invalid"))),
+      uploadCsv(riskyExportKey, buildVerificationCsv(filterResultsForExport(allResults, "risky")))
+    ]);
+  } catch (error) {
+    exportStorageError = error instanceof Error ? error.message : "CSV export storage failed.";
+    fullReportKey = null;
+    validExportKey = null;
+    invalidExportKey = null;
+    riskyExportKey = null;
+    console.error("[verification-export-storage-failed]", {
+      jobId: job.id,
+      userId: job.userId,
+      message: exportStorageError
+    });
+  }
 
   await prisma.verificationJob.update({
     where: { id: job.id },
@@ -250,10 +264,28 @@ async function completeVerificationJob(jobId: string) {
       metadataJson: mergeJobMetadata(job.metadataJson, {
         worker: "chunked",
         completedAt: new Date().toISOString(),
-        exportRows: allResults.length
+        exportRows: allResults.length,
+        ...(exportStorageError ? { exportStorageError } : {})
       })
     }
   });
+}
+
+async function readVerificationJobInput(job: {
+  id: string;
+  inputStorageKey: string | null;
+  metadataJson: Prisma.JsonValue | null;
+}) {
+  if (job.inputStorageKey) {
+    return getPrivateObjectText(job.inputStorageKey);
+  }
+
+  const inlineEmails = readInlineEmails(job.metadataJson);
+  if (inlineEmails.length > 0) {
+    return inlineEmails.join("\n");
+  }
+
+  throw new Error("Verification job input is missing.");
 }
 
 async function failVerificationJob(jobId: string, error: unknown) {
@@ -425,6 +457,13 @@ function readProviderBaseUrl(value: unknown) {
   if (!value || typeof value !== "object") return null;
   const candidate = (value as { apiBaseUrl?: unknown }).apiBaseUrl;
   return typeof candidate === "string" && candidate.trim() ? candidate.trim() : null;
+}
+
+function readInlineEmails(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+  const candidate = (value as { inlineEmails?: unknown }).inlineEmails;
+  if (!Array.isArray(candidate)) return [];
+  return candidate.filter((email): email is string => typeof email === "string" && email.includes("@"));
 }
 
 function mergeJobMetadata(current: unknown, next: Record<string, unknown>) {

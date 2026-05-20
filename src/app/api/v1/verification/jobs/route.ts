@@ -5,11 +5,15 @@ import { prisma } from "@/lib/db";
 import { getStorageConfig, uploadPrivateObject } from "@/lib/storage/s3-client";
 import { parseEmailList, looksLikeSupportedListFile } from "@/lib/verification/email-parser";
 import { getVerificationEconomicsSnapshot } from "@/lib/verification/economics";
-import { refundVerificationCredits, reserveVerificationCredits } from "@/lib/verification/processor";
+import { processVerificationJobChunk, refundVerificationCredits, reserveVerificationCredits } from "@/lib/verification/processor";
 
 export const runtime = "nodejs";
 
 const MAX_UPLOAD_BYTES = Number(process.env.MAX_VERIFICATION_UPLOAD_BYTES || 25 * 1024 * 1024);
+const INLINE_INPUT_EMAIL_LIMIT = Number(process.env.VERIFICATION_INLINE_INPUT_EMAIL_LIMIT || 5_000);
+const INLINE_INPUT_BYTES_LIMIT = Number(process.env.VERIFICATION_INLINE_INPUT_BYTES_LIMIT || 750_000);
+const SYNC_PROCESS_EMAIL_LIMIT = Number(process.env.VERIFICATION_SYNC_PROCESS_EMAIL_LIMIT || 25);
+const SYNC_PROCESS_TIME_BUDGET_MS = Number(process.env.VERIFICATION_SYNC_PROCESS_TIME_BUDGET_MS || 22_000);
 
 export async function GET(request: Request) {
   const startedAt = Date.now();
@@ -138,29 +142,10 @@ export async function POST(request: Request) {
     );
   }
 
-  try {
-    getStorageConfig();
-  } catch (error) {
-    const classified = classifyVerificationStartError(error);
-    console.error("[verification-job-start-failed]", {
-      phase: "storage_preflight",
-      userId: user.id,
-      emails: parsed.uniqueEmails.length,
-      code: classified.code,
-      message: error instanceof Error ? error.message : "Storage preflight failed."
-    });
-
-    return NextResponse.json(
-      {
-        ok: false,
-        code: classified.code,
-        error: classified.error
-      },
-      { status: classified.status }
-    );
-  }
-
   const inputKey = `verification/${user.id}/${crypto.randomUUID()}/input.txt`;
+  const inlineInputAllowed =
+    parsed.uniqueEmails.length <= INLINE_INPUT_EMAIL_LIMIT &&
+    Buffer.byteLength(sourceText, "utf8") <= INLINE_INPUT_BYTES_LIMIT;
   let job: { id: string; status: string; uniqueEmails: number; creditsReserved: number; progressPercent: number } | null = null;
   let creditsReserved = false;
   let providerKey = "millionverifier";
@@ -192,7 +177,7 @@ export async function POST(request: Request) {
         status: "QUEUED",
         sourceType: file instanceof File ? "upload" : "paste",
         originalFilename,
-        inputStorageKey: inputKey,
+        inputStorageKey: null,
         providerKey: economics.providerKey,
         totalEmails: parsed.totalRows,
         uniqueEmails: parsed.uniqueEmails.length,
@@ -210,7 +195,9 @@ export async function POST(request: Request) {
           parser: "regex_email_extractor",
           duplicateEmails: parsed.duplicateEmails.slice(0, 100),
           queuedAt: new Date().toISOString(),
-          queueMode: "chunked_worker"
+          queueMode: "chunked_worker",
+          inputMode: inlineInputAllowed ? "inline_pending_storage" : "storage_required",
+          ...(inlineInputAllowed ? { inlineEmails: parsed.uniqueEmails } : {})
         }
       },
       select: {
@@ -241,18 +228,46 @@ export async function POST(request: Request) {
     }
     creditsReserved = true;
 
-    await uploadPrivateObject({
-      key: inputKey,
-      body: Buffer.from(sourceText),
-      contentType: "text/plain; charset=utf-8",
-      cacheControl: "private, max-age=0"
-    });
+    let storageReady = false;
+    let storageWarning: string | null = null;
+
+    try {
+      getStorageConfig();
+      await uploadPrivateObject({
+        key: inputKey,
+        body: Buffer.from(sourceText),
+        contentType: "text/plain; charset=utf-8",
+        cacheControl: "private, max-age=0"
+      });
+      storageReady = true;
+    } catch (storageError) {
+      storageWarning = storageError instanceof Error ? storageError.message : "Input storage failed.";
+      if (!inlineInputAllowed) {
+        throw storageError;
+      }
+      console.warn("[verification-input-storage-fallback]", {
+        jobId: job.id,
+        userId: user.id,
+        emails: parsed.uniqueEmails.length,
+        message: storageWarning
+      });
+    }
 
     const queuedJob = await prisma.verificationJob.update({
       where: { id: job.id },
       data: {
+        inputStorageKey: storageReady ? inputKey : null,
         status: "QUEUED",
-        progressPercent: 5
+        progressPercent: 5,
+        metadataJson: {
+          parser: "regex_email_extractor",
+          duplicateEmails: parsed.duplicateEmails.slice(0, 100),
+          queuedAt: new Date().toISOString(),
+          queueMode: "chunked_worker",
+          inputMode: storageReady ? "storage" : "inline_fallback",
+          ...(inlineInputAllowed ? { inlineEmails: parsed.uniqueEmails } : {}),
+          ...(storageWarning ? { storageWarning } : {})
+        }
       },
       select: {
         id: true,
@@ -263,21 +278,46 @@ export async function POST(request: Request) {
       }
     });
 
+    let finalJob = queuedJob;
+    let processedNow = false;
+
+    if (parsed.uniqueEmails.length <= SYNC_PROCESS_EMAIL_LIMIT) {
+      await processVerificationJobChunk(queuedJob.id, {
+        maxEmails: parsed.uniqueEmails.length,
+        timeBudgetMs: SYNC_PROCESS_TIME_BUDGET_MS
+      });
+      processedNow = true;
+      const refreshedJob = await prisma.verificationJob.findUnique({
+        where: { id: queuedJob.id },
+        select: {
+          id: true,
+          status: true,
+          uniqueEmails: true,
+          creditsReserved: true,
+          progressPercent: true
+        }
+      });
+      if (refreshedJob) finalJob = refreshedJob;
+    }
+
     console.info("[verification-job-queued]", {
-      jobId: queuedJob.id,
+      jobId: finalJob.id,
       provider: economics.providerKey,
       emails: parsed.uniqueEmails.length,
+      processedNow,
+      inputMode: storageReady ? "storage" : "inline_fallback",
       totalMs: Date.now() - startedAt
     });
 
     return NextResponse.json(
       {
         ok: true,
-        queued: true,
-        job: queuedJob,
-        message: "Verification job queued. Large lists are processed safely in chunks."
+        queued: finalJob.status !== "COMPLETED",
+        processedNow,
+        job: finalJob,
+        message: finalJob.status === "COMPLETED" ? "Verification completed." : "Verification job queued. Large lists are processed safely in chunks."
       },
-      { status: 202 }
+      { status: processedNow ? 200 : 202 }
     );
   } catch (error) {
     if (job && creditsReserved) {
@@ -366,6 +406,20 @@ function classifyVerificationStartError(error: unknown) {
       code: "storage_not_configured",
       status: 503,
       error: "Verification storage is not configured yet. Please contact support before starting verification."
+    };
+  }
+
+  if (
+    lower.includes("millionverifier") ||
+    lower.includes("verification provider") ||
+    lower.includes("api key") ||
+    lower.includes("provider failed") ||
+    lower.includes("http")
+  ) {
+    return {
+      code: "provider_not_ready",
+      status: 503,
+      error: "Verification provider is not ready right now. Please check provider settings or try again shortly."
     };
   }
 
