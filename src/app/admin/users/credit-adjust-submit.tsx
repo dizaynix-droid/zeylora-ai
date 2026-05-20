@@ -9,7 +9,7 @@ export function CreditAdjustSubmit() {
   return (
     <button
       disabled={pending}
-      className="inline-flex h-9 items-center justify-center rounded-full bg-zeylora-brand px-4 text-xs font-black text-white shadow-glow transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+      className="inline-flex h-9 items-center justify-center rounded-md bg-blue-600 px-4 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
     >
       {pending ? <Loader2 className="mr-2 animate-spin" size={14} /> : null}
       {pending ? "Kaydediliyor" : "Uygula"}

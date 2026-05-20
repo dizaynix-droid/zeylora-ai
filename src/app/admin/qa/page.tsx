@@ -33,7 +33,7 @@ export default async function AdminQaPage() {
     },
     {
       title: "Provider",
-      items: ["MillionVerifier key", "Fallback provider placeholder", "Failure rate", "Cost per verification", "Budget uyarıları"]
+      items: ["MillionVerifier key", "Secondary provider placeholder", "Failure rate", "Cost per verification", "Budget uyarıları"]
     }
   ];
 
@@ -55,8 +55,8 @@ export default async function AdminQaPage() {
           <AdminSection key={section.title} title={section.title} description="Operasyon sahibi bu listeyi canlı öncesi manuel işaretler.">
             <div className="grid gap-2">
               {section.items.map((item) => (
-                <label key={item} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-sm font-bold text-slate-300">
-                  <input type="checkbox" className="size-4 accent-cyan" />
+                <label key={item} className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
+                  <input type="checkbox" className="size-4 accent-blue-600" />
                   {item}
                 </label>
               ))}
@@ -68,8 +68,8 @@ export default async function AdminQaPage() {
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
         <AdminSection title="Provider monitor" description="Bugünkü provider sağlık özeti.">
           <AdminTable>
-            <table className="min-w-[720px] w-full divide-y divide-white/10 text-sm">
-              <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
+            <table className="min-w-[720px] w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.16em] text-slate-500">
                 <tr>
                   <th className="px-4 py-3">Provider</th>
                   <th className="px-4 py-3">Env</th>
@@ -78,14 +78,14 @@ export default async function AdminQaPage() {
                   <th className="px-4 py-3">Hata</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/10">
+              <tbody className="divide-y divide-slate-200">
                 {data.providers.map((provider) => (
                   <tr key={provider.providerKey}>
-                    <td className="px-4 py-3 font-black text-white">{provider.name}</td>
+                    <td className="px-4 py-3 font-semibold text-slate-950">{provider.name}</td>
                     <td className="px-4 py-3"><AdminStatusPill tone={provider.configured ? "good" : "warn"}>{provider.configured ? "Hazır" : "Eksik"}</AdminStatusPill></td>
                     <td className="px-4 py-3">{provider.health}</td>
-                    <td className="px-4 py-3 text-slate-300">{provider.jobsToday}</td>
-                    <td className="px-4 py-3 text-rose-200">{provider.failedToday}</td>
+                    <td className="px-4 py-3 text-slate-700">{provider.jobsToday}</td>
+                    <td className="px-4 py-3 text-rose-700">{provider.failedToday}</td>
                   </tr>
                 ))}
               </tbody>
@@ -96,8 +96,8 @@ export default async function AdminQaPage() {
         <AdminSection title="Event debug" description="Server tarafında kaydedilen son analytics/operasyon eventleri.">
           <div className="grid gap-2">
             {data.recentEvents.map((event) => (
-              <div key={event.id} className="rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3">
-                <p className="font-black text-white">{event.action.replace("analytics.", "")}</p>
+              <div key={event.id} className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                <p className="font-semibold text-slate-950">{event.action.replace("analytics.", "")}</p>
                 <p className="mt-1 text-xs text-slate-400">{formatAdminDate(event.createdAt)}</p>
               </div>
             ))}
@@ -111,9 +111,9 @@ export default async function AdminQaPage() {
 
 function Status({ label, ok }: { label: string; ok: boolean }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-black text-white">{label}</p>
+        <p className="text-sm font-semibold text-slate-950">{label}</p>
         <AdminStatusPill tone={ok ? "good" : "warn"}>{ok ? "Hazır" : "Eksik"}</AdminStatusPill>
       </div>
     </div>

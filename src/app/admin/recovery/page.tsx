@@ -22,12 +22,12 @@ export default async function AdminRecoveryPage({
       description="Kredi, ödeme, job, ticket ve provider snapshot verilerini güvenli şekilde izleme ve acil export merkezi."
     >
       {params?.saved ? (
-        <div className="mb-4 rounded-2xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm font-black text-emerald">
+        <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
           Backup işlemi tamamlandı: {params.saved}
         </div>
       ) : null}
       {params?.error ? (
-        <div className="mb-4 rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-sm font-black text-rose-100">
+        <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800">
           İşlem tamamlanamadı: {params.error}
         </div>
       ) : null}
@@ -52,10 +52,10 @@ export default async function AdminRecoveryPage({
                 name="confirmation"
                 required
                 placeholder="CREATE_BACKUP"
-                className="mt-2 h-11 w-full rounded-2xl border border-white/10 bg-white/5 px-4 text-sm font-bold text-white outline-none transition focus:border-cyan"
+                className="mt-2 h-11 w-full rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-950 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
               />
             </label>
-            <button className="rounded-full bg-zeylora-brand px-5 py-3 text-sm font-black text-white shadow-glow transition hover:brightness-110">
+            <button className="rounded-md bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700">
               Create emergency backup snapshot
             </button>
             <p className="text-xs font-bold leading-5 text-slate-400">
@@ -68,13 +68,13 @@ export default async function AdminRecoveryPage({
           {data.criticalWarnings.length > 0 ? (
             <div className="grid gap-2">
               {data.criticalWarnings.map((warning) => (
-                <div key={warning} className="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-sm font-bold text-rose-100">
+                <div key={warning} className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800">
                   {warning}
                 </div>
               ))}
             </div>
           ) : (
-            <div className="rounded-2xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm font-black text-emerald">
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
               Kritik backup/ledger uyarısı görünmüyor.
             </div>
           )}
@@ -105,8 +105,8 @@ export default async function AdminRecoveryPage({
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
         <AdminSection title="Son backup eventleri" description="Emergency snapshot, integrity check ve ileride otomatik backup kayıtları burada görünür.">
           <AdminTable>
-            <table className="min-w-[860px] w-full divide-y divide-white/10 text-sm">
-              <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
+            <table className="min-w-[860px] w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.16em] text-slate-500">
                 <tr>
                   <th className="px-4 py-3">Tip</th>
                   <th className="px-4 py-3">Durum</th>
@@ -116,14 +116,14 @@ export default async function AdminRecoveryPage({
                   <th className="px-4 py-3">Lokasyon</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/10">
+              <tbody className="divide-y divide-slate-200">
                 {data.backupEvents.map((event) => (
                   <tr key={event.id}>
-                    <td className="px-4 py-3 font-black text-white">{event.type}</td>
+                    <td className="px-4 py-3 font-semibold text-slate-950">{event.type}</td>
                     <td className="px-4 py-3"><EventStatus status={event.status} /></td>
-                    <td className="px-4 py-3 text-slate-300">{formatAdminDate(event.startedAt)}</td>
-                    <td className="px-4 py-3 text-slate-300">{formatAdminDate(event.completedAt)}</td>
-                    <td className="px-4 py-3 text-slate-300">{event.fileSize ? formatBytes(event.fileSize) : "-"}</td>
+                    <td className="px-4 py-3 text-slate-700">{formatAdminDate(event.startedAt)}</td>
+                    <td className="px-4 py-3 text-slate-700">{formatAdminDate(event.completedAt)}</td>
+                    <td className="px-4 py-3 text-slate-700">{event.fileSize ? formatBytes(event.fileSize) : "-"}</td>
                     <td className="px-4 py-3 text-xs font-bold text-slate-400">{event.storageLocation ? "private R2" : event.errorMessage || "-"}</td>
                   </tr>
                 ))}
@@ -140,16 +140,16 @@ export default async function AdminRecoveryPage({
         <AdminSection title="Restore test geçmişi" description="Canlı DB üzerine otomatik restore yok. Test restore staging ortamında manuel doğrulanmalı.">
           <div className="grid gap-2">
             {data.restoreTests.map((event) => (
-              <div key={event.id} className="rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3">
+              <div key={event.id} className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="font-black text-white">{event.type}</p>
+                  <p className="font-semibold text-slate-950">{event.type}</p>
                   <EventStatus status={event.status} />
                 </div>
                 <p className="mt-1 text-sm font-bold text-slate-400">{formatAdminDate(event.completedAt || event.startedAt)}</p>
               </div>
             ))}
             {data.restoreTests.length === 0 ? (
-              <p className="rounded-2xl border border-amber-300/20 bg-amber-300/10 px-4 py-3 text-sm font-bold text-amber-100">
+              <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
                 Restore testi henüz kaydedilmemiş. İlk test staging Supabase projesinde yapılmalı.
               </p>
             ) : null}
@@ -196,9 +196,9 @@ function AuditCard({ title, rows }: { title: string; rows: Array<[string, string
     <AdminSection title={title}>
       <div className="grid gap-2">
         {rows.map(([label, value]) => (
-          <div key={label} className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3">
+          <div key={label} className="flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
             <p className="text-sm font-bold text-slate-400">{label}</p>
-            <p className="text-sm font-black text-white">{value}</p>
+            <p className="text-sm font-semibold text-slate-950">{value}</p>
           </div>
         ))}
       </div>
@@ -211,7 +211,7 @@ function Playbook({ title, items }: { title: string; items: string[] }) {
     <AdminSection title={title}>
       <div className="grid gap-2">
         {items.map((item) => (
-          <div key={item} className="rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-sm font-bold leading-6 text-slate-300">
+          <div key={item} className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold leading-6 text-slate-700">
             {item}
           </div>
         ))}

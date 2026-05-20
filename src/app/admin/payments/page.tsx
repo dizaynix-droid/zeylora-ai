@@ -47,9 +47,9 @@ export default async function AdminPaymentsPage({
   return (
     <AppShell area="admin" title="Ödeme hazırlığı" description="Stripe checkout, webhook ve kredi teslimatı için operasyon kontrol listesi.">
       {!diagnostics.stripeSecretConfigured || !diagnostics.stripeWebhookConfigured || !diagnostics.siteUrlConfigured ? (
-        <div className="mb-4 rounded-2xl border border-amber/30 bg-amber/10 px-4 py-4">
-          <p className="font-black text-amber">Stripe henüz yapılandırılmamış</p>
-          <p className="mt-2 text-sm leading-6 text-amber/85">
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-4">
+          <p className="font-semibold text-amber-800">Stripe henüz yapılandırılmamış</p>
+          <p className="mt-2 text-sm leading-6 text-amber-800">
             Ödeme sayfası güvenli modda açıldı. Canlı checkout için `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` ve `NEXT_PUBLIC_SITE_URL`
             production environment içinde tanımlanmalı.
           </p>
@@ -66,10 +66,10 @@ export default async function AdminPaymentsPage({
       <AdminSection title="Ödeme kurulum kontrolü" description="Secret değerleri gösterilmez; sadece hazır/eksik durumu gösterilir.">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {checklist.map((item) => (
-            <div key={item.label} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div key={item.label} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="font-black text-white">{item.label}</p>
+                  <p className="font-semibold text-slate-950">{item.label}</p>
                   <p className="mt-2 text-sm leading-6 text-slate-400">{item.note}</p>
                 </div>
                 <AdminStatusPill tone={item.ready ? "good" : "warn"}>{item.ready ? "Hazır" : "Eksik"}</AdminStatusPill>
@@ -82,8 +82,8 @@ export default async function AdminPaymentsPage({
       <div className="mt-4">
         <AdminSection title="Stripe webhook event kayıtları" description="Son 25 webhook. Secret/payload token gösterilmez; sadece operasyon durumu görünür.">
           <AdminTable>
-            <table className="min-w-[1080px] w-full divide-y divide-white/10 text-sm">
-              <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
+            <table className="min-w-[1080px] w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.16em] text-slate-500">
                 <tr>
                   <th className="px-4 py-3">Event</th>
                   <th className="px-4 py-3">Stripe event id</th>
@@ -93,10 +93,10 @@ export default async function AdminPaymentsPage({
                   <th className="px-4 py-3">Kontrol</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/10">
+              <tbody className="divide-y divide-slate-200">
                 {diagnostics.webhookEvents.map((event) => (
                   <tr key={event.id}>
-                    <td className="px-4 py-3 font-black text-white">{event.eventType}</td>
+                    <td className="px-4 py-3 font-semibold text-slate-950">{event.eventType}</td>
                     <td className="px-4 py-3 text-xs text-slate-400">{event.externalEventId || "-"}</td>
                     <td className="px-4 py-3"><WebhookStatus status={event.status} /></td>
                     <td className="px-4 py-3 text-xs text-slate-400">{event.paymentId || event.userId || "-"}</td>
@@ -105,7 +105,7 @@ export default async function AdminPaymentsPage({
                       {event.status === "failed" ? (
                         <form action={requestWebhookReprocessAction}>
                           <input type="hidden" name="webhookLogId" value={event.id} />
-                          <button className="h-9 rounded-full border border-amber/30 bg-amber/10 px-3 text-xs font-black text-amber">
+                          <button className="h-9 rounded-md border border-amber-200 bg-amber-50 px-3 text-xs font-semibold text-amber-800">
                             Reprocess iste
                           </button>
                         </form>
@@ -133,8 +133,8 @@ export default async function AdminPaymentsPage({
             <AdminPaginationControls basePath="/admin/payments" pagination={payments.pagination} />
           </div>
           <AdminTable>
-            <table className="min-w-[1180px] w-full divide-y divide-white/10 text-sm">
-              <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
+            <table className="min-w-[1180px] w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.16em] text-slate-500">
                 <tr>
                   <th className="px-4 py-3">Kullanıcı</th>
                   <th className="px-4 py-3">Durum</th>
@@ -144,17 +144,17 @@ export default async function AdminPaymentsPage({
                   <th className="px-4 py-3">Tarih</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/10">
+              <tbody className="divide-y divide-slate-200">
                 {payments.items.map((payment) => (
                   <tr key={payment.id}>
-                    <td className="px-4 py-3 font-bold text-white">{payment.user.email}</td>
+                    <td className="px-4 py-3 font-semibold text-slate-950">{payment.user.email}</td>
                     <td className="px-4 py-3">
                       <PaymentStatus status={payment.status} />
                     </td>
-                    <td className="px-4 py-3 font-black text-white">
+                    <td className="px-4 py-3 font-semibold text-slate-950">
                       {payment.amount.toString()} {payment.currency.toUpperCase()}
                     </td>
-                    <td className="px-4 py-3 text-slate-300">{payment.creditsDelivered}</td>
+                    <td className="px-4 py-3 text-slate-700">{payment.creditsDelivered}</td>
                     <td className="px-4 py-3 text-xs text-slate-400">
                       {payment.stripeCheckoutSessionId || payment.stripePaymentIntentId || payment.couponCode || "-"}
                     </td>
@@ -164,7 +164,7 @@ export default async function AdminPaymentsPage({
                 {payments.items.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-4 py-10 text-center">
-                      <p className="font-black text-white">Henüz ödeme kaydı yok.</p>
+                      <p className="font-semibold text-slate-950">Henüz ödeme kaydı yok.</p>
                       <p className="mt-2 text-sm text-slate-400">Checkout açıldığında başarılı, başarısız ve iade kayıtları burada listelenecek.</p>
                     </td>
                   </tr>
@@ -183,11 +183,11 @@ export default async function AdminPaymentsPage({
 
 function DiagnosticCard({ label, value, note, tone }: { label: string; value: string | number; note: string; tone: "good" | "bad" | "warn" | "neutral" }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan">{label}</p>
-          <p className="mt-2 text-2xl font-black text-white">{value}</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-700">{label}</p>
+          <p className="mt-2 text-2xl font-semibold text-slate-950">{value}</p>
           <p className="mt-1 text-xs leading-5 text-slate-400">{note}</p>
         </div>
         <AdminStatusPill tone={tone}>{tone === "good" ? "İyi" : tone === "bad" ? "Risk" : tone === "warn" ? "Uyarı" : "Bilgi"}</AdminStatusPill>

@@ -35,8 +35,8 @@ export default async function AdminLogsPage({
           <AdminPaginationControls basePath="/admin/logs" pagination={data.pagination} />
         </div>
         <AdminTable>
-          <table className="min-w-[1040px] w-full divide-y divide-white/10 text-sm">
-            <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
+          <table className="min-w-[1040px] w-full divide-y divide-slate-200 text-sm">
+            <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.16em] text-slate-500">
               <tr>
                 <th className="px-4 py-3">Admin</th>
                 <th className="px-4 py-3">Aksiyon</th>
@@ -44,12 +44,12 @@ export default async function AdminLogsPage({
                 <th className="px-4 py-3">Tarih</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/10">
+            <tbody className="divide-y divide-slate-200">
               {logs.map((log) => (
                 <tr key={log.id}>
-                  <td className="px-4 py-3 font-bold text-white">{log.adminUser?.email || "sistem"}</td>
-                  <td className="px-4 py-3 text-cyan">{log.action}</td>
-                  <td className="px-4 py-3 text-slate-300">{log.entityType} {log.entityId ? `/${log.entityId.slice(0, 8)}` : ""}</td>
+                  <td className="px-4 py-3 font-semibold text-slate-950">{log.adminUser?.email || "sistem"}</td>
+                  <td className="px-4 py-3 font-semibold text-blue-700">{log.action}</td>
+                  <td className="px-4 py-3 text-slate-700">{log.entityType} {log.entityId ? `/${log.entityId.slice(0, 8)}` : ""}</td>
                   <td className="px-4 py-3 text-slate-400">{formatAdminDate(log.createdAt)}</td>
                 </tr>
               ))}

@@ -26,13 +26,13 @@ export default async function AdminCmsPage({
       </div>
 
       {params?.saved ? (
-        <div className="mt-5 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm font-bold text-emerald-100">
+        <div className="mt-5 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">
           Sayfa kaydedildi: /{params.saved}. Durum Yayında ise public sayfa CMS içeriğini kullanır.
         </div>
       ) : null}
 
       {params?.error ? (
-        <div className="mt-5 rounded-2xl border border-rose-400/20 bg-rose-400/10 p-4 text-sm font-bold text-rose-100">
+        <div className="mt-5 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-800">
           Sayfa kaydedilemedi. Zorunlu alanları kontrol edip tekrar deneyin.
         </div>
       ) : null}
@@ -44,12 +44,12 @@ export default async function AdminCmsPage({
         >
           <div className="grid gap-4">
             {pages.map((page) => (
-              <form key={page.slug} action={upsertCmsPageAction} className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
+              <form key={page.slug} action={upsertCmsPageAction} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                 <input type="hidden" name="pageId" value={page.id ?? ""} />
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="text-lg font-black text-white">{page.title}</h2>
+                      <h2 className="text-lg font-semibold text-slate-950">{page.title}</h2>
                       <PageStatus status={page.status} />
                       <AdminStatusPill tone={page.exists ? "good" : "warn"}>{page.exists ? "DB" : "fallback"}</AdminStatusPill>
                     </div>
@@ -57,7 +57,7 @@ export default async function AdminCmsPage({
                       /{page.slug} • Son güncelleme {page.updatedAt ? formatAdminDate(page.updatedAt) : "henüz kaydedilmedi"}
                     </p>
                   </div>
-                  <button className="h-10 rounded-full bg-zeylora-brand px-5 text-sm font-black text-white shadow-glow transition hover:brightness-110">
+                  <button className="h-10 rounded-md bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700">
                     Sayfayı kaydet
                   </button>
                 </div>
@@ -71,7 +71,7 @@ export default async function AdminCmsPage({
                     <select
                       name="status"
                       defaultValue={page.status}
-                      className="h-10 rounded-xl border border-white/10 bg-[#101525] px-3 text-sm font-bold text-white outline-none focus:border-cyan"
+                      className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-950 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                     >
                       <option value="PUBLISHED">Yayında</option>
                       <option value="DRAFT">Taslak</option>
@@ -86,18 +86,18 @@ export default async function AdminCmsPage({
                     name="metaDescription"
                     defaultValue={page.metaDescription}
                     rows={2}
-                    className="rounded-xl border border-white/10 bg-[#080d1f] p-3 text-sm font-semibold leading-6 text-white outline-none focus:border-cyan"
+                    className="rounded-md border border-slate-300 bg-white p-3 text-sm font-semibold leading-6 text-slate-950 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                   />
                 </label>
 
-                <details className="mt-3 rounded-2xl border border-white/10 bg-black/15 p-3" open={!page.exists}>
-                  <summary className="cursor-pointer text-sm font-black text-cyan">Sayfa içeriğini düzenle</summary>
+                <details className="mt-3 rounded-lg border border-slate-200 bg-white p-3" open={!page.exists}>
+                  <summary className="cursor-pointer text-sm font-semibold text-blue-700">Sayfa içeriğini düzenle</summary>
                   <textarea
                     name="bodyMarkdown"
                     id={`body-${page.slug}`}
                     defaultValue={page.bodyMarkdown}
                     rows={12}
-                    className="mt-3 w-full rounded-2xl border border-white/10 bg-[#080d1f] p-4 font-mono text-sm leading-6 text-slate-100 outline-none focus:border-cyan"
+                    className="mt-3 w-full rounded-md border border-slate-300 bg-white p-4 font-mono text-sm leading-6 text-slate-950 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                     placeholder="## Bölüm başlığı&#10;&#10;Yasal metni buraya yaz. Gerekirse - liste satırları kullan."
                   />
                   <p className="mt-2 text-xs leading-5 text-slate-500">
@@ -120,7 +120,7 @@ function CmsInput({ label, name, defaultValue }: { label: string; name: string; 
       <input
         name={name}
         defaultValue={defaultValue}
-        className="h-10 rounded-xl border border-white/10 bg-[#080d1f] px-3 text-sm font-bold text-white outline-none focus:border-cyan"
+        className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-950 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
       />
     </label>
   );

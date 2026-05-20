@@ -25,9 +25,9 @@ export default async function AdminFeatureFlagsPage() {
       <AdminSection title="Özellik bayrakları" description="Bu liste sonraki fazda DB-backed editöre dönüşecek. Şimdilik güvenli read-only görünüm.">
         <div className="grid gap-3 md:grid-cols-2">
           {mergedFlags.map((flag) => (
-            <div key={flag.key} className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div key={flag.key} className="flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
               <div>
-                <p className="font-black text-white">{flag.key}</p>
+                <p className="font-semibold text-slate-950">{flag.key}</p>
                 <p className="mt-1 text-sm text-slate-400">{purpose[flag.key] || "Özellik kontrolü."}</p>
               </div>
               <div>

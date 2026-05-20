@@ -24,7 +24,7 @@ export default async function AdminSystemPage({
         </div>
       ) : null}
       {params?.saved ? (
-        <div className="mb-4 rounded-2xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm font-black text-emerald">
+        <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
           İşlem tamamlandı: {params.saved}
         </div>
       ) : null}
@@ -52,11 +52,11 @@ export default async function AdminSystemPage({
 
         <AdminSection title="Acil kontroller" description="Kriz anında önce ayarlardan upload/verification/export kapat; gerekiyorsa providerları duraklat.">
           <div className="grid gap-3">
-            <a href="/admin/settings" className="rounded-2xl border border-cyan/30 bg-cyan/10 px-4 py-3 text-sm font-black text-cyan">
+            <a href="/admin/settings" className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700">
               Emergency toggles aç
             </a>
             <form action={pauseAllProvidersAction}>
-              <button className="w-full rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-sm font-black text-rose-200">
+              <button className="w-full rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
                 Tüm providerları duraklat
               </button>
             </form>
@@ -67,8 +67,8 @@ export default async function AdminSystemPage({
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
         <AdminSection title="Provider sağlık durumu" description="Bugünkü job sayısı, hata oranı ve tahmini maliyet.">
           <AdminTable>
-            <table className="min-w-[760px] w-full divide-y divide-white/10 text-sm">
-              <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
+            <table className="min-w-[760px] w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.16em] text-slate-500">
                 <tr>
                   <th className="px-4 py-3">Provider</th>
                   <th className="px-4 py-3">Sağlık</th>
@@ -77,14 +77,14 @@ export default async function AdminSystemPage({
                   <th className="px-4 py-3">Maliyet</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/10">
+              <tbody className="divide-y divide-slate-200">
                 {data.providers.map((provider) => (
                   <tr key={provider.providerKey}>
-                    <td className="px-4 py-3 font-black text-white">{provider.name}</td>
+                    <td className="px-4 py-3 font-semibold text-slate-950">{provider.name}</td>
                     <td className="px-4 py-3"><Health status={provider.health} /></td>
-                    <td className="px-4 py-3 text-slate-300">{provider.jobsToday}</td>
-                    <td className="px-4 py-3 text-rose-200">{provider.failedToday} ({Math.round(provider.failureRate * 100)}%)</td>
-                    <td className="px-4 py-3 text-amber">${provider.estimatedCostToday.toFixed(4)}</td>
+                    <td className="px-4 py-3 text-slate-700">{provider.jobsToday}</td>
+                    <td className="px-4 py-3 text-rose-700">{provider.failedToday} ({Math.round(provider.failureRate * 100)}%)</td>
+                    <td className="px-4 py-3 text-amber-700">${provider.estimatedCostToday.toFixed(4)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -95,32 +95,32 @@ export default async function AdminSystemPage({
         <AdminSection
           title="Backup ve recovery durumu"
           description="Kritik veriler, R2 export, ledger doğrulama ve restore hazırlığı tek yerden izlenir."
-          action={<a href="/admin/recovery" className="rounded-full border border-cyan/30 bg-cyan/10 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-cyan">Recovery paneli</a>}
+          action={<a href="/admin/recovery" className="rounded-md border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-blue-700">Recovery paneli</a>}
         >
           <div className="grid gap-3">
             {data.backup.statusItems.slice(0, 4).map((item) => (
-              <div key={item.label} className="rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3">
+              <div key={item.label} className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
                 <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">{item.label}</p>
-                    <p className="mt-1 text-sm font-black text-white">{item.value}</p>
-                    <p className="mt-1 text-xs font-bold text-slate-400">{item.note}</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-950">{item.value}</p>
+                    <p className="mt-1 text-xs font-semibold text-slate-500">{item.note}</p>
                   </div>
                   <BackupStatus status={item.status} />
                 </div>
               </div>
             ))}
-            <form action={createEmergencyBackupSnapshotAction} className="rounded-2xl border border-amber-300/20 bg-amber-300/10 p-3">
+            <form action={createEmergencyBackupSnapshotAction} className="rounded-lg border border-amber-200 bg-amber-50 p-3">
               <input type="hidden" name="confirmation" value="CREATE_BACKUP" />
-              <button className="w-full rounded-full bg-zeylora-brand px-4 py-3 text-sm font-black text-white shadow-glow transition hover:brightness-110">
+              <button className="w-full rounded-md bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700">
                 Create emergency backup snapshot
               </button>
-              <p className="mt-2 text-xs font-bold leading-5 text-amber-100/80">
+              <p className="mt-2 text-xs font-semibold leading-5 text-amber-800">
                 Private R2 içine JSON + CSV snapshot kaydeder. Secret, token veya signed URL export edilmez.
               </p>
             </form>
             {data.backup.criticalWarnings.length > 0 ? (
-              <div className="rounded-2xl border border-rose-400/30 bg-rose-400/10 p-3 text-sm font-bold text-rose-100">
+              <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-700">
                 {data.backup.criticalWarnings[0]}
               </div>
             ) : null}
@@ -145,15 +145,15 @@ export default async function AdminSystemPage({
               value={`${data.email.failedEmailCount} adet${data.email.lastFailedEmail?.errorMessage ? ` · ${data.email.lastFailedEmail.errorMessage}` : ""}`}
             />
             <form action="/api/v1/email/test" method="post">
-              <button className="h-11 w-full rounded-full bg-zeylora-brand text-sm font-black text-white shadow-glow transition hover:brightness-110">
+              <button className="h-11 w-full rounded-md bg-blue-600 text-sm font-semibold text-white transition hover:bg-blue-700">
                 Admin test email gönder
               </button>
             </form>
             <div className="grid gap-2">
               {emailProviderPlaceholders.map((provider) => (
-                <div key={provider.key} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3">
+                <div key={provider.key} className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
                   <div>
-                    <p className="font-black text-white">{provider.name}</p>
+                    <p className="font-semibold text-slate-950">{provider.name}</p>
                     <p className="text-xs text-slate-500">{provider.envKeys.join(", ")}</p>
                   </div>
                   <AdminStatusPill tone={provider.configured ? "good" : "warn"}>{provider.configured ? "Hazır" : "Eksik"}</AdminStatusPill>
@@ -166,9 +166,9 @@ export default async function AdminSystemPage({
         <AdminSection title="Email template temeli" description="Welcome, ticket reply, ödeme ve kredi bildirim şablonları için operasyon listesi.">
           <div className="grid gap-2">
             {emailTemplateDefinitions.map((template) => (
-              <div key={template.key} className="rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3">
-                <p className="font-black text-white">{template.name}</p>
-                <p className="mt-1 text-xs font-bold text-cyan">{template.eventType}</p>
+              <div key={template.key} className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                <p className="font-semibold text-slate-950">{template.name}</p>
+                <p className="mt-1 text-xs font-semibold text-blue-700">{template.eventType}</p>
                 <p className="mt-1 text-sm leading-5 text-slate-400">{template.description}</p>
               </div>
             ))}
@@ -329,11 +329,11 @@ function createSystemFallbackData(): Awaited<ReturnType<typeof getAdminSystemDat
 function StatusCard({ label, ready, note, invert = false }: { label: string; ready: boolean; note: string; invert?: boolean }) {
   const good = invert ? ready : ready;
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan">{label}</p>
-          <p className="mt-2 text-sm font-bold text-slate-300">{note}</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-700">{label}</p>
+          <p className="mt-2 text-sm font-semibold text-slate-600">{note}</p>
         </div>
         <AdminStatusPill tone={good ? "good" : "warn"}>{good ? "Hazır" : "Kontrol"}</AdminStatusPill>
       </div>
@@ -343,9 +343,9 @@ function StatusCard({ label, ready, note, invert = false }: { label: string; rea
 
 function Info({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
       <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">{label}</p>
-      <p className="mt-1 break-all text-sm font-bold text-white">{value}</p>
+      <p className="mt-1 break-all text-sm font-semibold text-slate-950">{value}</p>
     </div>
   );
 }
@@ -366,8 +366,8 @@ function Checklist({ items }: { items: string[] }) {
   return (
     <div className="grid gap-2">
       {items.map((item) => (
-        <div key={item} className="rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-sm font-bold text-slate-300">
-          □ {item}
+        <div key={item} className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
+          {item}
         </div>
       ))}
     </div>

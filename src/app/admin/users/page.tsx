@@ -72,24 +72,24 @@ export default async function AdminUsersPage({
         title="Kullanıcılar"
         description="Manuel kredi ekleme/çıkarma işlemleri audit log ve credit transaction olarak kaydedilir."
       >
-        <form className="mb-4 flex flex-col gap-2 rounded-2xl border border-white/10 bg-white/5 p-3 md:flex-row md:items-center">
+        <form className="mb-4 flex flex-col gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 md:flex-row md:items-center">
           <input
             name="q"
             defaultValue={query}
             placeholder="Email veya isim ara"
-            className="h-10 min-w-0 flex-1 rounded-xl border border-white/10 bg-[#080d1f] px-3 text-sm text-white outline-none focus:border-cyan"
+            className="h-10 min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-950 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
           />
           <select
             name="filter"
             defaultValue={filter}
-            className="h-10 rounded-xl border border-white/10 bg-[#080d1f] px-3 text-sm font-bold text-white outline-none focus:border-cyan"
+            className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-950 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
           >
             <option value="all">Tüm kullanıcılar</option>
             <option value="with-credits">Kredisi olanlar</option>
             <option value="with-jobs">İşlemi olanlar</option>
             <option value="recent">Yeni kayıtlar</option>
           </select>
-          <button className="h-10 rounded-full bg-cyan px-5 text-sm font-black text-ink transition hover:bg-cyan/90">
+          <button className="h-10 rounded-md bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700">
             Filtrele
           </button>
         </form>
@@ -101,8 +101,8 @@ export default async function AdminUsersPage({
           />
         </div>
         <AdminTable>
-          <table className="min-w-[1280px] w-full divide-y divide-white/10 text-sm">
-            <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
+          <table className="min-w-[1280px] w-full divide-y divide-slate-200 text-sm">
+            <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.16em] text-slate-500">
               <tr>
                 <th className="px-4 py-3">Email</th>
                 <th className="px-4 py-3">Rol</th>
@@ -114,11 +114,11 @@ export default async function AdminUsersPage({
                 <th className="px-4 py-3">Kredi düzenle</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/10">
+            <tbody className="divide-y divide-slate-200">
               {users.map((user) => (
                 <tr key={user.id} className={`align-top transition ${highlightedUserId === user.id ? "bg-emerald-50/80 ring-2 ring-inset ring-emerald-200" : ""}`}>
                   <td className="px-4 py-3">
-                    <p className="font-black text-white">{user.email}</p>
+                    <p className="font-semibold text-slate-950">{user.email}</p>
                     <p className="mt-1 text-xs text-slate-500">{user.name || "İsim yok"}</p>
                   </td>
                   <td className="px-4 py-3">
@@ -126,12 +126,12 @@ export default async function AdminUsersPage({
                     <p className="mt-2 text-xs text-slate-500">{user.status}</p>
                   </td>
                   <td className="px-4 py-3">
-                    <p className="text-2xl font-black text-white">{user.creditBalance}</p>
+                    <p className="text-2xl font-semibold text-slate-950">{user.creditBalance}</p>
                     {highlightedUserId === user.id && params?.saved === "credits" ? (
                       <p className="mt-1 text-xs font-black text-emerald-700">Son kredi işlemi kaydedildi</p>
                     ) : null}
                   </td>
-                  <td className="px-4 py-3 text-slate-300">
+                  <td className="px-4 py-3 text-slate-700">
                     <p>{user._count.verificationJobs} doğrulama</p>
                     <p className="text-xs text-slate-500">
                       {user.lastVerificationJob
@@ -139,8 +139,8 @@ export default async function AdminUsersPage({
                         : "Henüz doğrulama yok"}
                     </p>
                   </td>
-                  <td className="px-4 py-3 font-bold text-slate-200">${user.totalSpend.toFixed(2)}</td>
-                  <td className="px-4 py-3 text-slate-300">
+                  <td className="px-4 py-3 font-semibold text-slate-800">${user.totalSpend.toFixed(2)}</td>
+                  <td className="px-4 py-3 text-slate-700">
                     {user.lastPayment ? (
                       <>
                         <p>{Number(user.lastPayment.amount).toFixed(2)} {user.lastPayment.currency.toUpperCase()}</p>
@@ -158,7 +158,7 @@ export default async function AdminUsersPage({
                           key={amount}
                           name="amount"
                           value={amount}
-                          className="h-8 rounded-full border border-white/10 bg-white/5 px-3 text-xs font-black text-white transition hover:bg-white/10"
+                          className="h-8 rounded-md border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
                         >
                           {amount > 0 ? `+${amount}` : amount}
                         </button>
@@ -168,12 +168,12 @@ export default async function AdminUsersPage({
                         type="number"
                         step="1"
                         placeholder="+10 / -5"
-                        className="h-9 w-24 rounded-xl border border-white/10 bg-white/5 px-3 text-sm font-bold text-white outline-none focus:border-cyan"
+                        className="h-9 w-24 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-950 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                       />
                       <input
                         name="note"
                         placeholder="Not opsiyonel"
-                        className="h-9 w-40 rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none focus:border-cyan"
+                        className="h-9 w-40 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-950 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                       />
                       <CreditAdjustSubmit />
                     </form>

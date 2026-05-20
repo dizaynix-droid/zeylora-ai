@@ -31,7 +31,7 @@ export default async function AdminCreditsPage({
     <AppShell
       area="admin"
       title="Doğrulama hakkı defteri"
-      description="Bugünkü satın alma, kullanım, iade ve admin kredi hareketleri. Eski foto test kayıtları bu defterden ayrıştırıldı."
+      description="Bugünkü satın alma, kullanım, iade ve admin kredi hareketleri. Eski test kayıtları bu defterden ayrıştırıldı."
     >
       {error ? (
         <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
@@ -54,8 +54,8 @@ export default async function AdminCreditsPage({
             <AdminPaginationControls basePath="/admin/credits" pagination={data.pagination} />
           </div>
           <AdminTable>
-            <table className="min-w-[1180px] w-full divide-y divide-white/10 text-sm">
-              <thead className="bg-white/5 text-left text-xs uppercase tracking-[0.16em] text-slate-400">
+            <table className="min-w-[1180px] w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.16em] text-slate-500">
                 <tr>
                   <th className="px-4 py-3">Kullanıcı</th>
                   <th className="px-4 py-3">Tip</th>
@@ -65,13 +65,13 @@ export default async function AdminCreditsPage({
                   <th className="px-4 py-3">Tarih</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/10">
+              <tbody className="divide-y divide-slate-200">
                 {data.transactions.map((tx) => (
                   <tr key={tx.id}>
-                    <td className="px-4 py-3 font-bold text-white">{tx.user.email}</td>
-                    <td className="px-4 py-3 text-cyan">{transactionLabel(tx.type)}</td>
-                    <td className={tx.amount >= 0 ? "px-4 py-3 font-black text-emerald-200" : "px-4 py-3 font-black text-rose-200"}>{tx.amount}</td>
-                    <td className="px-4 py-3 text-slate-300">{tx.balanceAfter}</td>
+                    <td className="px-4 py-3 font-semibold text-slate-950">{tx.user.email}</td>
+                    <td className="px-4 py-3 font-semibold text-blue-700">{transactionLabel(tx.type)}</td>
+                    <td className={tx.amount >= 0 ? "px-4 py-3 font-semibold text-emerald-700" : "px-4 py-3 font-semibold text-rose-700"}>{tx.amount}</td>
+                    <td className="px-4 py-3 text-slate-700">{tx.balanceAfter}</td>
                     <td className="px-4 py-3 text-slate-400">
                       {renderCreditTransactionNote(tx)}
                     </td>
@@ -81,7 +81,7 @@ export default async function AdminCreditsPage({
                 {data.transactions.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-4 py-10 text-center">
-                      <p className="font-black text-white">Henüz kredi hareketi yok.</p>
+                      <p className="font-semibold text-slate-950">Henüz kredi hareketi yok.</p>
                       <p className="mt-2 text-sm text-slate-400">
                         Kullanıcılara admin panelinden kredi ekleyince, verification kullanımı veya refund/purchase işlemleri burada görünecek.
                       </p>
@@ -152,7 +152,7 @@ function renderCreditTransactionNote(tx: CreditTransactionRow) {
   if (tx.verificationJob?.originalFilename) return tx.verificationJob.originalFilename;
   if (tx.verificationJob) return `${tx.verificationJob.uniqueEmails.toLocaleString()} email verification`;
   if (tx.payment) return `Payment ${Number(tx.payment.amount).toFixed(2)} ${tx.payment.currency.toUpperCase()}`;
-  if (isLegacyPhotoCreditNote(tx.note)) return "Eski foto test kaydı";
+  if (isLegacyPhotoCreditNote(tx.note)) return "Eski test kaydı";
   return tx.note || "-";
 }
 

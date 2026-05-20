@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import type { ReactNode } from "react";
-import { Upload } from "lucide-react";
+import { Menu, Upload } from "lucide-react";
 import { appConfig } from "@/config/app";
 import { brandIdentity } from "@/config/brand";
 import { adminNav, dashboardNav } from "@/config/navigation";
@@ -53,7 +53,7 @@ export function AppShell({ title, description, area, children }: AppShellProps) 
             : "mx-auto grid w-full max-w-[1760px] gap-5 px-4 py-5 sm:px-6 xl:grid-cols-[248px_minmax(0,1fr)] xl:py-8"
         }
       >
-        <aside className="min-w-0">
+        <aside className="hidden min-w-0 xl:block">
           <div className="sticky top-5 rounded-lg border border-slate-200 bg-white p-2 shadow-[0_1px_2px_rgba(15,23,42,.04)]">
             <p className="px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
               {area === "admin" ? "Yönetim" : "Workspace"}
@@ -94,6 +94,34 @@ export function AppShell({ title, description, area, children }: AppShellProps) 
         </aside>
 
         <section className="verify-workspace min-w-0">
+          <details className="mb-4 rounded-lg border border-slate-200 bg-white p-2 shadow-[0_1px_2px_rgba(15,23,42,.04)] xl:hidden">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-md px-3 py-2 text-sm font-semibold text-slate-950">
+              <span className="inline-flex items-center gap-2">
+                <Menu size={17} />
+                {area === "admin" ? "Yönetim menüsü" : "Workspace menu"}
+              </span>
+              <span className="text-xs font-semibold uppercase tracking-[0.08em] text-blue-700">Aç / kapa</span>
+            </summary>
+            <nav className="mt-2 grid gap-1 border-t border-slate-200 pt-2 sm:grid-cols-2">
+              {nav.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="rounded-md px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
+                  scroll
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
+            {area === "dashboard" ? (
+              <form action="/auth/sign-out" method="post" className="mt-2 border-t border-slate-200 pt-2">
+                <button className="w-full rounded-md px-3 py-2 text-left text-sm font-medium text-slate-500 transition hover:bg-slate-50 hover:text-slate-950">
+                  Sign out
+                </button>
+              </form>
+            ) : null}
+          </details>
           <div className="mb-5">
             <p className="text-sm font-semibold text-blue-700">{area === "admin" ? adminTr.shell.eyebrow : "Zeylora Workspace"}</p>
             <h1 className={isAdmin ? "mt-2 text-3xl font-semibold tracking-[-0.03em] text-slate-950 md:text-4xl" : "mt-2 text-3xl font-semibold tracking-[-0.03em] text-slate-950 md:text-5xl"}>

@@ -27,16 +27,16 @@ export default async function AdminTicketsPage({
 
       <AdminSection title="Filtreler" description="Son 50 ticket gösterilir. Durum, kategori veya kullanıcı email ile filtrele.">
         <form className="grid gap-3 md:grid-cols-4">
-          <select name="status" defaultValue={params?.status || ""} className="h-10 rounded-xl border border-white/10 bg-[#101525] px-3 text-sm font-bold text-white">
+          <select name="status" defaultValue={params?.status || ""} className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-950 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100">
             <option value="">Tüm durumlar</option>
             {ticketStatuses.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
           </select>
-          <select name="category" defaultValue={params?.category || ""} className="h-10 rounded-xl border border-white/10 bg-[#101525] px-3 text-sm font-bold text-white">
+          <select name="category" defaultValue={params?.category || ""} className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-950 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100">
             <option value="">Tüm kategoriler</option>
             {ticketCategories.map((category) => <option key={category.value} value={category.value}>{category.label}</option>)}
           </select>
-          <input name="user" defaultValue={params?.user || ""} placeholder="Kullanıcı email" className="h-10 rounded-xl border border-white/10 bg-white/5 px-3 text-sm font-bold text-white" />
-          <button className="h-10 rounded-full bg-zeylora-brand text-sm font-black text-white shadow-glow">Filtrele</button>
+          <input name="user" defaultValue={params?.user || ""} placeholder="Kullanıcı email" className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-950 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
+          <button className="h-10 rounded-md bg-blue-600 text-sm font-semibold text-white transition hover:bg-blue-700">Filtrele</button>
         </form>
       </AdminSection>
 
@@ -51,47 +51,47 @@ export default async function AdminTicketsPage({
             <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
               <div className="grid gap-3">
                 {ticket.messages.map((message) => (
-                  <div key={message.id} className="rounded-2xl border border-white/10 bg-white/[0.035] p-3">
-                    <p className="text-xs font-black uppercase tracking-[0.14em] text-cyan">{message.actorType} {message.user?.email ? `• ${message.user.email}` : ""}</p>
-                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-200">{message.body}</p>
+                  <div key={message.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-blue-700">{message.actorType} {message.user?.email ? `• ${message.user.email}` : ""}</p>
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{message.body}</p>
                     <p className="mt-2 text-xs text-slate-500">{formatDate(message.createdAt)}</p>
                   </div>
                 ))}
                 <form action={adminReplyToTicketAction} className="grid gap-2">
                   <input type="hidden" name="ticketId" value={ticket.id} />
-                  <textarea name="message" rows={3} required placeholder="Admin yanıtı" className="rounded-2xl border border-white/10 bg-white/5 p-3 text-sm leading-6 text-white outline-none focus:border-cyan" />
-                  <button className="h-10 w-fit rounded-full border border-cyan/30 bg-cyan/10 px-4 text-sm font-black text-cyan">Admin yanıtını gönder</button>
+                  <textarea name="message" rows={3} required placeholder="Admin yanıtı" className="rounded-md border border-slate-300 bg-white p-3 text-sm leading-6 text-slate-950 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
+                  <button className="h-10 w-fit rounded-md border border-blue-200 bg-blue-50 px-4 text-sm font-semibold text-blue-700 transition hover:bg-blue-100">Admin yanıtını gönder</button>
                 </form>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Bağlam</p>
-                <div className="mt-3 grid gap-2 text-sm text-slate-300">
-                  <p>Kullanıcı bakiyesi: <span className="font-black text-white">{ticket.user.creditBalance}</span></p>
+                <div className="mt-3 grid gap-2 text-sm text-slate-700">
+                  <p>Kullanıcı bakiyesi: <span className="font-semibold text-slate-950">{ticket.user.creditBalance}</span></p>
                   {ticket.verificationJob ? (
                     <>
-                      <p>Job: <span className="font-mono text-xs text-white">{ticket.verificationJob.id}</span></p>
-                      <p>Liste: <span className="font-black text-white">{ticket.verificationJob.originalFilename || "Yapıştırılan email listesi"}</span></p>
-                      <p>Email: <span className="font-black text-white">{ticket.verificationJob.uniqueEmails.toLocaleString()}</span></p>
-                      <p>Durum: <span className="font-black text-white">{ticket.verificationJob.status}</span></p>
+                      <p>Job: <span className="font-mono text-xs text-slate-950">{ticket.verificationJob.id}</span></p>
+                      <p>Liste: <span className="font-semibold text-slate-950">{ticket.verificationJob.originalFilename || "Yapıştırılan email listesi"}</span></p>
+                      <p>Email: <span className="font-semibold text-slate-950">{ticket.verificationJob.uniqueEmails.toLocaleString()}</span></p>
+                      <p>Durum: <span className="font-semibold text-slate-950">{ticket.verificationJob.status}</span></p>
                       {ticket.verificationJob.errorMessage ? <p className="line-clamp-3">Hata: {ticket.verificationJob.errorMessage}</p> : null}
-                      <Link href={`/admin/verification-jobs?user=${encodeURIComponent(ticket.user.email)}`} className="text-cyan">İlgili doğrulama işlerini aç</Link>
+                      <Link href={`/admin/verification-jobs?user=${encodeURIComponent(ticket.user.email)}`} className="font-semibold text-blue-700">İlgili doğrulama işlerini aç</Link>
                     </>
                   ) : ticket.aiJob ? (
                     <>
-                      <p>Job: <span className="font-mono text-xs text-white">{ticket.aiJob.id}</span></p>
-                      <p>Eski foto job: <span className="font-black text-white">{ticket.aiJob.tool.name}</span></p>
-                      <p>Durum: <span className="font-black text-white">{ticket.aiJob.status}</span></p>
+                      <p>Job: <span className="font-mono text-xs text-slate-950">{ticket.aiJob.id}</span></p>
+                      <p>Eski bağlı işlem: <span className="font-semibold text-slate-950">{ticket.aiJob.tool.name}</span></p>
+                      <p>Durum: <span className="font-semibold text-slate-950">{ticket.aiJob.status}</span></p>
                       {ticket.aiJob.errorMessage ? <p className="line-clamp-3">Hata: {ticket.aiJob.errorMessage}</p> : null}
-                      <Link href={`/admin/verification-jobs?user=${encodeURIComponent(ticket.user.email)}`} className="text-cyan">İlgili doğrulama işlerini aç</Link>
+                      <Link href={`/admin/verification-jobs?user=${encodeURIComponent(ticket.user.email)}`} className="font-semibold text-blue-700">İlgili doğrulama işlerini aç</Link>
                     </>
                   ) : <p>Bağlı job yok.</p>}
                 </div>
                 <form action={adminUpdateTicketStatusAction} className="mt-4 grid gap-2">
                   <input type="hidden" name="ticketId" value={ticket.id} />
-                  <select name="status" defaultValue={ticket.status} className="h-10 rounded-xl border border-white/10 bg-[#101525] px-3 text-sm font-bold text-white">
+                  <select name="status" defaultValue={ticket.status} className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-950 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100">
                     {ticketStatuses.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
                   </select>
-                  <button className="h-10 rounded-full bg-white/10 text-sm font-black text-white">Durumu güncelle</button>
+                  <button className="h-10 rounded-md bg-slate-900 text-sm font-semibold text-white transition hover:bg-slate-800">Durumu güncelle</button>
                 </form>
               </div>
             </div>
@@ -107,7 +107,7 @@ export default async function AdminTicketsPage({
 }
 
 function Notice({ children, tone }: { children: string; tone: "good" | "bad" }) {
-  return <div className={`mb-5 rounded-2xl border p-4 text-sm font-bold ${tone === "good" ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100" : "border-rose-400/20 bg-rose-400/10 text-rose-100"}`}>{children}</div>;
+  return <div className={`mb-5 rounded-lg border p-4 text-sm font-semibold ${tone === "good" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-rose-200 bg-rose-50 text-rose-800"}`}>{children}</div>;
 }
 
 function formatDate(date: Date | string) {
