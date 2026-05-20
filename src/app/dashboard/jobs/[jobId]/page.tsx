@@ -98,7 +98,8 @@ export default async function VerificationJobPage({
   if (!job) notFound();
 
   const totalPages = Math.max(1, Math.ceil(resultTotal / RESULT_PAGE_SIZE));
-  const downloadLinks = job.status === "COMPLETED" ? await buildDownloadLinks(job) : [];
+  const downloadable = ["COMPLETED", "PARTIAL_FAILED", "CANCELED", "CANCELLED"].includes(job.status);
+  const downloadLinks = downloadable ? await buildDownloadLinks(job) : [];
   const active = job.status === "QUEUED" || job.status === "PROCESSING";
 
   return (

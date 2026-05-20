@@ -14,10 +14,14 @@ export function JobCancelButton({ jobId }: { jobId: string }) {
 
     setPending(true);
     try {
-      await fetch(`/api/v1/verification/jobs/${jobId}/cancel`, {
+      const response = await fetch(`/api/v1/verification/jobs/${jobId}/cancel`, {
         method: "POST",
         cache: "no-store"
       });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        window.alert(payload?.error || "This job could not be canceled safely. Please contact support.");
+      }
       router.refresh();
     } finally {
       setPending(false);

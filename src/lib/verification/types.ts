@@ -41,6 +41,7 @@ export type VerificationProvider = {
   uploadBulkFile?(input: { fileName: string; emails: string[] }): Promise<VerificationBulkUploadResult>;
   getBulkFileInfo?(providerFileId: string): Promise<VerificationBulkInfoResult>;
   downloadBulkReport?(providerFileId: string): Promise<VerificationProviderResult[]>;
+  stopBulkFile?(providerFileId: string): Promise<{ ok: boolean; raw?: Record<string, unknown> }>;
 };
 
 export type VerificationExportType = "valid" | "invalid" | "risky" | "full";

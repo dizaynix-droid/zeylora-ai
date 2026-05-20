@@ -125,6 +125,7 @@ export async function processVerificationJobChunk(jobId: string, options: { maxE
     },
     select: {
       id: true,
+      status: true,
       userId: true,
       originalFilename: true,
       inputStorageKey: true,
@@ -292,6 +293,13 @@ export async function processVerificationJobChunk(jobId: string, options: { maxE
     });
     const dbResults = providerResults.map((result) => toDbResult(job.id, result));
     const counts = countStatuses(providerResults.map((result) => result.status));
+    if (!(await isVerificationJobActive(job.id))) {
+      console.info("[verification-worker-checkpoint]", {
+        checkpoint: "job_no_longer_active_before_batch_write",
+        jobId: job.id
+      });
+      break;
+    }
 
     await prisma.$transaction([
       prisma.verificationEmailResult.createMany({ data: dbResults, skipDuplicates: true }),
@@ -335,6 +343,10 @@ export async function processVerificationJobChunk(jobId: string, options: { maxE
 
     batchCount += 1;
     processedEmails += providerResults.length;
+  }
+
+  if (!(await isVerificationJobActive(job.id))) {
+    return { processedEmails, completed: false };
   }
 
   const totalProcessed = await prisma.verificationEmailResult.count({ where: { verificationJobId: job.id } });
@@ -666,6 +678,7 @@ async function completeVerificationJob(jobId: string) {
     where: { id: jobId },
     select: {
       id: true,
+      status: true,
       userId: true,
       originalFilename: true,
       uniqueEmails: true,
@@ -679,6 +692,7 @@ async function completeVerificationJob(jobId: string) {
   });
 
   if (!job) return;
+  if (job.status === "CANCELED" || job.status === "CANCELLED") return;
 
   const exportBase = `verification/${job.userId}/${job.id}`;
   let fullReportKey: string | null = `${exportBase}/full-report.csv`;
@@ -911,6 +925,7 @@ export async function cancelVerificationJob(input: { userId: string; jobId: stri
       uniqueEmails: true,
       creditsReserved: true,
       creditsUsed: true,
+      providerKey: true,
       metadataJson: true
     }
   });
@@ -923,7 +938,42 @@ export async function cancelVerificationJob(input: { userId: string; jobId: stri
     return { ok: true as const, alreadyFinal: true as const, refundedCredits: 0, processedCount: job.creditsUsed };
   }
 
-  const processedCount = await prisma.verificationEmailResult.count({ where: { verificationJobId: job.id } });
+  const metadata = readJobMetadata(job.metadataJson);
+  const providerFileId = metadata.providerFileId || metadata.millionVerifierFileId;
+  if (providerFileId) {
+    const provider = getVerificationProvider(job.providerKey);
+    if (!provider.stopBulkFile) {
+      return {
+        ok: false as const,
+        cancelBlocked: true as const,
+        error: "This provider job is already running and cannot be canceled automatically. Please contact support."
+      };
+    }
+    try {
+      await provider.stopBulkFile(providerFileId);
+    } catch (error) {
+      console.warn("[verification-provider-cancel-failed]", {
+        jobId: job.id,
+        providerFileId,
+        message: error instanceof Error ? error.message : "Provider cancel failed"
+      });
+      return {
+        ok: false as const,
+        cancelBlocked: true as const,
+        error: "This provider job is already processing and could not be canceled safely. Please contact support."
+      };
+    }
+  }
+
+  const allResults = await readAllResultsForExport(job.id);
+  const processedCount = allResults.length;
+  const resultCounts = countStatuses(allResults.map((result) => result.status));
+  const exportFiles = await createVerificationExportFiles({
+    jobId: job.id,
+    userId: job.userId,
+    allResults,
+    label: "partial-canceled"
+  });
   const refundAmount = Math.max(0, job.creditsReserved - processedCount);
   if (refundAmount > 0) {
     await refundVerificationCredits({
@@ -940,12 +990,24 @@ export async function cancelVerificationJob(input: { userId: string; jobId: stri
       status: "CANCELED",
       processedCount,
       creditsUsed: processedCount,
+      validCount: resultCounts.VALID,
+      invalidCount: resultCounts.INVALID,
+      riskyCount: resultCounts.RISKY,
+      catchAllCount: resultCounts.CATCH_ALL,
+      disposableCount: resultCounts.DISPOSABLE,
+      unknownCount: resultCounts.UNKNOWN,
       progressPercent: computeProgress(processedCount, job.uniqueEmails),
       errorMessage: input.reason || `Verification job was canceled. ${refundAmount.toLocaleString("en-US")} unused credits were refunded.`,
+      fullReportStorageKey: exportFiles.fullReportKey,
+      validExportStorageKey: exportFiles.validExportKey,
+      invalidExportStorageKey: exportFiles.invalidExportKey,
+      riskyExportStorageKey: exportFiles.riskyExportKey,
       completedAt: new Date(),
       metadataJson: mergeJobMetadata(job.metadataJson, {
         canceledAt: new Date().toISOString(),
-        refundedCredits: refundAmount
+        refundedCredits: refundAmount,
+        exportRows: allResults.length,
+        ...(exportFiles.exportStorageError ? { exportStorageError: exportFiles.exportStorageError } : {})
       })
     }
   });
@@ -966,8 +1028,11 @@ async function updateBulkJobProgress(input: {
   info: VerificationBulkInfoResult;
   extraMetadata?: Record<string, unknown>;
 }) {
-  await prisma.verificationJob.update({
-    where: { id: input.jobId },
+  await prisma.verificationJob.updateMany({
+    where: {
+      id: input.jobId,
+      status: { in: ["QUEUED", "PROCESSING"] }
+    },
     data: {
       status: "PROCESSING",
       processedCount: input.info.verified,
@@ -1000,6 +1065,59 @@ async function createVerificationResultsInChunks(jobId: string, results: Verific
       skipDuplicates: true
     });
   }
+}
+
+async function createVerificationExportFiles(input: {
+  jobId: string;
+  userId: string;
+  allResults: Awaited<ReturnType<typeof readAllResultsForExport>>;
+  label: string;
+}) {
+  const exportBase = `verification/${input.userId}/${input.jobId}`;
+  let fullReportKey: string | null = `${exportBase}/${input.label}-full-report.csv`;
+  let validExportKey: string | null = `${exportBase}/${input.label}-valid-emails.csv`;
+  let invalidExportKey: string | null = `${exportBase}/${input.label}-invalid-emails.csv`;
+  let riskyExportKey: string | null = `${exportBase}/${input.label}-risky-catch-all-disposable.csv`;
+  let exportStorageError: string | null = null;
+
+  if (input.allResults.length === 0) {
+    return {
+      fullReportKey: null,
+      validExportKey: null,
+      invalidExportKey: null,
+      riskyExportKey: null,
+      exportStorageError: null
+    };
+  }
+
+  try {
+    await Promise.all([
+      uploadCsv(fullReportKey, buildVerificationCsv(input.allResults)),
+      uploadCsv(validExportKey, buildVerificationCsv(filterResultsForExport(input.allResults, "valid"))),
+      uploadCsv(invalidExportKey, buildVerificationCsv(filterResultsForExport(input.allResults, "invalid"))),
+      uploadCsv(riskyExportKey, buildVerificationCsv(filterResultsForExport(input.allResults, "risky")))
+    ]);
+  } catch (error) {
+    exportStorageError = error instanceof Error ? error.message : "CSV export storage failed.";
+    fullReportKey = null;
+    validExportKey = null;
+    invalidExportKey = null;
+    riskyExportKey = null;
+    console.error("[verification-export-storage-failed]", {
+      jobId: input.jobId,
+      userId: input.userId,
+      label: input.label,
+      message: exportStorageError
+    });
+  }
+
+  return {
+    fullReportKey,
+    validExportKey,
+    invalidExportKey,
+    riskyExportKey,
+    exportStorageError
+  };
 }
 
 async function readAllResultsForExport(jobId: string) {
@@ -1110,6 +1228,14 @@ function isBulkProviderComplete(info: VerificationBulkInfoResult, fallbackTotal:
 function isBulkProviderFailure(info: VerificationBulkInfoResult) {
   const status = info.providerStatus.toLowerCase();
   return ["failed", "failure", "error", "cancelled", "canceled"].includes(status);
+}
+
+async function isVerificationJobActive(jobId: string) {
+  const job = await prisma.verificationJob.findUnique({
+    where: { id: jobId },
+    select: { status: true }
+  });
+  return job?.status === "QUEUED" || job?.status === "PROCESSING";
 }
 
 function fillMissingBulkResults(emails: string[], providerResults: VerificationProviderResult[]) {

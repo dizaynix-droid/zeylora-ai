@@ -211,6 +211,32 @@ export function createMillionVerifierProvider(options: MillionVerifierProviderOp
         resultCount: results.length
       });
       return results;
+    },
+    async stopBulkFile(providerFileId: string) {
+      const apiKey = getMillionVerifierApiKey(options);
+      const url = buildMillionVerifierBulkStopUrl(apiKey);
+      url.searchParams.set("file_id", providerFileId);
+
+      console.info("[verification-provider-bulk-stop-request]", {
+        provider: "millionverifier",
+        fileId: providerFileId
+      });
+
+      const json = await fetchMillionVerifierBulkJson(url, {
+        method: "GET",
+        cache: "no-store",
+        signal: AbortSignal.timeout(Number(process.env.MILLIONVERIFIER_BULK_STOP_TIMEOUT_MS || 30_000))
+      });
+      const ok = String(json.result || "").toLowerCase() === "ok" || !json.error;
+
+      console.info("[verification-provider-bulk-stop-response]", {
+        provider: "millionverifier",
+        fileId: providerFileId,
+        ok,
+        result: String(json.result || "")
+      });
+
+      return { ok, raw: sanitizeProviderPayload(json) };
     }
   };
 }
@@ -226,6 +252,15 @@ function getMillionVerifierApiKey(options: MillionVerifierProviderOptions) {
 function buildMillionVerifierBulkUrl(endpoint: "upload" | "fileinfo" | "download", apiKey: string) {
   const baseUrl = (process.env.MILLIONVERIFIER_BULK_API_BASE_URL || DEFAULT_BULK_BASE_URL).replace(/\/$/, "");
   const url = new URL(`${baseUrl}/${endpoint}`);
+  url.searchParams.set("key", apiKey);
+  return url;
+}
+
+function buildMillionVerifierBulkStopUrl(apiKey: string) {
+  const baseUrl = (process.env.MILLIONVERIFIER_BULK_API_BASE_URL || DEFAULT_BULK_BASE_URL)
+    .replace(/\/$/, "")
+    .replace(/\/v2$/, "");
+  const url = new URL(`${baseUrl}/stop`);
   url.searchParams.set("key", apiKey);
   return url;
 }

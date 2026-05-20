@@ -42,7 +42,7 @@ export async function GET(
       id: jobId,
       userId: user.id,
       deletedAt: null,
-      status: "COMPLETED"
+      status: { in: ["COMPLETED", "PARTIAL_FAILED", "CANCELED", "CANCELLED"] }
     },
     select: {
       validExportStorageKey: true,
@@ -53,7 +53,7 @@ export async function GET(
   });
 
   if (!job) {
-    return NextResponse.json({ ok: false, error: "Completed verification job not found." }, { status: 404 });
+    return NextResponse.json({ ok: false, error: "Verification export was not found." }, { status: 404 });
   }
 
   const storageKey = job[exportConfig.field as keyof typeof job];

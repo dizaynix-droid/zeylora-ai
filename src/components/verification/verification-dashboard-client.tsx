@@ -30,6 +30,8 @@ type VerificationJob = {
   createdAt: string;
   completedAt: string | null;
   errorMessage: string | null;
+  validExportStorageKey?: string | null;
+  fullReportStorageKey?: string | null;
 };
 
 type Pagination = {
@@ -67,18 +69,22 @@ const MAX_EMAILS_PER_JOB = 50_000;
 export function VerificationDashboardClient({
   email,
   creditBalance,
-  packages
+  packages,
+  initialJobs = [],
+  initialPagination = null
 }: {
   email: string;
   creditBalance: number;
   packages: Package[];
+  initialJobs?: VerificationJob[];
+  initialPagination?: Pagination | null;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [jobs, setJobs] = useState<VerificationJob[]>([]);
-  const [pagination, setPagination] = useState<Pagination | null>(null);
+  const [jobs, setJobs] = useState<VerificationJob[]>(initialJobs);
+  const [pagination, setPagination] = useState<Pagination | null>(initialPagination);
   const [jobsPage, setJobsPage] = useState(1);
-  const [jobsStatus, setJobsStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [jobsStatus, setJobsStatus] = useState<"loading" | "ready" | "error">(initialJobs.length > 0 ? "ready" : "loading");
   const [file, setFile] = useState<File | null>(null);
   const [emails, setEmails] = useState("");
   const [submitStatus, setSubmitStatus] = useState<"idle" | "running" | "error" | "success">("idle");
@@ -97,7 +103,6 @@ export function VerificationDashboardClient({
   useEffect(() => {
     let cancelled = false;
     async function loadJobs() {
-      setJobsStatus("loading");
       try {
         const response = await fetch(`/api/v1/verification/jobs?page=${jobsPage}&pageSize=5`, { cache: "no-store" });
         const payload = await response.json();
@@ -726,15 +731,18 @@ function TransactionRow({ transaction }: { transaction: CreditTransaction }) {
 
 function JobRow({ job }: { job: VerificationJob }) {
   const completed = job.status === "COMPLETED";
-  const failed = job.status === "FAILED";
+  const canceled = job.status === "CANCELED" || job.status === "CANCELLED";
+  const partial = job.status === "PARTIAL_FAILED" || canceled;
+  const failed = job.status === "FAILED" || job.status === "PARTIAL_FAILED";
   const active = job.status === "QUEUED" || job.status === "PROCESSING";
+  const downloadable = completed || ((partial || failed) && Boolean(job.fullReportStorageKey) && job.processedCount > 0);
 
   return (
     <div className="grid gap-4 rounded-lg border border-slate-200 bg-white p-4 lg:grid-cols-[1fr_auto] lg:items-center">
       <div>
         <div className="flex flex-wrap items-center gap-2">
-          <VerifyBadge tone={completed ? "green" : failed ? "red" : "blue"}>
-            {completed ? <CheckCircle2 className="mr-1" size={13} /> : failed ? <XCircle className="mr-1" size={13} /> : <Loader2 className="mr-1 animate-spin" size={13} />}
+          <VerifyBadge tone={completed ? "green" : failed || canceled ? "red" : "blue"}>
+            {completed ? <CheckCircle2 className="mr-1" size={13} /> : failed || canceled ? <XCircle className="mr-1" size={13} /> : <Loader2 className="mr-1 animate-spin" size={13} />}
             {job.status}
           </VerifyBadge>
           <p className="text-sm font-medium text-slate-500">{new Date(job.createdAt).toLocaleString()}</p>
@@ -778,10 +786,10 @@ function JobRow({ job }: { job: VerificationJob }) {
             Get help
           </Link>
         ) : null}
-        {completed ? (
+        {downloadable ? (
           <>
-            <DownloadLink jobId={job.id} type="valid" label="Valid CSV" />
-            <DownloadLink jobId={job.id} type="full" label="Full report" />
+            {job.validExportStorageKey ? <DownloadLink jobId={job.id} type="valid" label={completed ? "Valid CSV" : "Partial valid CSV"} /> : null}
+            <DownloadLink jobId={job.id} type="full" label={completed ? "Full report" : "Partial report"} />
           </>
         ) : null}
       </div>

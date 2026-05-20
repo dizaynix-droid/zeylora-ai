@@ -74,7 +74,11 @@ export async function GET(request: Request) {
         progressPercent: true,
         createdAt: true,
         completedAt: true,
-        errorMessage: true
+        errorMessage: true,
+        validExportStorageKey: true,
+        invalidExportStorageKey: true,
+        riskyExportStorageKey: true,
+        fullReportStorageKey: true
       }
     }),
     prisma.verificationJob.count({ where })

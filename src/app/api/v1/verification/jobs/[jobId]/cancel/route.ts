@@ -23,7 +23,7 @@ export async function POST(
   });
 
   if (!result.ok) {
-    return NextResponse.json(result, { status: 404 });
+    return NextResponse.json(result, { status: result.cancelBlocked ? 409 : 404 });
   }
 
   return NextResponse.json(result);
