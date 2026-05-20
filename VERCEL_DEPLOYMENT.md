@@ -12,10 +12,20 @@ Replace `zeylora.ai`, `PROJECT_REF`, `REGION`, and secret placeholders with the 
 NEXT_PUBLIC_SITE_URL="https://zeylora.ai"
 NEXT_PUBLIC_SITE_NAME="Zeylora AI"
 NEXT_PUBLIC_SUPPORT_EMAIL="support@zeylora.ai"
+SUPPORT_EMAIL="support@zeylora.ai"
 MAINTENANCE_MODE="false"
 ```
 
 `NEXT_PUBLIC_SITE_URL` is used for canonical URLs, sitemap, robots, auth redirects, and Stripe checkout success/cancel URLs. Do not leave it as localhost in Vercel.
+
+### Transactional Email
+
+```env
+RESEND_API_KEY="re_..."
+EMAIL_FROM="Zeylora AI <support@zeylora.ai>"
+```
+
+Verification started, verification completed/failed, payment, credit, and support emails use Resend. If these variables are missing, the app will keep running but email events will be marked failed in admin/system logs.
 
 ### Supabase + Prisma
 
