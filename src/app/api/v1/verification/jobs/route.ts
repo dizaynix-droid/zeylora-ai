@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/abuse/rate-limit";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db";
-import { uploadPrivateObject } from "@/lib/storage/s3-client";
+import { getStorageConfig, uploadPrivateObject } from "@/lib/storage/s3-client";
 import { parseEmailList, looksLikeSupportedListFile } from "@/lib/verification/email-parser";
 import { getVerificationEconomicsSnapshot } from "@/lib/verification/economics";
 import { refundVerificationCredits, reserveVerificationCredits } from "@/lib/verification/processor";
@@ -138,6 +138,28 @@ export async function POST(request: Request) {
     );
   }
 
+  try {
+    getStorageConfig();
+  } catch (error) {
+    const classified = classifyVerificationStartError(error);
+    console.error("[verification-job-start-failed]", {
+      phase: "storage_preflight",
+      userId: user.id,
+      emails: parsed.uniqueEmails.length,
+      code: classified.code,
+      message: error instanceof Error ? error.message : "Storage preflight failed."
+    });
+
+    return NextResponse.json(
+      {
+        ok: false,
+        code: classified.code,
+        error: classified.error
+      },
+      { status: classified.status }
+    );
+  }
+
   const economics = await getVerificationEconomicsSnapshot(parsed.uniqueEmails.length);
   const providerSettings = await prisma.providerSetting.findUnique({
     where: { providerKey: economics.providerKey },
@@ -257,6 +279,12 @@ export async function POST(request: Request) {
       jobId: job.id,
       amount: parsed.uniqueEmails.length,
       note: "Verification job setup failed refund"
+    }).catch((refundError) => {
+      console.error("[verification-job-refund-failed]", {
+        jobId: job.id,
+        userId: user.id,
+        message: refundError instanceof Error ? refundError.message : "Refund failed."
+      });
     });
     await prisma.verificationJob.update({
       where: { id: job.id },
@@ -265,22 +293,32 @@ export async function POST(request: Request) {
         errorMessage: error instanceof Error ? error.message : "Verification setup failed.",
         completedAt: new Date()
       }
+    }).catch((updateError) => {
+      console.error("[verification-job-fail-update-failed]", {
+        jobId: job.id,
+        userId: user.id,
+        message: updateError instanceof Error ? updateError.message : "Job failed update failed."
+      });
     });
+
+    const classified = classifyVerificationStartError(error);
 
     console.error("[verification-job-queue-failed]", {
       jobId: job.id,
       provider: economics.providerKey,
       emails: parsed.uniqueEmails.length,
+      code: classified.code,
       message: error instanceof Error ? error.message : "Verification setup failed."
     });
 
     return NextResponse.json(
       {
         ok: false,
-        error: "We could not queue this verification job. Credits were refunded automatically.",
+        code: classified.code,
+        error: classified.error,
         jobId: job.id
       },
-      { status: 500 }
+      { status: classified.status }
     );
   }
 }
@@ -296,5 +334,32 @@ function createPagination(page: number, pageSize: number, total: number) {
     hasNext: page < totalPages,
     from: total === 0 ? 0 : (page - 1) * pageSize + 1,
     to: Math.min(total, page * pageSize)
+  };
+}
+
+function classifyVerificationStartError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error || "");
+  const lower = message.toLowerCase();
+
+  if (lower.includes("storage is not configured") || lower.includes("r2") || lower.includes("s3")) {
+    return {
+      code: "storage_not_configured",
+      status: 503,
+      error: "Verification storage is not configured yet. Please contact support before starting verification."
+    };
+  }
+
+  if (lower.includes("verificationjob") || lower.includes("does not exist") || lower.includes("p2021")) {
+    return {
+      code: "database_not_ready",
+      status: 503,
+      error: "Verification database is not ready yet. Please contact support."
+    };
+  }
+
+  return {
+    code: "verification_queue_failed",
+    status: 500,
+    error: "Verification could not be started. Please try again or contact support."
   };
 }

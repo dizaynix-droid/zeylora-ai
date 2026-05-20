@@ -54,24 +54,26 @@ export async function getCreditPackagesForDisplay(): Promise<PublicCreditPackage
         .filter((pack) => isEmailVerificationPackage(pack.name, pack.featureFlagKey))
         .map((pack) => {
         const fallback = findPackageConfig(pack.name, pack.featureFlagKey);
-        const bonusCredits = Math.max(0, pack.bonusCredits);
+        const normalized = fallback && shouldUseLaunchPackageValues(pack, fallback) ? fallback : null;
+        const baseCredits = normalized?.credits ?? Math.max(0, pack.credits);
+        const bonusCredits = normalized?.bonusCredits ?? Math.max(0, pack.bonusCredits);
 
         return {
           id: pack.id,
           key: fallback?.key ?? slugify(pack.name),
-          name: fallback ? fallback.name : pack.name,
-          credits: Math.max(0, pack.credits),
+          name: normalized?.name ?? (fallback ? fallback.name : pack.name),
+          credits: baseCredits,
           bonusCredits,
-          totalCredits: Math.max(0, pack.credits) + bonusCredits,
-          price: Number(pack.price),
-          currency: pack.currency.toUpperCase(),
-          highlight: pack.highlight || Boolean(fallback?.highlight),
-          badgeText: pack.badgeText || fallback?.badgeText,
-          description: pack.description || fallback?.description || "Verification credits for bulk email list cleaning.",
-          audience: pack.audience || fallback?.audience || "Marketers, agencies, sales teams, and SaaS GTM teams",
+          totalCredits: baseCredits + bonusCredits,
+          price: normalized?.price ?? Number(pack.price),
+          currency: (normalized?.currency ?? pack.currency).toUpperCase(),
+          highlight: normalized?.highlight ?? (pack.highlight || Boolean(fallback?.highlight)),
+          badgeText: normalized?.badgeText ?? pack.badgeText ?? fallback?.badgeText,
+          description: normalized?.description ?? pack.description ?? fallback?.description ?? "Verification credits for bulk email list cleaning.",
+          audience: normalized?.audience ?? pack.audience ?? fallback?.audience ?? "Marketers, agencies, sales teams, and SaaS GTM teams",
           stripePriceId: pack.stripePriceId,
           status: pack.status,
-          sortOrder: pack.sortOrder
+          sortOrder: normalized ? creditPackages.findIndex((item) => item.key === normalized.key) + 1 : pack.sortOrder
         };
       });
       if (mappedDbPackages.length === creditPackages.length) {
@@ -251,10 +253,10 @@ function isEmailVerificationPackage(name: string, featureFlagKey: string | null)
 }
 
 function getPackageLegacyNames(key: string, name: string) {
-  if (key === "starter") return [name, "Starter Trial Pack", "Trial Pack"];
-  if (key === "growth") return [name, "Starter"];
-  if (key === "scale") return [name, "Creator"];
-  if (key === "business") return [name, "Business"];
+  if (key === "starter") return [name, "Starter", "Starter Trial Pack", "Trial Pack", "Trial"];
+  if (key === "growth") return [name];
+  if (key === "scale") return [name, "Creator", "Pro Seller"];
+  if (key === "business") return [name, "Studio"];
   return [name];
 }
 
@@ -263,10 +265,42 @@ function slugify(value: string) {
 }
 
 function findPackageConfig(name: string, featureFlagKey: string | null) {
-  return creditPackages.find(
-    (item) =>
-      item.name === name ||
-      item.featureFlagKey === featureFlagKey
+  if (featureFlagKey) {
+    const byFeatureFlag = creditPackages.find((item) => item.featureFlagKey === featureFlagKey);
+    if (byFeatureFlag) return byFeatureFlag;
+  }
+
+  const byName = creditPackages.find((item) => item.name === name);
+  if (byName) return byName;
+
+  return creditPackages.find((item) => getPackageLegacyNames(item.key, item.name).includes(name));
+}
+
+function shouldUseLaunchPackageValues(
+  pack: {
+    name: string;
+    credits: number;
+    bonusCredits: number;
+    price: unknown;
+    featureFlagKey: string | null;
+    description: string | null;
+    audience: string | null;
+  },
+  fallback: (typeof creditPackages)[number]
+) {
+  const legacyNames = getPackageLegacyNames(fallback.key, fallback.name).filter((name) => name !== fallback.name);
+  const legacyCopy =
+    (pack.description || "").toLowerCase().includes("product photo") ||
+    (pack.description || "").toLowerCase().includes("marketplace-ready visuals") ||
+    (pack.audience || "").toLowerCase().includes("product");
+
+  return (
+    pack.name !== fallback.name ||
+    legacyNames.includes(pack.name) ||
+    legacyCopy ||
+    pack.credits !== fallback.credits ||
+    pack.bonusCredits !== fallback.bonusCredits ||
+    Number(pack.price) !== fallback.price
   );
 }
 

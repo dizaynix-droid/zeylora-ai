@@ -1963,13 +1963,18 @@ function getAdminCreditPackageRank(pack: { name: string; featureFlagKey?: string
 }
 
 function findAdminCreditPackageConfig(pack: { name: string; featureFlagKey?: string | null }) {
+  if (pack.featureFlagKey) {
+    const byFeatureFlag = creditPackages.find((item) => item.featureFlagKey === pack.featureFlagKey);
+    if (byFeatureFlag) return byFeatureFlag;
+  }
+
+  const byName = creditPackages.find((item) => item.name === pack.name);
+  if (byName) return byName;
+
   return creditPackages.find(
     (item) =>
-      item.name === pack.name ||
-      item.featureFlagKey === pack.featureFlagKey ||
-      (item.key === "starter" && pack.name === "Starter Trial Pack") ||
-      (item.key === "growth" && (pack.name === "Creator" || pack.name === "Starter")) ||
-      (item.key === "scale" && pack.name === "Pro Seller") ||
+      (item.key === "starter" && ["Starter Trial Pack", "Trial Pack", "Trial", "Starter"].includes(pack.name)) ||
+      (item.key === "scale" && ["Creator", "Pro Seller"].includes(pack.name)) ||
       (item.key === "business" && pack.name === "Studio")
   );
 }
