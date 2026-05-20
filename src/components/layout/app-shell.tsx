@@ -50,7 +50,7 @@ export function AppShell({ title, description, area, children }: AppShellProps) 
         className={
           isAdmin
             ? "mx-auto grid w-full max-w-[1760px] gap-5 px-4 py-5 sm:px-6 xl:grid-cols-[248px_minmax(0,1fr)]"
-            : "mx-auto grid w-full max-w-7xl gap-5 px-4 py-5 sm:px-6 lg:grid-cols-[248px_minmax(0,1fr)] lg:py-8"
+            : "mx-auto grid w-full max-w-[1760px] gap-5 px-4 py-5 sm:px-6 xl:grid-cols-[248px_minmax(0,1fr)] xl:py-8"
         }
       >
         <aside className="min-w-0">

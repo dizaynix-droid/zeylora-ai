@@ -3,10 +3,10 @@
 import { ChangeEvent, FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AlertCircle, Bell, CheckCircle2, CreditCard, Download, Loader2, MailCheck, ReceiptText, Settings, Shield, ShieldCheck, UploadCloud, UserCircle, XCircle } from "lucide-react";
+import { AlertCircle, Bell, CheckCircle2, Clock, CreditCard, Download, FileText, HelpCircle, Loader2, MailCheck, ReceiptText, Settings, Shield, ShieldCheck, Trash2, UploadCloud, UserCircle, XCircle } from "lucide-react";
 import { CheckoutButton } from "@/components/billing/checkout-button";
 import { trackEvent } from "@/lib/analytics/events";
-import { VerifyAction, VerifyBadge, VerifyMetric, VerifyPanel } from "@/components/verify-ui/core";
+import { VerifyAction, VerifyBadge, VerifyPanel } from "@/components/verify-ui/core";
 
 type VerificationJob = {
   id: string;
@@ -94,6 +94,7 @@ export function VerificationDashboardClient({
   const [idempotencyKey, setIdempotencyKey] = useState(() => createIdempotencyKey());
   const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
   const [transactionsStatus, setTransactionsStatus] = useState<"loading" | "ready" | "error">("loading");
+  const displayCreditBalance = transactions[0]?.balanceAfter ?? creditBalance;
 
   const estimatedEmails = useMemo(() => {
     const matches = emails.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) ?? [];
@@ -211,7 +212,7 @@ export function VerificationDashboardClient({
       setMessage("We could not read this file. Please upload a CSV or TXT file with one email per row.");
       return;
     }
-    if (!file && estimatedEmails > creditBalance) {
+    if (!file && estimatedEmails > displayCreditBalance) {
       setSubmitStatus("error");
       setMessage(`You need ${estimatedEmails.toLocaleString()} verification credits for this list. Please buy more credits to continue.`);
       return;
@@ -285,38 +286,58 @@ export function VerificationDashboardClient({
     setIdempotencyKey(createIdempotencyKey());
   }
 
+  function clearSelectedFile() {
+    setFile(null);
+    setSubmitStatus("idle");
+    setMessage("File cleared. You can paste emails manually or choose another CSV/TXT file.");
+    setIdempotencyKey(createIdempotencyKey());
+  }
+
   const completedJobs = jobs.filter((job) => job.status === "COMPLETED");
+  const activeJobs = jobs.filter((job) => job.status === "QUEUED" || job.status === "PROCESSING");
+  const latestActiveJob = activeJobs[0] ?? null;
+  const readyDownloads = jobs.filter((job) => Boolean(job.fullReportStorageKey) && ["COMPLETED", "PARTIAL_FAILED", "CANCELED", "CANCELLED"].includes(job.status)).length;
+  const failedJobs = jobs.filter((job) => job.status === "FAILED" || job.status === "PARTIAL_FAILED").length;
   const totalVerified = completedJobs.reduce((sum, job) => sum + job.uniqueEmails, 0);
   const validRate =
     totalVerified > 0 ? Math.round((completedJobs.reduce((sum, job) => sum + job.validCount, 0) / totalVerified) * 100) : 0;
   const riskyRemoved = completedJobs.reduce((sum, job) => sum + job.invalidCount + job.riskyCount + job.catchAllCount + job.disposableCount, 0);
+  const postVerifyBalance = !file && estimatedEmails > 0 ? Math.max(0, displayCreditBalance - estimatedEmails) : null;
 
   return (
-    <div className="grid gap-5">
-      <section id="overview" className="grid gap-3 md:grid-cols-4">
-        <VerifyMetric label="Credits" value={creditBalance.toLocaleString()} note="1 credit = 1 email verification" tone="blue" />
-        <VerifyMetric label="Verified emails" value={totalVerified.toLocaleString()} note="From recent jobs" />
-        <VerifyMetric label="Valid rate" value={`${validRate}%`} note="Deliverable list quality" tone="green" />
-        <VerifyMetric label="Risk removed" value={riskyRemoved.toLocaleString()} note="Invalid, risky, catch-all, disposable" tone="amber" />
-      </section>
+    <div className="grid gap-6">
+      <WorkspaceCommandCenter
+        creditBalance={displayCreditBalance}
+        totalVerified={totalVerified}
+        validRate={validRate}
+        riskyRemoved={riskyRemoved}
+        readyDownloads={readyDownloads}
+        failedJobs={failedJobs}
+        activeJob={latestActiveJob}
+      />
 
-      <section id="verify" className="grid gap-5 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,.75fr)]">
-        <VerifyPanel className="p-5 md:p-7">
-          <div className="flex items-start gap-3">
-            <div className="rounded-md bg-blue-50 p-3 text-blue-700">
-              <UploadCloud size={24} />
-            </div>
-            <div>
-              <VerifyBadge tone="blue">Verify list</VerifyBadge>
-              <h2 className="mt-3 text-3xl font-semibold tracking-[-0.03em] text-slate-950">Upload CSV/TXT or paste emails.</h2>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                Zeylora deduplicates your list, reserves credits, runs email verification checks, then creates segmented downloads.
-              </p>
+      <section id="verify" className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <VerifyPanel className="overflow-hidden">
+          <div className="border-b border-slate-200 bg-gradient-to-r from-blue-50 via-white to-emerald-50 p-5 md:p-7">
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <div className="max-w-3xl">
+                <VerifyBadge tone="blue">Verification workbench</VerifyBadge>
+                <h2 className="mt-3 text-3xl font-semibold tracking-[-0.03em] text-slate-950 md:text-4xl">Upload a list and get clean segments.</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-600 md:text-base">
+                  Upload CSV/TXT files or paste a small list. Zeylora parses, deduplicates, reserves credits, starts provider processing, and opens the job report.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-2 rounded-lg border border-white/80 bg-white/80 p-3 shadow-[0_1px_2px_rgba(15,23,42,.04)] backdrop-blur md:min-w-[260px]">
+                <InputEstimate label="Balance" value={displayCreditBalance.toLocaleString()} tone="blue" />
+                <InputEstimate label="Paste max" value={MAX_PASTE_EMAILS.toLocaleString()} />
+                <InputEstimate label="File max" value="25 MB" />
+                <InputEstimate label="Job max" value={MAX_EMAILS_PER_JOB.toLocaleString()} />
+              </div>
             </div>
           </div>
 
-          <form onSubmit={submitVerification} className="mt-6 grid gap-4">
-            <label className="grid cursor-pointer gap-3 rounded-lg border border-dashed border-blue-300 bg-blue-50 p-6 text-center transition hover:bg-blue-100/70">
+          <form onSubmit={submitVerification} className="grid gap-5 p-5 md:p-7">
+            <label className="grid cursor-pointer gap-3 rounded-lg border border-dashed border-blue-300 bg-blue-50 p-8 text-center transition hover:bg-blue-100/70">
               <UploadCloud className="mx-auto text-blue-700" size={32} />
               <span className="text-lg font-semibold text-slate-950">{file ? file.name : "Choose CSV or TXT list"}</span>
               <span className="text-sm text-slate-500">
@@ -325,7 +346,7 @@ export function VerificationDashboardClient({
               <input type="file" accept=".csv,.txt,text/csv,text/plain" className="sr-only" onChange={onFileChange} />
             </label>
 
-            <DashboardFileStatus file={file} submitStatus={submitStatus} />
+            <DashboardFileStatus file={file} submitStatus={submitStatus} onClear={clearSelectedFile} />
 
             <label className="grid gap-2">
               <span className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Paste emails manually</span>
@@ -342,7 +363,7 @@ export function VerificationDashboardClient({
             <div className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 md:grid-cols-3">
               <InputEstimate label="Detected now" value={file ? "File selected" : estimatedEmails.toLocaleString()} />
               <InputEstimate label="Credits needed" value={file ? "Calculated after upload" : estimatedEmails.toLocaleString()} />
-              <InputEstimate label="Available" value={creditBalance.toLocaleString()} tone="blue" />
+              <InputEstimate label={postVerifyBalance == null ? "Available" : "Balance after"} value={(postVerifyBalance ?? displayCreditBalance).toLocaleString()} tone="blue" />
             </div>
 
             <button
@@ -356,42 +377,18 @@ export function VerificationDashboardClient({
             {message ? (
               <p className={`text-sm font-semibold ${submitStatus === "error" ? "text-rose-700" : "text-emerald-700"}`}>{message}</p>
             ) : null}
-            {!file && estimatedEmails > 0 && estimatedEmails > creditBalance ? (
+            {!file && estimatedEmails > 0 && estimatedEmails > displayCreditBalance ? (
               <p className="text-sm font-semibold text-amber-700">
-                This pasted list needs {estimatedEmails.toLocaleString()} credits. Your current balance is {creditBalance.toLocaleString()}.
+                This pasted list needs {estimatedEmails.toLocaleString()} credits. Your current balance is {displayCreditBalance.toLocaleString()}.
               </p>
             ) : null}
           </form>
         </VerifyPanel>
 
-        <VerifyPanel id="credits" className="p-5 md:p-6">
-          <VerifyBadge>Credits / Billing</VerifyBadge>
-          <h2 className="mt-3 text-2xl font-semibold tracking-[-0.02em] text-slate-950">Buy verification credits</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            Credits are spent only when verification starts. Failed jobs are refunded automatically.
-          </p>
-          <div className="mt-5 grid gap-3">
-            {packages.slice(0, 3).map((pack) => (
-              <div key={pack.id} className="rounded-lg border border-slate-200 bg-white p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-lg font-semibold text-slate-950">{pack.name}</p>
-                    <p className="text-sm font-semibold text-blue-700">{pack.totalCredits.toLocaleString()} verifications</p>
-                  </div>
-                  <p className="text-xl font-semibold text-slate-950">${pack.price}</p>
-                </div>
-                <CheckoutButton
-                  packageId={pack.id}
-                  label="Buy credits"
-                  className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-blue-600 text-sm font-semibold text-white transition hover:bg-blue-700"
-                />
-              </div>
-            ))}
-          </div>
-          <Link href="/pricing" className="mt-4 inline-flex text-sm font-semibold text-blue-700 hover:text-blue-800">
-            View all packages
-          </Link>
-        </VerifyPanel>
+        <div className="grid gap-5">
+          <UploadGuidancePanel />
+          <QuickCreditPanel packages={packages} creditBalance={displayCreditBalance} />
+        </div>
       </section>
 
       <section id="payments" className="grid gap-5 lg:grid-cols-[minmax(0,.9fr)_minmax(0,1.1fr)]">
@@ -412,7 +409,7 @@ export function VerificationDashboardClient({
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Current balance</p>
-              <p className="mt-2 text-3xl font-semibold tracking-tight text-blue-700">{creditBalance.toLocaleString()}</p>
+              <p className="mt-2 text-3xl font-semibold tracking-tight text-blue-700">{displayCreditBalance.toLocaleString()}</p>
               <p className="mt-1 text-sm text-slate-500">Available verification credits</p>
             </div>
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
@@ -583,7 +580,7 @@ export function VerificationDashboardClient({
 
           <div className="mt-5 grid gap-3">
             <SettingRow label="Default workflow" value="Upload list, remove duplicates, verify unique emails, export valid/risky/invalid segments." />
-            <SettingRow label="Credits" value="One unique email uses one verification credit when the job starts." />
+            <SettingRow label="Credits" value="One unique email reserves one credit when the job starts. Provider-processed attempts remain used; unprocessed credits are protected by the ledger." />
             <SettingRow label="Support" value="Open a support ticket from the dashboard when a job fails or billing needs review." />
           </div>
 
@@ -614,6 +611,216 @@ function createIdempotencyKey() {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
+function WorkspaceCommandCenter({
+  creditBalance,
+  totalVerified,
+  validRate,
+  riskyRemoved,
+  readyDownloads,
+  failedJobs,
+  activeJob
+}: {
+  creditBalance: number;
+  totalVerified: number;
+  validRate: number;
+  riskyRemoved: number;
+  readyDownloads: number;
+  failedJobs: number;
+  activeJob: VerificationJob | null;
+}) {
+  return (
+    <section id="overview" className="grid gap-4 xl:grid-cols-[minmax(360px,.9fr)_minmax(0,1.1fr)]">
+      <VerifyPanel className={activeJob ? "border-blue-200 bg-blue-50 p-5 md:p-6" : "p-5 md:p-6"}>
+        {activeJob ? <ActiveJobNotice job={activeJob} compact /> : <WorkspaceReadyNotice creditBalance={creditBalance} />}
+      </VerifyPanel>
+      <VerifyPanel className="p-4 md:p-5">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <VerifyBadge>Workspace summary</VerifyBadge>
+            <h2 className="mt-2 text-xl font-semibold tracking-[-0.02em] text-slate-950">Credits, quality, and downloads at a glance.</h2>
+          </div>
+          {failedJobs > 0 ? (
+            <Link href="/dashboard#jobs" className="text-sm font-semibold text-rose-700 hover:text-rose-800">
+              {failedJobs} job needs review
+            </Link>
+          ) : null}
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <WorkspaceMetric label="Credits" value={creditBalance.toLocaleString()} tone="blue" />
+          <WorkspaceMetric label="Verified" value={totalVerified.toLocaleString()} />
+          <WorkspaceMetric label="Valid rate" value={`${validRate}%`} tone="green" />
+          <WorkspaceMetric label="Risk removed" value={riskyRemoved.toLocaleString()} tone="amber" />
+          <WorkspaceMetric label="Downloads" value={readyDownloads.toLocaleString()} tone={failedJobs > 0 ? "red" : "neutral"} />
+        </div>
+      </VerifyPanel>
+    </section>
+  );
+}
+
+function ActiveJobNotice({ job, compact = false }: { job: VerificationJob; compact?: boolean }) {
+  const progress = Math.max(5, Math.min(100, job.progressPercent || 5));
+  return (
+    <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <VerifyBadge tone="blue">
+            <Clock className="mr-1" size={13} />
+            Active verification
+          </VerifyBadge>
+          <span className="text-sm font-semibold text-blue-700">{job.status}</span>
+        </div>
+        <h3 className={`${compact ? "text-2xl" : "text-lg"} mt-3 truncate font-semibold tracking-[-0.02em] text-slate-950`}>{job.originalFilename || "Email list"}</h3>
+        <p className="mt-2 text-sm leading-6 text-slate-600">
+          {job.processedCount.toLocaleString()} of {job.uniqueEmails.toLocaleString()} unique emails tracked. Zeylora keeps this running in the background and refreshes the report automatically.
+        </p>
+        <div className="mt-4 h-2 overflow-hidden rounded-full bg-white">
+          <div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: `${progress}%` }} />
+        </div>
+        <p className="mt-2 text-xs font-semibold uppercase tracking-[0.08em] text-blue-700">{progress}% complete</p>
+      </div>
+      <div className="flex flex-wrap gap-2 lg:justify-end">
+        <Link href={`/dashboard/jobs/${job.id}`} className="inline-flex h-10 items-center justify-center rounded-md bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700">
+          View progress
+        </Link>
+        <Link href="/dashboard#jobs" className="inline-flex h-10 items-center justify-center rounded-md border border-blue-200 bg-white px-4 text-sm font-semibold text-blue-700 hover:bg-blue-50">
+          History
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function WorkspaceReadyNotice({ creditBalance }: { creditBalance: number }) {
+  const tone = creditBalance > 0 ? "green" : "amber";
+  return (
+    <div className="grid gap-4 md:grid-cols-[auto_1fr] md:items-start">
+      <div className={`rounded-md p-3 ${tone === "green" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+        {creditBalance > 0 ? <ShieldCheck size={24} /> : <CreditCard size={24} />}
+      </div>
+      <div>
+        <VerifyBadge tone={creditBalance > 0 ? "green" : "amber"}>
+          {creditBalance > 0 ? "Ready" : "Credits needed"}
+        </VerifyBadge>
+        <h2 className="mt-3 text-2xl font-semibold tracking-[-0.02em] text-slate-950">
+          {creditBalance > 0 ? "Start cleaning your next email list." : "Add credits before starting a list."}
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-slate-600">
+          Upload CSV/TXT files up to 25 MB, keep public jobs at 50,000 emails or less, and download segmented CSV reports after processing.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Link href={creditBalance > 0 ? "/dashboard#verify" : "/pricing"} className="inline-flex h-10 items-center justify-center rounded-md bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700">
+            {creditBalance > 0 ? "Upload list" : "Buy credits"}
+          </Link>
+          <Link href="/dashboard#jobs" className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 hover:bg-slate-50">
+            View history
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function UploadGuidancePanel() {
+  return (
+    <VerifyPanel className="p-5 md:p-6">
+      <VerifyBadge tone="blue">Upload rules</VerifyBadge>
+      <h3 className="mt-3 text-xl font-semibold tracking-[-0.02em] text-slate-950">Safe limits for real lists.</h3>
+      <div className="mt-5 grid gap-3">
+        <LimitRow label="Pasted lists" value={`${MAX_PASTE_EMAILS.toLocaleString()} emails`} />
+        <LimitRow label="CSV/TXT upload" value="25 MB file size" />
+        <LimitRow label="Public job limit" value={`${MAX_EMAILS_PER_JOB.toLocaleString()} emails`} />
+      </div>
+      <div className="mt-5 grid gap-3">
+        <WorkflowStep icon={<FileText size={17} />} title="Server reads the list" text="Files are parsed and deduplicated server-side, so large uploads do not run inside the browser." />
+        <WorkflowStep icon={<CreditCard size={17} />} title="Credit ledger protects balance" text="Credits are reserved at job start; unprocessed credits stay protected by the ledger." />
+        <WorkflowStep icon={<Download size={17} />} title="Reports stay in history" text="Valid CSV, full report, and partial exports appear on completed or canceled jobs when saved results exist." />
+      </div>
+      <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4">
+        <div className="flex items-start gap-2">
+          <HelpCircle className="mt-0.5 shrink-0 text-amber-700" size={17} />
+          <p className="text-sm font-semibold leading-6 text-amber-800">
+            If the provider-side bulk job has already started, automatic cancellation can be blocked to avoid unsafe refunds and duplicate provider spend.
+          </p>
+        </div>
+      </div>
+    </VerifyPanel>
+  );
+}
+
+function QuickCreditPanel({ packages, creditBalance }: { packages: Package[]; creditBalance: number }) {
+  return (
+    <VerifyPanel id="credits" className="p-5 md:p-6">
+      <VerifyBadge>Credits</VerifyBadge>
+      <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50 p-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-blue-700">Available balance</p>
+        <p className="mt-1 text-3xl font-semibold tracking-tight text-blue-700">{creditBalance.toLocaleString()}</p>
+        <p className="mt-1 text-sm text-slate-600">1 credit verifies 1 unique email.</p>
+      </div>
+      <div className="mt-4 grid gap-3">
+        {packages.slice(0, 2).map((pack) => (
+          <div key={pack.id} className="rounded-lg border border-slate-200 bg-white p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-base font-semibold text-slate-950">{pack.name}</p>
+                <p className="text-sm font-semibold text-blue-700">{pack.totalCredits.toLocaleString()} verifications</p>
+              </div>
+              <p className="text-lg font-semibold text-slate-950">${pack.price}</p>
+            </div>
+            <CheckoutButton
+              packageId={pack.id}
+              label="Buy credits"
+              className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-blue-600 text-sm font-semibold text-white transition hover:bg-blue-700"
+            />
+          </div>
+        ))}
+      </div>
+      <Link href="/pricing" className="mt-4 inline-flex text-sm font-semibold text-blue-700 hover:text-blue-800">
+        View all packages
+      </Link>
+    </VerifyPanel>
+  );
+}
+
+function WorkspaceMetric({ label, value, tone = "neutral" }: { label: string; value: ReactNode; tone?: "neutral" | "blue" | "green" | "amber" | "red" }) {
+  const color =
+    tone === "blue"
+      ? "text-blue-700"
+      : tone === "green"
+        ? "text-emerald-700"
+        : tone === "amber"
+          ? "text-amber-700"
+          : tone === "red"
+            ? "text-rose-700"
+            : "text-slate-950";
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">{label}</p>
+      <p className={`mt-1 text-2xl font-semibold tracking-tight ${color}`}>{value}</p>
+    </div>
+  );
+}
+
+function LimitRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+      <span className="text-sm font-semibold text-slate-600">{label}</span>
+      <span className="text-sm font-semibold text-slate-950">{value}</span>
+    </div>
+  );
+}
+
+function WorkflowStep({ icon, title, text }: { icon: ReactNode; title: string; text: string }) {
+  return (
+    <div className="flex gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <div className="mt-0.5 rounded-md bg-white p-2 text-blue-700">{icon}</div>
+      <div>
+        <p className="text-sm font-semibold text-slate-950">{title}</p>
+        <p className="mt-1 text-sm leading-5 text-slate-600">{text}</p>
+      </div>
+    </div>
+  );
+}
+
 function looksLikeSupportedFile(file: File) {
   const name = file.name.toLowerCase();
   return name.endsWith(".csv") || name.endsWith(".txt");
@@ -640,7 +847,15 @@ function InputEstimate({ label, value, tone }: { label: string; value: string; t
   );
 }
 
-function DashboardFileStatus({ file, submitStatus }: { file: File | null; submitStatus: "idle" | "running" | "error" | "success" }) {
+function DashboardFileStatus({
+  file,
+  submitStatus,
+  onClear
+}: {
+  file: File | null;
+  submitStatus: "idle" | "running" | "error" | "success";
+  onClear: () => void;
+}) {
   if (!file) {
     return (
       <div className="rounded-lg border border-slate-200 bg-white p-3">
@@ -678,12 +893,24 @@ function DashboardFileStatus({ file, submitStatus }: { file: File | null; submit
           <p className="mt-1 truncate text-sm font-semibold text-slate-950">{file.name}</p>
           <p className="mt-1 text-xs font-medium text-slate-600">{formatBytes(file.size)} - {file.type || "CSV/TXT file"}</p>
         </div>
-        {!error && !uploading ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-xs font-semibold text-emerald-700">
-            <CheckCircle2 size={14} />
-            Ready to upload
-          </span>
-        ) : null}
+        <div className="flex flex-wrap gap-2 sm:justify-end">
+          {!error && !uploading ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-xs font-semibold text-emerald-700">
+              <CheckCircle2 size={14} />
+              Ready to upload
+            </span>
+          ) : null}
+          {!uploading ? (
+            <button
+              type="button"
+              onClick={onClear}
+              className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-600 hover:text-slate-950"
+            >
+              <Trash2 size={13} />
+              Clear
+            </button>
+          ) : null}
+        </div>
       </div>
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
         <div
