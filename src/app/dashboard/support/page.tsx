@@ -41,7 +41,7 @@ export default async function DashboardSupportPage({
               ))}
             </select>
             <input name="subject" required minLength={3} maxLength={160} placeholder="Subject" className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-950 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
-            <input name="aiJobId" defaultValue={params?.jobId || ""} placeholder="Related verification job ID (optional)" className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-950 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
+            <input name="verificationJobId" defaultValue={params?.jobId || ""} placeholder="Related verification job ID (optional)" className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-950 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
             <textarea name="message" required minLength={5} rows={7} placeholder="Tell us what happened." className="rounded-md border border-slate-300 bg-white p-3 text-sm leading-6 text-slate-950 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
             <button className="h-11 rounded-md bg-blue-600 text-sm font-semibold text-white transition hover:bg-blue-700">Create ticket</button>
           </form>
@@ -57,7 +57,14 @@ export default async function DashboardSupportPage({
                     <TicketPill>{ticket.status}</TicketPill>
                     <TicketPill>{ticket.category.replaceAll("_", " ")}</TicketPill>
                   </div>
-                  <p className="mt-2 text-xs font-medium text-slate-500">Last reply {formatDate(ticket.lastMessageAt)} {ticket.aiJobId ? `• Job ${ticket.aiJobId}` : ""}</p>
+                  <p className="mt-2 text-xs font-medium text-slate-500">
+                    Last reply {formatDate(ticket.lastMessageAt)} {ticket.verificationJobId ? `• Job ${ticket.verificationJobId}` : ""}
+                  </p>
+                  {ticket.verificationJob ? (
+                    <p className="mt-2 text-sm font-semibold text-slate-600">
+                      {ticket.verificationJob.originalFilename || "Pasted email list"} · {ticket.verificationJob.uniqueEmails.toLocaleString()} emails · {ticket.verificationJob.status}
+                    </p>
+                  ) : null}
                 </div>
               </div>
               <div className="mt-4 grid gap-3">

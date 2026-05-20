@@ -38,9 +38,20 @@ export async function listUserTickets(userId: string) {
       category: true,
       status: true,
       aiJobId: true,
+      verificationJobId: true,
       createdAt: true,
       updatedAt: true,
       lastMessageAt: true,
+      verificationJob: {
+        select: {
+          id: true,
+          status: true,
+          originalFilename: true,
+          uniqueEmails: true,
+          errorMessage: true,
+          createdAt: true
+        }
+      },
       messages: {
         orderBy: { createdAt: "asc" },
         take: 6,
@@ -88,10 +99,21 @@ export async function listAdminTickets(input: {
       category: true,
       status: true,
       aiJobId: true,
+      verificationJobId: true,
       createdAt: true,
       updatedAt: true,
       lastMessageAt: true,
       user: { select: { id: true, email: true, creditBalance: true } },
+      verificationJob: {
+        select: {
+          id: true,
+          status: true,
+          originalFilename: true,
+          uniqueEmails: true,
+          errorMessage: true,
+          createdAt: true
+        }
+      },
       aiJob: {
         select: {
           id: true,

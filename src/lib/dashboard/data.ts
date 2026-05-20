@@ -24,7 +24,7 @@ export async function loadDashboardData(userId: string, filter: DashboardFilter)
   });
   const transactionsStartedAt = Date.now();
   const transactionsPromise = prisma.creditTransaction.findMany({
-    where: { userId },
+    where: getCustomerCreditTransactionWhere(userId),
     orderBy: { createdAt: "desc" },
     take: 6,
     select: {
@@ -33,7 +33,9 @@ export async function loadDashboardData(userId: string, filter: DashboardFilter)
       amount: true,
       balanceAfter: true,
       note: true,
-      createdAt: true
+      createdAt: true,
+      verificationJob: { select: { originalFilename: true, uniqueEmails: true } },
+      payment: { select: { amount: true, currency: true } }
     }
   });
 
@@ -47,10 +49,7 @@ export async function loadDashboardData(userId: string, filter: DashboardFilter)
     creditBalance: creditSummary?.creditBalance ?? 0,
     lowCreditThreshold: 5,
     jobs: jobsResult.jobs,
-    creditTransactions: creditTransactions.map((transaction) => ({
-      ...transaction,
-      createdAt: transaction.createdAt.toISOString()
-    })),
+    creditTransactions: creditTransactions.map(mapCustomerCreditTransaction),
     timing: {
       jobsMs: jobsResult.jobsMs,
       creditsMs: Date.now() - creditsStartedAt,
@@ -73,7 +72,7 @@ export async function loadDashboardCreditTransactions(userId: string, input: num
   const take = typeof input === "number" ? input : pageSize;
   const skip = typeof input === "number" ? 0 : (page - 1) * pageSize;
   const transactionsStartedAt = Date.now();
-  const where = { userId };
+  const where = getCustomerCreditTransactionWhere(userId);
   const [creditTransactions, total] = await Promise.all([
     prisma.creditTransaction.findMany({
       where,
@@ -86,17 +85,16 @@ export async function loadDashboardCreditTransactions(userId: string, input: num
         amount: true,
         balanceAfter: true,
         note: true,
-        createdAt: true
+        createdAt: true,
+        verificationJob: { select: { originalFilename: true, uniqueEmails: true } },
+        payment: { select: { amount: true, currency: true } }
       }
     }),
     typeof input === "number" ? Promise.resolve(0) : prisma.creditTransaction.count({ where })
   ]);
 
   return {
-    creditTransactions: creditTransactions.map((transaction) => ({
-      ...transaction,
-      createdAt: transaction.createdAt.toISOString()
-    })),
+    creditTransactions: creditTransactions.map(mapCustomerCreditTransaction),
     pagination: typeof input === "number" ? null : buildPagination(page, pageSize, total),
     transactionsMs: Date.now() - transactionsStartedAt
   };
@@ -114,9 +112,9 @@ export async function loadDashboardOverview(userId: string) {
         createdAt: true
       }
     }),
-    prisma.aiJob.count({ where: { userId, deletedAt: null } }),
-    prisma.aiJob.count({ where: { userId, deletedAt: null, status: "COMPLETED" } }),
-    prisma.aiJob.count({ where: { userId, deletedAt: null, status: "FAILED" } }),
+    prisma.verificationJob.count({ where: { userId, deletedAt: null } }),
+    prisma.verificationJob.count({ where: { userId, deletedAt: null, status: "COMPLETED" } }),
+    prisma.verificationJob.count({ where: { userId, deletedAt: null, status: "FAILED" } }),
     prisma.creditTransaction.count({ where: { userId, type: "USE" } }),
     prisma.ticket.count({ where: { userId, deletedAt: null, status: { in: ["OPEN", "ANSWERED"] } } })
   ]);
@@ -315,6 +313,56 @@ function getJobSummary(status: string, toolName: string, cleanExportUnlocked: bo
   if (status !== "COMPLETED") return `${toolName} is still being prepared.`;
   if (cleanExportUnlocked) return `${toolName} export is unlocked. Re-downloads do not spend credits again.`;
   return `${toolName} result is ready.`;
+}
+
+function getCustomerCreditTransactionWhere(userId: string) {
+  return {
+    userId,
+    OR: [
+      { aiJobId: null },
+      { verificationJobId: { not: null } }
+    ]
+  };
+}
+
+function mapCustomerCreditTransaction(transaction: {
+  id: string;
+  type: string;
+  amount: number;
+  balanceAfter: number;
+  note: string | null;
+  createdAt: Date;
+  verificationJob?: { originalFilename: string | null; uniqueEmails: number } | null;
+  payment?: { amount: unknown; currency: string } | null;
+}) {
+  return {
+    id: transaction.id,
+    type: transaction.type,
+    amount: transaction.amount,
+    balanceAfter: transaction.balanceAfter,
+    note: buildCustomerCreditTransactionNote(transaction),
+    createdAt: transaction.createdAt.toISOString()
+  };
+}
+
+function buildCustomerCreditTransactionNote(transaction: {
+  note: string | null;
+  verificationJob?: { originalFilename: string | null; uniqueEmails: number } | null;
+  payment?: { amount: unknown; currency: string } | null;
+}) {
+  if (transaction.verificationJob?.originalFilename) return transaction.verificationJob.originalFilename;
+  if (transaction.verificationJob) return `${transaction.verificationJob.uniqueEmails.toLocaleString("en-US")} email verification`;
+  if (transaction.payment) return `Credit purchase ${Number(transaction.payment.amount).toFixed(2)} ${transaction.payment.currency.toUpperCase()}`;
+  if (isLegacyPhotoCreditNote(transaction.note)) return "Legacy test transaction";
+  return transaction.note || null;
+}
+
+function isLegacyPhotoCreditNote(note?: string | null) {
+  if (!note) return false;
+  const normalized = note.toLowerCase();
+  return ["hd-upscale", "ai-relight", "object-remover", "background", "photo", "clean export", "failed job refund"].some((marker) =>
+    normalized.includes(marker)
+  );
 }
 
 function normalizePositiveInt(value: unknown, fallback: number) {

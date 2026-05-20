@@ -117,9 +117,14 @@ export default async function VerificationJobPage({
                 {job.status} · {job.uniqueEmails.toLocaleString()} unique emails · {job.creditsUsed || job.creditsReserved} credits
               </p>
             </div>
-            <Link href="/dashboard#jobs" className="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50">
-              Back to history
-            </Link>
+            <div className="flex flex-wrap gap-2">
+              <Link href="/dashboard#jobs" className="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50">
+                Back to history
+              </Link>
+              <Link href={`/dashboard/support?jobId=${job.id}`} className="rounded-md border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100">
+                Contact support
+              </Link>
+            </div>
           </div>
 
           <div className="mt-6 grid gap-3 md:grid-cols-4">

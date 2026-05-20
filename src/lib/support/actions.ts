@@ -24,26 +24,29 @@ export async function createSupportTicketAction(formData: FormData) {
   const category = String(formData.get("category") || "");
   const subject = sanitizeTicketText(String(formData.get("subject") || ""), 160);
   const message = sanitizeTicketText(String(formData.get("message") || ""), 4000);
-  const aiJobId = sanitizeTicketText(String(formData.get("aiJobId") || ""), 120);
+  const verificationJobId = sanitizeTicketText(
+    String(formData.get("verificationJobId") || formData.get("aiJobId") || ""),
+    120
+  );
 
   if (!isTicketCategory(category) || subject.length < 3 || message.length < 5) {
     redirect("/dashboard/support?error=invalid");
   }
 
-  let relatedJobId: string | null = null;
-  if (aiJobId) {
-    const job = await prisma.aiJob.findFirst({
-      where: { id: aiJobId, userId: user.id, deletedAt: null },
+  let relatedVerificationJobId: string | null = null;
+  if (verificationJobId) {
+    const job = await prisma.verificationJob.findFirst({
+      where: { id: verificationJobId, userId: user.id, deletedAt: null },
       select: { id: true }
     });
-    relatedJobId = job?.id ?? null;
+    relatedVerificationJobId = job?.id ?? null;
   }
 
   const ticket = await prisma.$transaction(async (tx) => {
     const created = await tx.ticket.create({
       data: {
         userId: user.id,
-        aiJobId: relatedJobId,
+        verificationJobId: relatedVerificationJobId,
         category,
         subject,
         status: "OPEN"
@@ -67,7 +70,7 @@ export async function createSupportTicketAction(formData: FormData) {
     userId: user.id,
     ticketId: ticket.id,
     category,
-    relatedJobId
+    relatedJobId: relatedVerificationJobId
   });
 
   revalidatePath("/dashboard/support");

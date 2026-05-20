@@ -50,6 +50,15 @@ type Package = {
   badgeText?: string;
 };
 
+type CreditTransaction = {
+  id: string;
+  type: string;
+  amount: number;
+  balanceAfter: number;
+  note: string | null;
+  createdAt: string;
+};
+
 const DRAFT_STORAGE_KEY = "zeylora_verification_draft";
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 const MAX_PASTE_EMAILS = 5_000;
@@ -76,6 +85,9 @@ export function VerificationDashboardClient({
   const [message, setMessage] = useState<string | null>(null);
   const [draftRestored, setDraftRestored] = useState(false);
   const [refreshTick, setRefreshTick] = useState(0);
+  const [idempotencyKey, setIdempotencyKey] = useState(() => createIdempotencyKey());
+  const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
+  const [transactionsStatus, setTransactionsStatus] = useState<"loading" | "ready" | "error">("loading");
 
   const estimatedEmails = useMemo(() => {
     const matches = emails.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) ?? [];
@@ -118,6 +130,28 @@ export function VerificationDashboardClient({
   }, [jobs]);
 
   useEffect(() => {
+    let cancelled = false;
+    async function loadTransactions() {
+      setTransactionsStatus("loading");
+      try {
+        const response = await fetch("/api/v1/dashboard/transactions?page=1&pageSize=6", { cache: "no-store" });
+        const payload = await response.json();
+        if (!payload?.ok) throw new Error(payload?.error || "Transactions could not be loaded.");
+        if (!cancelled) {
+          setTransactions(payload.creditTransactions || []);
+          setTransactionsStatus("ready");
+        }
+      } catch {
+        if (!cancelled) setTransactionsStatus("error");
+      }
+    }
+    void loadTransactions();
+    return () => {
+      cancelled = true;
+    };
+  }, [submitStatus, refreshTick]);
+
+  useEffect(() => {
     if (draftRestored || searchParams.get("resumeVerification") !== "1") return;
     setDraftRestored(true);
 
@@ -139,6 +173,7 @@ export function VerificationDashboardClient({
       if (!draft.sourceText?.trim()) return;
       setEmails(draft.sourceText);
       setFile(null);
+      setIdempotencyKey(createIdempotencyKey());
       setMessage(
         draft.truncated
           ? "Your large list draft was partially restored. Review it before starting verification."
@@ -171,6 +206,11 @@ export function VerificationDashboardClient({
       setMessage("We could not read this file. Please upload a CSV or TXT file with one email per row.");
       return;
     }
+    if (!file && estimatedEmails > creditBalance) {
+      setSubmitStatus("error");
+      setMessage(`You need ${estimatedEmails.toLocaleString()} verification credits for this list. Please buy more credits to continue.`);
+      return;
+    }
     if (!file && estimatedEmails > MAX_PASTE_EMAILS) {
       setSubmitStatus("error");
       setMessage(`Paste verification supports up to ${MAX_PASTE_EMAILS.toLocaleString()} emails at once. Please upload a CSV/TXT file for larger lists.`);
@@ -187,6 +227,7 @@ export function VerificationDashboardClient({
     const formData = new FormData();
     if (file) formData.set("file", file);
     if (emails.trim()) formData.set("emails", emails);
+    formData.set("idempotencyKey", idempotencyKey);
 
     try {
       const response = await fetch("/api/v1/verification/jobs", {
@@ -206,6 +247,7 @@ export function VerificationDashboardClient({
       localStorage.removeItem(DRAFT_STORAGE_KEY);
       setFile(null);
       setEmails("");
+      setIdempotencyKey(createIdempotencyKey());
       setJobsPage(1);
       if (payload?.job?.id) {
         router.push(`/dashboard/jobs/${payload.job.id}`);
@@ -217,7 +259,25 @@ export function VerificationDashboardClient({
   }
 
   function onFileChange(event: ChangeEvent<HTMLInputElement>) {
-    setFile(event.target.files?.[0] ?? null);
+    const nextFile = event.target.files?.[0] ?? null;
+    setFile(nextFile);
+    setIdempotencyKey(createIdempotencyKey());
+    if (!nextFile) return;
+    if (nextFile.size > MAX_UPLOAD_BYTES) {
+      setSubmitStatus("error");
+      setMessage("This file is too large. Maximum upload size is 25 MB. Please split your list into smaller files and try again.");
+    } else if (!looksLikeSupportedFile(nextFile)) {
+      setSubmitStatus("error");
+      setMessage("We could not read this file. Please upload a CSV or TXT file with one email per row.");
+    } else {
+      setSubmitStatus("idle");
+      setMessage(null);
+    }
+  }
+
+  function onEmailsChange(value: string) {
+    setEmails(value);
+    setIdempotencyKey(createIdempotencyKey());
   }
 
   const completedJobs = jobs.filter((job) => job.status === "COMPLETED");
@@ -262,11 +322,12 @@ export function VerificationDashboardClient({
               <span className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Paste emails manually</span>
               <textarea
                 value={emails}
-                onChange={(event) => setEmails(event.target.value)}
+                onChange={(event) => onEmailsChange(event.target.value)}
                 rows={8}
                 placeholder="founder@example.com&#10;ops@example.com&#10;marketing@example.com"
                 className="min-h-44 rounded-md border border-slate-300 bg-white p-4 text-sm font-medium text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
               />
+              {file ? <span className="text-xs font-semibold text-slate-500">File upload will be used for this job. Clear the selected file to verify pasted emails instead.</span> : null}
             </label>
 
             <div className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 md:grid-cols-3">
@@ -285,6 +346,11 @@ export function VerificationDashboardClient({
             </button>
             {message ? (
               <p className={`text-sm font-semibold ${submitStatus === "error" ? "text-rose-700" : "text-emerald-700"}`}>{message}</p>
+            ) : null}
+            {!file && estimatedEmails > 0 && estimatedEmails > creditBalance ? (
+              <p className="text-sm font-semibold text-amber-700">
+                This pasted list needs {estimatedEmails.toLocaleString()} credits. Your current balance is {creditBalance.toLocaleString()}.
+              </p>
             ) : null}
           </form>
         </VerifyPanel>
@@ -352,6 +418,26 @@ export function VerificationDashboardClient({
             <VerifyAction href="/dashboard/support" variant="secondary">
               Billing support
             </VerifyAction>
+          </div>
+
+          <div className="mt-6 border-t border-slate-200 pt-5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <VerifyBadge>Credit ledger</VerifyBadge>
+                <h3 className="mt-2 text-lg font-semibold tracking-[-0.02em] text-slate-950">Recent credit activity</h3>
+              </div>
+              <ReceiptText className="text-slate-300" size={24} />
+            </div>
+            <div className="mt-4 grid gap-2">
+              {transactionsStatus === "loading" ? <p className="text-sm font-semibold text-slate-500">Loading credit activity...</p> : null}
+              {transactionsStatus === "error" ? <p className="text-sm font-semibold text-rose-700">Credit activity could not be loaded.</p> : null}
+              {transactionsStatus === "ready" && transactions.length === 0 ? (
+                <p className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-500">No credit activity yet.</p>
+              ) : null}
+              {transactions.map((transaction) => (
+                <TransactionRow key={transaction.id} transaction={transaction} />
+              ))}
+            </div>
           </div>
         </VerifyPanel>
 
@@ -514,6 +600,11 @@ function getFriendlyVerificationError(error: unknown) {
   return message || "Verification could not be started. Please try again.";
 }
 
+function createIdempotencyKey() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 function looksLikeSupportedFile(file: File) {
   const name = file.name.toLowerCase();
   return name.endsWith(".csv") || name.endsWith(".txt");
@@ -536,6 +627,27 @@ function InputEstimate({ label, value, tone }: { label: string; value: string; t
     <div>
       <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">{label}</p>
       <p className={`mt-1 text-2xl font-semibold tracking-[-0.02em] ${tone === "blue" ? "text-blue-700" : "text-slate-950"}`}>{value}</p>
+    </div>
+  );
+}
+
+function TransactionRow({ transaction }: { transaction: CreditTransaction }) {
+  const positive = transaction.amount >= 0;
+  return (
+    <div className="grid gap-2 rounded-lg border border-slate-200 bg-white p-3 sm:grid-cols-[1fr_auto] sm:items-center">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-sm font-semibold text-slate-950">{transactionLabel(transaction.type)}</p>
+          <span className={positive ? "text-sm font-semibold text-emerald-700" : "text-sm font-semibold text-rose-700"}>
+            {positive ? "+" : ""}{transaction.amount.toLocaleString()}
+          </span>
+        </div>
+        <p className="mt-1 truncate text-xs font-medium text-slate-500">{transaction.note || "Credit activity"}</p>
+      </div>
+      <div className="text-left sm:text-right">
+        <p className="text-xs font-semibold text-slate-500">{formatShortDate(transaction.createdAt)}</p>
+        <p className="mt-1 text-xs font-semibold text-blue-700">Balance {transaction.balanceAfter.toLocaleString()}</p>
+      </div>
     </div>
   );
 }
@@ -589,6 +701,11 @@ function JobRow({ job }: { job: VerificationJob }) {
         <Link href={`/dashboard/jobs/${job.id}`} className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 px-4 text-sm font-semibold text-slate-900 hover:bg-slate-50">
           View report
         </Link>
+        {failed ? (
+          <Link href={`/dashboard/support?jobId=${job.id}`} className="inline-flex h-10 items-center justify-center rounded-md border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-700 hover:bg-rose-100">
+            Get help
+          </Link>
+        ) : null}
         {completed ? (
           <>
             <DownloadLink jobId={job.id} type="valid" label="Valid CSV" />
@@ -598,6 +715,20 @@ function JobRow({ job }: { job: VerificationJob }) {
       </div>
     </div>
   );
+}
+
+function transactionLabel(type: string) {
+  if (type === "PURCHASE") return "Credit purchase";
+  if (type === "USE") return "Verification usage";
+  if (type === "REFUND") return "Credit refund";
+  if (type === "ADMIN_ADJUSTMENT") return "Account adjustment";
+  if (type === "REFERRAL_REWARD") return "Partner reward";
+  if (type === "FREE_TRIAL") return "Trial credits";
+  return type.replaceAll("_", " ").toLowerCase();
+}
+
+function formatShortDate(value: string) {
+  return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
 }
 
 function Count({ label, value, tone }: { label: string; value: number; tone?: "good" | "bad" | "warn" }) {

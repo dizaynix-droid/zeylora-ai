@@ -67,10 +67,19 @@ export default async function AdminTicketsPage({
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Bağlam</p>
                 <div className="mt-3 grid gap-2 text-sm text-slate-300">
                   <p>Kullanıcı bakiyesi: <span className="font-black text-white">{ticket.user.creditBalance}</span></p>
-                  {ticket.aiJob ? (
+                  {ticket.verificationJob ? (
+                    <>
+                      <p>Job: <span className="font-mono text-xs text-white">{ticket.verificationJob.id}</span></p>
+                      <p>Liste: <span className="font-black text-white">{ticket.verificationJob.originalFilename || "Yapıştırılan email listesi"}</span></p>
+                      <p>Email: <span className="font-black text-white">{ticket.verificationJob.uniqueEmails.toLocaleString()}</span></p>
+                      <p>Durum: <span className="font-black text-white">{ticket.verificationJob.status}</span></p>
+                      {ticket.verificationJob.errorMessage ? <p className="line-clamp-3">Hata: {ticket.verificationJob.errorMessage}</p> : null}
+                      <Link href={`/admin/verification-jobs?user=${encodeURIComponent(ticket.user.email)}`} className="text-cyan">İlgili doğrulama işlerini aç</Link>
+                    </>
+                  ) : ticket.aiJob ? (
                     <>
                       <p>Job: <span className="font-mono text-xs text-white">{ticket.aiJob.id}</span></p>
-                      <p>Araç: <span className="font-black text-white">{ticket.aiJob.tool.name}</span></p>
+                      <p>Eski foto job: <span className="font-black text-white">{ticket.aiJob.tool.name}</span></p>
                       <p>Durum: <span className="font-black text-white">{ticket.aiJob.status}</span></p>
                       {ticket.aiJob.errorMessage ? <p className="line-clamp-3">Hata: {ticket.aiJob.errorMessage}</p> : null}
                       <Link href={`/admin/verification-jobs?user=${encodeURIComponent(ticket.user.email)}`} className="text-cyan">İlgili doğrulama işlerini aç</Link>
