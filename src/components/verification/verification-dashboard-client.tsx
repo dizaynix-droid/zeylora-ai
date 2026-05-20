@@ -271,7 +271,7 @@ export function VerificationDashboardClient({
       setMessage("We could not read this file. Please upload a CSV or TXT file with one email per row.");
     } else {
       setSubmitStatus("idle");
-      setMessage(null);
+      setMessage("File selected. Click Verify email list to upload and start verification.");
     }
   }
 
@@ -314,9 +314,13 @@ export function VerificationDashboardClient({
             <label className="grid cursor-pointer gap-3 rounded-lg border border-dashed border-blue-300 bg-blue-50 p-6 text-center transition hover:bg-blue-100/70">
               <UploadCloud className="mx-auto text-blue-700" size={32} />
               <span className="text-lg font-semibold text-slate-950">{file ? file.name : "Choose CSV or TXT list"}</span>
-              <span className="text-sm text-slate-500">CSV/TXT supported up to 25 MB and 50,000 emails per job. Larger lists should be split or sent to support.</span>
+              <span className="text-sm text-slate-500">
+                {file ? `${formatBytes(file.size)} selected - ready to upload when you verify.` : "CSV/TXT supported up to 25 MB and 50,000 emails per job. Larger lists should be split or sent to support."}
+              </span>
               <input type="file" accept=".csv,.txt,text/csv,text/plain" className="sr-only" onChange={onFileChange} />
             </label>
+
+            <DashboardFileStatus file={file} submitStatus={submitStatus} />
 
             <label className="grid gap-2">
               <span className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Paste emails manually</span>
@@ -631,6 +635,74 @@ function InputEstimate({ label, value, tone }: { label: string; value: string; t
   );
 }
 
+function DashboardFileStatus({ file, submitStatus }: { file: File | null; submitStatus: "idle" | "running" | "error" | "success" }) {
+  if (!file) {
+    return (
+      <div className="rounded-lg border border-slate-200 bg-white p-3">
+        <div className="flex items-center gap-2 text-sm font-semibold text-slate-500">
+          <StatusDot state="idle" />
+          No CSV/TXT file selected
+        </div>
+        <p className="mt-1 text-xs text-slate-500">Select a file above, or paste emails manually.</p>
+      </div>
+    );
+  }
+
+  const tooLarge = file.size > MAX_UPLOAD_BYTES;
+  const invalidFormat = !looksLikeSupportedFile(file);
+  const error = tooLarge || invalidFormat || submitStatus === "error";
+  const uploading = submitStatus === "running";
+  const progress = error ? 100 : uploading ? 62 : 100;
+  const title = error ? "File needs attention" : uploading ? "Uploading and creating job..." : "File selected";
+  const helper = tooLarge
+    ? "Maximum upload size is 25 MB. Split the file and try again."
+    : invalidFormat
+      ? "Please choose a CSV or TXT file."
+      : uploading
+        ? "Keep this page open. You will be moved to the progress page when the job is created."
+        : "Ready to upload. Click Verify email list to create the job.";
+
+  return (
+    <div className={`rounded-lg border p-4 ${error ? "border-rose-200 bg-rose-50" : "border-emerald-200 bg-emerald-50"}`}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <div className={`flex items-center gap-2 text-sm font-semibold ${error ? "text-rose-700" : "text-emerald-700"}`}>
+            <StatusDot state={error ? "error" : uploading ? "active" : "done"} />
+            {title}
+          </div>
+          <p className="mt-1 truncate text-sm font-semibold text-slate-950">{file.name}</p>
+          <p className="mt-1 text-xs font-medium text-slate-600">{formatBytes(file.size)} - {file.type || "CSV/TXT file"}</p>
+        </div>
+        {!error && !uploading ? (
+          <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-xs font-semibold text-emerald-700">
+            <CheckCircle2 size={14} />
+            Ready to upload
+          </span>
+        ) : null}
+      </div>
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
+        <div
+          className={`h-full rounded-full transition-all duration-700 ${error ? "bg-rose-500" : "bg-emerald-500"} ${uploading ? "animate-pulse" : ""}`}
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+      <p className={`mt-2 text-xs font-semibold ${error ? "text-rose-700" : "text-emerald-700"}`}>{helper}</p>
+    </div>
+  );
+}
+
+function StatusDot({ state }: { state: "idle" | "active" | "done" | "error" }) {
+  const className =
+    state === "done"
+      ? "bg-emerald-500"
+      : state === "active"
+        ? "animate-pulse bg-blue-500"
+        : state === "error"
+          ? "bg-rose-500"
+          : "bg-slate-300";
+  return <span className={`inline-block size-2.5 rounded-full ${className}`} />;
+}
+
 function TransactionRow({ transaction }: { transaction: CreditTransaction }) {
   const positive = transaction.amount >= 0;
   return (
@@ -729,6 +801,12 @@ function transactionLabel(type: string) {
 
 function formatShortDate(value: string) {
   return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+}
+
+function formatBytes(value: number | null | undefined) {
+  if (!value) return "0 KB";
+  if (value >= 1024 * 1024) return `${(value / 1024 / 1024).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(value / 1024)).toLocaleString()} KB`;
 }
 
 function Count({ label, value, tone }: { label: string; value: number; tone?: "good" | "bad" | "warn" }) {

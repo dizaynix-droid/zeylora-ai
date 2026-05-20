@@ -17,6 +17,7 @@ export function HomepageListChecker() {
   const router = useRouter();
   const [emails, setEmails] = useState("");
   const [fileName, setFileName] = useState<string | null>(null);
+  const [fileSize, setFileSize] = useState<number | null>(null);
   const [parseState, setParseState] = useState<ParseState>("idle");
   const [message, setMessage] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
@@ -33,6 +34,9 @@ export function HomepageListChecker() {
 
   async function handleFile(file: File | null) {
     if (!file) return;
+    setFileName(file.name);
+    setFileSize(file.size);
+    setMessage("File selected. Reading the list now...");
     const name = file.name.toLowerCase();
     if (!name.endsWith(".csv") && !name.endsWith(".txt")) {
       setParseState("error");
@@ -40,7 +44,6 @@ export function HomepageListChecker() {
       return;
     }
     if (file.size > MAX_HOMEPAGE_PRECHECK_BYTES) {
-      setFileName(file.name);
       setParseState("error");
       setMessage("This file is large. Please sign in and upload it from the dashboard so it can be parsed safely on the server.");
       return;
@@ -55,7 +58,6 @@ export function HomepageListChecker() {
 
     try {
       const text = await file.text();
-      setFileName(file.name);
       setEmails(text);
       setParseState("ready");
       setMessage("List parsed. Review the estimate, then continue.");
@@ -80,6 +82,7 @@ export function HomepageListChecker() {
   function onPasteChange(value: string) {
     setEmails(value);
     setFileName(null);
+    setFileSize(null);
     setParseState(value.trim() ? "ready" : "idle");
     if (value.trim()) {
       trackEvent({
@@ -243,9 +246,13 @@ export function HomepageListChecker() {
             <FileText size={22} />
           </div>
           <p className="mt-3 text-sm font-semibold text-slate-950">{fileName || "Drop CSV or TXT file"}</p>
-          <p className="mt-1 text-xs text-slate-500">or browse from your device</p>
+          <p className="mt-1 text-xs text-slate-500">
+            {fileName ? `${formatBytes(fileSize)} selected` : "or browse from your device"}
+          </p>
           <input type="file" accept=".csv,.txt,text/csv,text/plain" className="sr-only" onChange={onFileChange} />
         </label>
+
+        <FileUploadStatus fileName={fileName} fileSize={fileSize} parseState={parseState} ready={ready} />
 
         <label className="grid gap-2">
           <span className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Paste emails</span>
@@ -437,6 +444,80 @@ function MiniResult({ label, value, tone }: { label: string; value: string; tone
   );
 }
 
+function FileUploadStatus({
+  fileName,
+  fileSize,
+  parseState,
+  ready
+}: {
+  fileName: string | null;
+  fileSize: number | null;
+  parseState: ParseState;
+  ready: boolean;
+}) {
+  if (!fileName) {
+    return (
+      <div className="rounded-lg border border-slate-200 bg-white p-3">
+        <div className="flex items-center gap-2 text-sm font-semibold text-slate-500">
+          <UploadStatusDot state="idle" />
+          No file selected yet
+        </div>
+        <p className="mt-1 text-xs text-slate-500">Choose a CSV/TXT file or paste emails below.</p>
+      </div>
+    );
+  }
+
+  const error = parseState === "error";
+  const parsing = parseState === "parsing";
+  const progress = error ? 100 : parsing ? 48 : ready ? 100 : 20;
+  const title = error ? "File needs attention" : parsing ? "Reading file..." : ready ? "File parsed and ready" : "File selected";
+  const helper = error
+    ? "Check the message below, then upload a CSV/TXT file again."
+    : parsing
+      ? "Zeylora is reading the file locally for the homepage estimate."
+      : "The list estimate is ready. Click Continue to start or resume verification.";
+
+  return (
+    <div className={`rounded-lg border p-4 ${error ? "border-rose-200 bg-rose-50" : "border-emerald-200 bg-emerald-50"}`}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <div className={`flex items-center gap-2 text-sm font-semibold ${error ? "text-rose-700" : "text-emerald-700"}`}>
+            <UploadStatusDot state={error ? "error" : parsing ? "active" : "done"} />
+            {title}
+          </div>
+          <p className="mt-1 truncate text-sm font-semibold text-slate-950">{fileName}</p>
+          <p className="mt-1 text-xs font-medium text-slate-600">{formatBytes(fileSize)} - CSV/TXT upload</p>
+        </div>
+        {ready ? (
+          <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-xs font-semibold text-emerald-700">
+            <CheckCircle2 size={14} />
+            Ready
+          </span>
+        ) : null}
+      </div>
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
+        <div
+          className={`h-full rounded-full transition-all duration-700 ${error ? "bg-rose-500" : "bg-emerald-500"} ${parsing ? "animate-pulse" : ""}`}
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+      <p className={`mt-2 text-xs font-semibold ${error ? "text-rose-700" : "text-emerald-700"}`}>{helper}</p>
+    </div>
+  );
+}
+
+function UploadStatusDot({ state }: { state: "idle" | "active" | "done" | "error" }) {
+  const className =
+    state === "done"
+      ? "bg-emerald-500"
+      : state === "active"
+        ? "animate-pulse bg-blue-500"
+        : state === "error"
+          ? "bg-rose-500"
+          : "bg-slate-300";
+  return <span className={`inline-block size-2.5 rounded-full ${className}`} />;
+}
+
 function estimateQuality(uniqueCount: number, duplicateCount: number) {
   if (uniqueCount === 0) return { valid: 0, risk: 0, duplicates: 0 };
   const duplicateRate = Math.min(35, Math.round((duplicateCount / Math.max(1, uniqueCount + duplicateCount)) * 100));
@@ -447,6 +528,12 @@ function estimateQuality(uniqueCount: number, duplicateCount: number) {
     risk,
     duplicates: duplicateRate
   };
+}
+
+function formatBytes(value: number | null | undefined) {
+  if (!value) return "0 KB";
+  if (value >= 1024 * 1024) return `${(value / 1024 / 1024).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(value / 1024)).toLocaleString()} KB`;
 }
 
 function getRecommendedPackage(uniqueCount: number) {
