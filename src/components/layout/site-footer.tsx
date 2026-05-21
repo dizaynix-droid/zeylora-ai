@@ -24,12 +24,12 @@ export function SiteFooter() {
             <Link href="/" className="flex items-center gap-2 font-semibold text-slate-950">
               <Image
                 src={brandIdentity.assets.mark}
-                alt={`${appConfig.name} mark`}
+                alt={`${appConfig.productName} mark`}
                 width={36}
                 height={36}
                 className="size-9 rounded-lg"
               />
-              {appConfig.name}
+              {appConfig.productName}
             </Link>
             <p className="mt-4 max-w-md text-sm leading-6 text-slate-600">
               A fast email verification and list cleaning platform for reducing bounce rate, protecting sender reputation, and exporting clean segmented CSV reports.
@@ -66,7 +66,7 @@ export function SiteFooter() {
 
         <div className="mt-10 grid gap-4 border-t border-slate-200 pt-5 md:grid-cols-[1fr_auto] md:items-center">
           <div>
-            <p className="text-xs font-semibold text-slate-500">Copyright {new Date().getFullYear()} {appConfig.name}. All rights reserved.</p>
+            <p className="text-xs font-semibold text-slate-500">Copyright {new Date().getFullYear()} {appConfig.productName}. All rights reserved.</p>
             <p className="mt-1 text-xs text-slate-500">Verify emails before sending. Keep uploads private, downloads signed, and campaign lists under control.</p>
           </div>
           <Link href="/contact" className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 transition hover:bg-slate-50">

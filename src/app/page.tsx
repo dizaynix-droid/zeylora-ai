@@ -98,23 +98,6 @@ export default async function HomePage() {
           </VerifyContainer>
         </section>
 
-        <section id="live-demo" className="border-b border-slate-200 bg-white">
-          <VerifyContainer className="py-12 lg:py-16">
-            <div className="mx-auto max-w-3xl text-center">
-              <VerifyBadge tone="blue">Proof before you send</VerifyBadge>
-              <h2 className="mt-4 text-3xl font-semibold tracking-[-0.035em] text-slate-950 sm:text-4xl">
-                Know exactly what changed before you download.
-              </h2>
-              <p className="mt-4 text-base leading-7 text-slate-600">
-                Zeylora shows deliverability score, valid rate, bounce risk, duplicates removed, and export-ready segments so every send starts with cleaner data.
-              </p>
-            </div>
-            <div className="mt-8">
-              <DashboardPreview />
-            </div>
-          </VerifyContainer>
-        </section>
-
         <section id="results" className="border-b border-slate-200 bg-[#f7f8fb]">
           <VerifyContainer className="grid gap-8 py-12 lg:grid-cols-[0.78fr_1.22fr] lg:items-center lg:py-16">
             <div>
@@ -600,87 +583,6 @@ function OutcomePoint({ icon: Icon, label }: { icon: LucideIcon; label: string }
         <Icon size={18} />
       </span>
       <span className="text-sm font-semibold text-slate-900">{label}</span>
-    </div>
-  );
-}
-
-function DashboardPreview() {
-  return (
-    <VerifyPanel className="overflow-hidden shadow-[0_22px_70px_rgba(15,23,42,.08)]">
-      <div className="border-b border-slate-200 bg-white px-5 py-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-slate-500">Verification job</p>
-            <h3 className="mt-1 text-xl font-semibold text-slate-950">campaign-leads-may.csv</h3>
-          </div>
-          <VerifyBadge tone="green">Completed</VerifyBadge>
-        </div>
-      </div>
-      <div className="grid gap-4 p-5">
-        <div className="grid gap-3 sm:grid-cols-3">
-          <VerifyMetric label="Valid rate" value="86%" note="Ready to send" tone="green" />
-          <VerifyMetric label="Bounce risk cut" value="-74%" note="Invalid + disposable removed" tone="blue" />
-          <VerifyMetric label="Risky isolated" value="1,248" note="Catch-all / unknown" tone="amber" />
-        </div>
-
-        <div className="grid gap-4 lg:grid-cols-[1.05fr_.95fr]">
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Before / after list quality</p>
-            <div className="mt-4 grid gap-4">
-              <BeforeAfterRow label="Before cleaning" valid={58} invalid={24} risky={18} />
-              <BeforeAfterRow label="After cleaning" valid={86} invalid={3} risky={11} />
-            </div>
-            <div className="mt-5 grid gap-3 sm:grid-cols-3">
-              <SegmentCard label="Valid export" value="18,642" tone="green" />
-              <SegmentCard label="Risk review" value="2,184" tone="amber" />
-              <SegmentCard label="Blocked" value="5,209" tone="red" />
-            </div>
-          </div>
-
-          <div className="grid gap-4">
-            <div className="rounded-lg border border-slate-200 bg-white p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Live activity</p>
-              <div className="mt-4 grid gap-2">
-                {[
-                  ["Scanning MX records", "done"],
-                  ["Duplicates removed", "312"],
-                  ["Catch-all detected", "624"],
-                  ["Disposable domains blocked", "189"]
-                ].map(([label, value]) => (
-                  <div key={label} className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
-                    <span className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-                      <span className="size-1.5 animate-pulse rounded-full bg-emerald-300" />
-                      {label}
-                    </span>
-                    <span className="text-sm font-semibold text-blue-700">{value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Bounce risk curve</p>
-                <span className="text-sm font-semibold text-emerald-700">Down 74%</span>
-              </div>
-              <div className="mt-4 flex h-24 items-end gap-2">
-                {[78, 72, 65, 55, 43, 31, 22, 16].map((height) => (
-                  <div key={height} className="flex-1 rounded-t-md bg-gradient-to-t from-blue-600 to-cyan-400" style={{ height: `${height}%` }} />
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </VerifyPanel>
-  );
-}
-
-function SegmentCard({ label, value, tone }: { label: string; value: string; tone: "green" | "amber" | "red" }) {
-  const color = tone === "green" ? "text-emerald-700" : tone === "amber" ? "text-amber-700" : "text-rose-700";
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3">
-      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">{label}</p>
-      <p className={`mt-2 text-xl font-semibold tracking-[-0.02em] ${color}`}>{value}</p>
     </div>
   );
 }

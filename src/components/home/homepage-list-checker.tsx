@@ -2,7 +2,7 @@
 
 import { ChangeEvent, DragEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, CheckCircle2, ClipboardList, FileText, Loader2, MailCheck, ShieldCheck, TrendingDown, XCircle } from "lucide-react";
+import { ArrowRight, CheckCircle2, ClipboardList, Loader2, MailCheck, ShieldCheck, Sparkles, TrendingDown, UploadCloud, XCircle } from "lucide-react";
 import { VerifyAction, VerifyBadge, VerifyPanel } from "@/components/verify-ui/core";
 import { trackEvent } from "@/lib/analytics/events";
 import { releaseMobileInputViewport } from "@/lib/dom/mobile-viewport";
@@ -216,17 +216,24 @@ export function HomepageListChecker() {
   }
 
   return (
-    <VerifyPanel className="overflow-hidden border-slate-300 shadow-[0_18px_70px_rgba(15,23,42,.10)]">
-      <div className="border-b border-slate-200 px-5 py-4">
-        <div className="flex items-start justify-between gap-3">
+    <VerifyPanel className="overflow-hidden border-blue-200 bg-white shadow-[0_24px_80px_rgba(37,99,235,.14)]">
+      <div className="relative overflow-hidden border-b border-blue-100 bg-[linear-gradient(135deg,#f8fbff_0%,#eef6ff_55%,#ffffff_100%)] px-5 py-5">
+        <div className="pointer-events-none absolute right-0 top-0 h-32 w-32 rounded-full bg-blue-200/40 blur-3xl" />
+        <div className="relative flex items-start justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold text-slate-500">Free pre-check</p>
-            <h2 className="mt-1 text-xl font-semibold text-slate-950">Upload CSV and estimate credits</h2>
+            <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-blue-700 shadow-sm">
+              <Sparkles size={14} />
+              Free list check
+            </div>
+            <h2 className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-slate-950">Paste or upload your list.</h2>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">
+              Zeylora counts unique emails, removes duplicates, estimates credits, and starts verification when you are ready.
+            </p>
           </div>
           <div className="text-right">
             <VerifyBadge tone={ready ? "green" : "blue"}>
               {parseState === "parsing" ? <Loader2 className="mr-1 animate-spin" size={13} /> : null}
-              {ready ? "Ready to verify" : "Upload or paste"}
+              {ready ? "Ready" : "No list yet"}
             </VerifyBadge>
             <p className="mt-2 text-xs font-semibold text-slate-500">{uniqueCount.toLocaleString()} unique emails</p>
           </div>
@@ -244,29 +251,34 @@ export function HomepageListChecker() {
           onDragOver={onDragOver}
           onDragLeave={onDragLeave}
           onDrop={onDrop}
-          className={`grid cursor-pointer place-items-center rounded-lg border border-dashed p-5 text-center transition duration-300 ${
-            dragActive ? "scale-[1.01] border-blue-500 bg-blue-50 shadow-[0_16px_45px_rgba(37,99,235,.14)] ring-4 ring-blue-100" : "border-slate-300 bg-slate-50 hover:-translate-y-0.5 hover:border-blue-400 hover:bg-blue-50/70"
+          className={`group relative grid min-h-44 cursor-pointer place-items-center overflow-hidden rounded-xl border border-dashed p-6 text-center transition duration-300 ${
+            dragActive ? "scale-[1.01] border-blue-500 bg-blue-50 shadow-[0_18px_55px_rgba(37,99,235,.18)] ring-4 ring-blue-100" : "border-blue-200 bg-[linear-gradient(135deg,#f8fbff_0%,#eef6ff_100%)] hover:-translate-y-0.5 hover:border-blue-500 hover:shadow-[0_18px_45px_rgba(37,99,235,.12)]"
           }`}
         >
-          <div className={`mx-auto flex h-11 w-11 items-center justify-center rounded-md bg-white text-blue-700 shadow-sm ${dragActive || parseState === "parsing" ? "animate-pulse" : ""}`}>
-            <FileText size={22} />
+          <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-blue-400/70 to-transparent" />
+          <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-blue-700 shadow-sm ring-1 ring-blue-100 ${dragActive || parseState === "parsing" ? "animate-pulse" : "transition group-hover:scale-105"}`}>
+            <UploadCloud size={26} />
           </div>
-          <p className="mt-3 text-sm font-semibold text-slate-950">{fileName || "Drop your CSV or TXT file"}</p>
-          <p className="mt-1 text-xs text-slate-500">
-            {fileName ? `${formatBytes(fileSize)} selected` : "or browse from your device"}
+          <p className="mt-4 text-base font-semibold text-slate-950">{fileName || "Drop CSV/TXT here or browse"}</p>
+          <p className="mt-1 max-w-xs text-sm text-slate-500">
+            {fileName ? `${formatBytes(fileSize)} selected` : "Use a CSV/TXT export or paste addresses below for instant credit estimation."}
           </p>
+          <span className="mt-4 inline-flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition group-hover:bg-blue-700">
+            Choose file
+            <ArrowRight size={15} />
+          </span>
           <input type="file" accept=".csv,.txt,text/csv,text/plain" className="sr-only" onChange={onFileChange} />
         </label>
 
         <FileUploadStatus fileName={fileName} fileSize={fileSize} parseState={parseState} ready={ready} />
 
         <label className="grid gap-2">
-          <span className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Paste emails</span>
+          <span className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Or paste emails directly</span>
           <textarea
             value={emails}
             onChange={(event) => onPasteChange(event.target.value)}
             rows={5}
-            placeholder="founder@example.com&#10;ops@example.com&#10;sales@example.com"
+            placeholder="test@gmail.com&#10;hello@example.com&#10;support@zeylora.ai"
             className="min-h-32 rounded-md border border-slate-300 bg-white p-3 font-mono text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
           />
         </label>

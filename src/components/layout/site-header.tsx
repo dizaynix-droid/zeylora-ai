@@ -14,13 +14,13 @@ export function SiteHeader() {
         <Link href="/#top" className="flex items-center gap-2 font-semibold tracking-tight text-slate-950">
           <Image
             src={brandIdentity.assets.mark}
-            alt={`${appConfig.name} mark`}
+            alt={`${appConfig.productName} mark`}
             width={36}
             height={36}
             className="size-9 rounded-lg"
             priority
           />
-          <span className="max-w-[150px] truncate sm:max-w-none">{appConfig.name}</span>
+          <span className="max-w-[170px] truncate sm:max-w-none">{appConfig.productName}</span>
         </Link>
 
         <div className="hidden items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 lg:flex">

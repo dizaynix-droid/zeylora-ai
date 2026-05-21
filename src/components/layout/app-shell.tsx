@@ -25,12 +25,12 @@ export function AppShell({ title, description, area, children }: AppShellProps) 
           <Link href="/" className="flex min-w-0 items-center gap-2 text-sm font-semibold text-slate-950">
             <Image
               src={brandIdentity.assets.mark}
-              alt={`${appConfig.name} mark`}
+              alt={`${appConfig.productName} mark`}
               width={28}
               height={28}
               className="size-7 rounded-md"
             />
-            <span className="truncate">{appConfig.name}</span>
+            <span className="truncate">{appConfig.productName}</span>
           </Link>
           <div className="flex items-center gap-2">
             {area === "dashboard" ? (
