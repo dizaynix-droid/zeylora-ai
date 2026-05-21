@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import type { LucideIcon } from "lucide-react";
 import {
   ArrowRight,
@@ -28,8 +29,16 @@ import {
   VerifyPanel
 } from "@/components/verify-ui/core";
 import { getCreditPackagesForDisplay } from "@/lib/pricing/packages";
+import { createMetadata } from "@/lib/seo";
 
 type DisplayPackage = Awaited<ReturnType<typeof getCreditPackagesForDisplay>>[number];
+
+export const metadata: Metadata = createMetadata({
+  title: "Email Verification & Email Address Checker",
+  description:
+    "Verify email addresses, check email list quality, clean bulk email lists, reduce bounce rate, and export valid, risky, invalid, disposable, and full CSV reports.",
+  path: "/"
+});
 
 export default async function HomePage() {
   const packages = await getCreditPackagesForDisplay();
@@ -48,13 +57,13 @@ export default async function HomePage() {
             <div className="grid gap-6 xl:grid-cols-[0.88fr_1.12fr] xl:items-start">
               <div className="pt-2 xl:sticky xl:top-24">
                 <VerifyBadge tone="blue" className="shadow-sm">
-                  Pre-send email list cleaning
+                  Email verification and list cleaning
                 </VerifyBadge>
                 <h1 className="mt-5 max-w-3xl text-4xl font-semibold text-slate-950 sm:text-5xl lg:text-6xl">
                   Bad email lists silently burn campaign budget.
                 </h1>
                 <p className="mt-5 max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
-                  Verify every address before it hurts inbox placement, wastes sends, or damages sender reputation. Paste a list, see the risk, then download clean CSV segments before your next campaign.
+                  Verify every address before it hurts inbox placement, wastes sends, or damages sender reputation. Use Zeylora as an email address checker and bulk email verifier: paste emails, upload a CSV/TXT list, then export clean CSV segments before your next campaign.
                 </p>
                 <div className="mt-6 grid gap-3 sm:grid-cols-2">
                   <VerifyAction href="#verify-list" className="h-12 px-5 text-base shadow-lg shadow-blue-600/20">
@@ -77,7 +86,6 @@ export default async function HomePage() {
                   <AudiencePill icon={DatabaseZap} label="CRM exports" />
                   <AudiencePill icon={MailCheck} label="SaaS & ecommerce" />
                 </div>
-                <HeroOfferCard packages={getHeroOfferPackages(packages)} fallbackPackage={starterPackage} />
               </div>
 
               <div id="verify-list" className="relative">
@@ -88,9 +96,12 @@ export default async function HomePage() {
               </div>
             </div>
 
+            <HeroOfferCard packages={getHeroOfferPackages(packages)} fallbackPackage={starterPackage} />
             <HeroActivityStrip />
           </VerifyContainer>
         </section>
+
+        <SearchIntentSection />
 
         <section id="results" className="border-b border-slate-200 bg-[#f7f8fb]">
           <VerifyContainer className="grid gap-8 py-12 lg:grid-cols-[0.78fr_1.22fr] lg:items-center lg:py-16">
@@ -294,19 +305,24 @@ function HeroOfferCard({
   }
 
   return (
-    <VerifyPanel className="mt-6 overflow-hidden border-blue-200 bg-white/90 p-4 shadow-[0_18px_60px_rgba(37,99,235,.10)] backdrop-blur-xl">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+    <VerifyPanel className="mt-8 overflow-hidden border-blue-200 bg-white/90 p-5 shadow-[0_18px_60px_rgba(37,99,235,.10)] backdrop-blur-xl sm:p-6">
+      <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.08em] text-blue-700">Start cleaning today</p>
-          <p className="mt-1 text-sm font-semibold text-slate-600">Pick a verification volume and clean your list before sending.</p>
+          <p className="mt-1 max-w-2xl text-sm font-semibold text-slate-600">
+            Pick a verification volume and clean your list before sending. The most common starting points are ready here so paid traffic does not have to hunt through the page.
+          </p>
         </div>
-        <VerifyBadge tone="green">No subscription</VerifyBadge>
+        <div className="flex flex-wrap gap-2 lg:justify-end">
+          <VerifyBadge tone="green">No subscription</VerifyBadge>
+          <VerifyBadge tone="blue">Usage based</VerifyBadge>
+        </div>
       </div>
-      <div className="mt-4 grid gap-3 lg:grid-cols-3">
+      <div className="mt-5 grid gap-3 md:grid-cols-3">
         {visiblePackages.map((pack, index) => (
           <div
             key={pack.id}
-            className={`flex min-h-[210px] flex-col rounded-xl border p-4 ${
+            className={`flex min-h-[230px] flex-col rounded-xl border p-4 ${
               index === 1
                 ? "border-blue-300 bg-blue-50/70 shadow-[0_14px_35px_rgba(37,99,235,.13)]"
                 : "border-slate-200 bg-white"
@@ -332,7 +348,7 @@ function HeroOfferCard({
             <CheckoutButton
               packageId={pack.id}
               label={`Start with ${pack.totalCredits.toLocaleString()}`}
-              className="mt-4 inline-flex h-10 w-full items-center justify-center rounded-md bg-blue-600 px-3 text-xs font-semibold text-white transition hover:bg-blue-700"
+              className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-md bg-blue-600 px-3 text-sm font-semibold text-white transition hover:bg-blue-700"
             />
           </div>
         ))}
@@ -341,6 +357,64 @@ function HeroOfferCard({
         1 credit checks 1 unique email after duplicates are removed. Exports include valid, risky, invalid, disposable, duplicate, and full CSV reports.
       </p>
     </VerifyPanel>
+  );
+}
+
+function SearchIntentSection() {
+  const intents = [
+    {
+      icon: MailCheck,
+      title: "Email address checker",
+      copy: "Check individual addresses or pasted lists before they enter your CRM, newsletter, or outbound workflow."
+    },
+    {
+      icon: DatabaseZap,
+      title: "Bulk email verifier",
+      copy: "Upload CSV/TXT lists and verify unique addresses after duplicates are removed from the credit calculation."
+    },
+    {
+      icon: FileCheck2,
+      title: "Email list verification",
+      copy: "Segment valid, risky, invalid, disposable, duplicate, and full report CSVs for your campaign team."
+    },
+    {
+      icon: ShieldCheck,
+      title: "Email validity checker",
+      copy: "Review syntax, MX, SMTP, disposable, and catch-all signals before sending budget goes live."
+    }
+  ];
+
+  return (
+    <section className="border-b border-slate-200 bg-white">
+      <VerifyContainer className="py-10 lg:py-12">
+        <div className="grid gap-6 lg:grid-cols-[0.78fr_1.22fr] lg:items-start">
+          <div>
+            <VerifyBadge tone="blue">Built for search intent</VerifyBadge>
+            <h2 className="mt-4 text-3xl font-semibold tracking-[-0.035em] text-slate-950 sm:text-4xl">
+              One workspace for the checks buyers actually need.
+            </h2>
+            <p className="mt-4 text-base leading-7 text-slate-600">
+              Zeylora combines email verification, email validation, bulk list cleaning, bounce reduction, and clean CSV exports in a simple pre-send workflow.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {intents.map(({ icon: Icon, title, copy }) => (
+              <VerifyPanel key={title} className="p-4">
+                <div className="flex items-start gap-3">
+                  <span className="rounded-lg bg-blue-50 p-2 text-blue-700">
+                    <Icon size={18} />
+                  </span>
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-950">{title}</h3>
+                    <p className="mt-1 text-sm leading-6 text-slate-600">{copy}</p>
+                  </div>
+                </div>
+              </VerifyPanel>
+            ))}
+          </div>
+        </div>
+      </VerifyContainer>
+    </section>
   );
 }
 

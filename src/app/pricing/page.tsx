@@ -19,8 +19,9 @@ const pricingFeatures = [
 ];
 
 export const metadata: Metadata = createMetadata({
-  title: "Pricing",
-  description: "Buy Zeylora email verification credits. 1 credit verifies 1 email.",
+  title: "Email Verification Pricing",
+  description:
+    "Usage-based pricing for email verification, bulk email list cleaning, email address checks, disposable detection, catch-all detection, and CSV exports.",
   path: "/pricing"
 });
 
