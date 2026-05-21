@@ -1,6 +1,5 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  Activity,
   ArrowRight,
   BarChart3,
   Building2,
@@ -469,72 +468,6 @@ function VerificationEnginePanel() {
           <EngineStat label="Invalid blocked" value="5,209" tone="red" />
         </div>
       </VerifyPanel>
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        <VerifyPanel className="p-4 shadow-[0_16px_50px_rgba(15,23,42,.08)]">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Verification activity</p>
-            <Activity size={16} className="text-blue-700" />
-          </div>
-          <div className="mt-4 grid gap-2">
-            {[
-              ["MX records confirmed", "4,812"],
-              ["Duplicates removed", "312"],
-              ["Catch-all detected", "624"],
-              ["Disposable domains blocked", "189"]
-            ].map(([label, value]) => (
-              <div key={label} className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                <span className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-                  <span className="size-1.5 animate-pulse rounded-full bg-emerald-400" />
-                  {label}
-                </span>
-                <span className="text-sm font-semibold text-blue-700">{value}</span>
-              </div>
-            ))}
-          </div>
-        </VerifyPanel>
-
-        <VerifyPanel className="overflow-hidden p-4 shadow-[0_16px_50px_rgba(15,23,42,.08)]">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Bounce risk curve</p>
-            <TrendingDown size={16} className="text-emerald-700" />
-          </div>
-          <div className="mt-4 flex h-28 items-end gap-2">
-            {[76, 71, 66, 51, 43, 35, 24, 18].map((height, index) => (
-              <div key={height} className="flex flex-1 flex-col items-center gap-2">
-                <div
-                  className="w-full rounded-t-lg bg-gradient-to-t from-blue-600 to-cyan-400 shadow-[0_8px_22px_rgba(37,99,235,.18)]"
-                  style={{ height: `${height}%`, opacity: 0.7 + index * 0.035 }}
-                />
-              </div>
-            ))}
-          </div>
-          <div className="mt-3 flex items-center justify-between text-xs font-semibold text-slate-500">
-            <span>Raw import</span>
-            <span className="text-emerald-700">-74% risk</span>
-          </div>
-        </VerifyPanel>
-
-        <VerifyPanel className="p-4 shadow-[0_16px_50px_rgba(15,23,42,.08)]">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Export segments</p>
-            <Download size={16} className="text-blue-700" />
-          </div>
-          <div className="mt-4 grid gap-2">
-            {[
-              ["Valid-only CSV", "18,642"],
-              ["Risk review CSV", "2,184"],
-              ["Blocked CSV", "5,209"],
-              ["Full report", "26,035"]
-            ].map(([label, value]) => (
-              <div key={label} className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                <span className="text-sm font-semibold text-slate-800">{label}</span>
-                <span className="text-sm font-semibold text-slate-950">{value}</span>
-              </div>
-            ))}
-          </div>
-        </VerifyPanel>
-      </div>
 
       <VerifyPanel className="overflow-hidden p-5 shadow-[0_16px_50px_rgba(15,23,42,.08)]">
         <div className="grid gap-5 lg:grid-cols-[.9fr_1.1fr] lg:items-center">
