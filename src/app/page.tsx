@@ -77,7 +77,7 @@ export default async function HomePage() {
                   <AudiencePill icon={DatabaseZap} label="CRM exports" />
                   <AudiencePill icon={MailCheck} label="SaaS & ecommerce" />
                 </div>
-                {starterPackage ? <HeroOfferCard starterPackage={starterPackage} /> : null}
+                <HeroOfferCard packages={getHeroOfferPackages(packages)} fallbackPackage={starterPackage} />
               </div>
 
               <div id="verify-list" className="relative">
@@ -267,44 +267,81 @@ function AudiencePill({ icon: Icon, label }: { icon: LucideIcon; label: string }
   );
 }
 
-function HeroOfferCard({ starterPackage }: { starterPackage: DisplayPackage }) {
+function getHeroOfferPackages(packages: DisplayPackage[]) {
+  const preferredKeys = ["starter", "growth", "scale"];
+  const preferred = preferredKeys
+    .map((key) => packages.find((pack) => pack.key === key))
+    .filter((pack): pack is DisplayPackage => Boolean(pack));
+
+  if (preferred.length >= 2) {
+    return preferred.slice(0, 3);
+  }
+
+  return packages.slice(0, 3);
+}
+
+function HeroOfferCard({
+  packages,
+  fallbackPackage
+}: {
+  packages: DisplayPackage[];
+  fallbackPackage?: DisplayPackage;
+}) {
+  const visiblePackages = packages.length > 0 ? packages : fallbackPackage ? [fallbackPackage] : [];
+
+  if (visiblePackages.length === 0) {
+    return null;
+  }
+
   return (
-    <VerifyPanel className="mt-6 overflow-hidden border-blue-200 bg-white/90 p-5 shadow-[0_18px_60px_rgba(37,99,235,.10)] backdrop-blur-xl">
+    <VerifyPanel className="mt-6 overflow-hidden border-blue-200 bg-white/90 p-4 shadow-[0_18px_60px_rgba(37,99,235,.10)] backdrop-blur-xl">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.08em] text-blue-700">Start cleaning today</p>
-          <p className="mt-1 text-3xl font-semibold text-slate-950">${starterPackage.price}</p>
-          <p className="mt-1 text-sm font-semibold text-slate-600">
-            {starterPackage.totalCredits.toLocaleString()} email verifications
-          </p>
+          <p className="mt-1 text-sm font-semibold text-slate-600">Pick a verification volume and clean your list before sending.</p>
         </div>
         <VerifyBadge tone="green">No subscription</VerifyBadge>
       </div>
-      <div className="mt-4 grid gap-2 text-sm font-medium text-slate-700">
-        <OfferLine text="Verify a real list before your next campaign goes out." />
-        <OfferLine text="1 credit checks 1 unique email after duplicates are removed." />
-        <OfferLine text="Get valid, risky, invalid, disposable, duplicate, and full CSV exports." />
+      <div className="mt-4 grid gap-3 lg:grid-cols-3">
+        {visiblePackages.map((pack, index) => (
+          <div
+            key={pack.id}
+            className={`flex min-h-[210px] flex-col rounded-xl border p-4 ${
+              index === 1
+                ? "border-blue-300 bg-blue-50/70 shadow-[0_14px_35px_rgba(37,99,235,.13)]"
+                : "border-slate-200 bg-white"
+            }`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-950">{pack.name}</p>
+                <p className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-slate-950">${pack.price}</p>
+              </div>
+              {index === 1 ? <VerifyBadge tone="blue">Best fit</VerifyBadge> : null}
+            </div>
+            <p className="mt-2 text-sm font-semibold text-blue-700">
+              {pack.totalCredits.toLocaleString()} email verifications
+            </p>
+            <p className="mt-3 flex-1 text-xs leading-5 text-slate-500">
+              {index === 0
+                ? "Verify your first list and see exactly what should be removed before sending."
+                : index === 1
+                  ? "Clean recurring campaign, newsletter, and CRM exports without a subscription."
+                  : "Built for larger lists where bounce risk and wasted sends get expensive fast."}
+            </p>
+            <CheckoutButton
+              packageId={pack.id}
+              label={`Start with ${pack.totalCredits.toLocaleString()}`}
+              className="mt-4 inline-flex h-10 w-full items-center justify-center rounded-md bg-blue-600 px-3 text-xs font-semibold text-white transition hover:bg-blue-700"
+            />
+          </div>
+        ))}
       </div>
-      <CheckoutButton
-        packageId={starterPackage.id}
-        label={`Start with ${starterPackage.totalCredits.toLocaleString()} verifications`}
-        className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-md bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700"
-      />
+      <p className="mt-3 text-xs font-medium text-slate-500">
+        1 credit checks 1 unique email after duplicates are removed. Exports include valid, risky, invalid, disposable, duplicate, and full CSV reports.
+      </p>
     </VerifyPanel>
   );
-}
-
-function OfferLine({ text }: { text: string }) {
-  return (
-    <div className="flex gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-      <CheckDot />
-      <span>{text}</span>
-    </div>
-  );
-}
-
-function CheckDot() {
-  return <span className="mt-1 size-2 shrink-0 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,.12)]" />;
 }
 
 function HeroActivityStrip() {
