@@ -35,7 +35,7 @@ export function SiteFooter() {
               A fast email verification and list cleaning platform for reducing bounce rate, protecting sender reputation, and exporting clean segmented CSV reports.
             </p>
             <div className="mt-5 grid gap-2 sm:grid-cols-2">
-              <FooterStatus label="Provider status" value="Verification ready" />
+              <FooterStatus label="System status" value="Verification ready" />
               <FooterStatus label="Security" value="Private exports" />
             </div>
           </div>

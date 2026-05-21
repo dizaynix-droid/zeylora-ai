@@ -10,7 +10,6 @@ import {
   Globe2,
   KeyRound,
   MailCheck,
-  Radio,
   ShieldCheck,
   TrendingDown,
   UploadCloud,
@@ -90,11 +89,6 @@ export default async function HomePage() {
             </div>
 
             <HeroActivityStrip />
-            <ScaleLimitsBand />
-
-            <div className="mt-6">
-              <VerificationEnginePanel />
-            </div>
           </VerifyContainer>
         </section>
 
@@ -338,170 +332,6 @@ function HeroActivityStrip() {
           </div>
         ))}
       </div>
-    </div>
-  );
-}
-
-function ScaleLimitsBand() {
-  const limits = [
-    {
-      icon: MailCheck,
-      label: "Paste limit",
-      value: "5,000 emails",
-      note: "Quick lists stay responsive and are checked before credits are used."
-    },
-    {
-      icon: UploadCloud,
-      label: "CSV / TXT size",
-      value: "25 MB",
-      note: "Files are parsed server-side so large uploads do not freeze the browser."
-    },
-    {
-      icon: DatabaseZap,
-      label: "Public job limit",
-      value: "50,000 emails",
-      note: "Duplicates are removed before credit calculation and processing."
-    },
-    {
-      icon: Users2,
-      label: "Larger volume",
-      value: "Split or contact support",
-      note: "100k+ lists need planned batching or an enterprise workflow."
-    }
-  ];
-
-  return (
-    <div className="mt-5 rounded-2xl border border-blue-100 bg-white/80 p-4 shadow-[0_14px_46px_rgba(15,23,42,.08)] backdrop-blur-xl">
-      <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-blue-700">Clear upload limits</p>
-          <h2 className="mt-1 text-xl font-semibold tracking-[-0.03em] text-slate-950">Built for real campaign lists without silent failures.</h2>
-        </div>
-        <p className="max-w-xl text-sm leading-6 text-slate-600">
-          If a list is over the current public limit, Zeylora tells the customer to split the file or contact support before charging credits.
-        </p>
-      </div>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {limits.map(({ icon: Icon, label, value, note }) => (
-          <div key={label} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <div className="flex items-center gap-2 text-blue-700">
-              <Icon size={18} />
-              <p className="text-xs font-semibold uppercase tracking-[0.08em]">{label}</p>
-            </div>
-            <p className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950">{value}</p>
-            <p className="mt-2 text-xs leading-5 text-slate-600">{note}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function VerificationEnginePanel() {
-  return (
-    <div className="grid gap-4">
-      <VerifyPanel className="relative overflow-hidden border-white/80 bg-white/80 p-5 shadow-[0_24px_80px_rgba(15,23,42,.12)] backdrop-blur-xl">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-500 via-cyan-400 to-emerald-400" />
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <Radio size={16} className="animate-pulse text-emerald-600" />
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Live list cleanup</p>
-            </div>
-            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-slate-950">campaign-leads-may.csv</h2>
-          </div>
-          <VerifyBadge tone="green">Scanning now</VerifyBadge>
-        </div>
-
-        <div className="mt-5 grid gap-5 lg:grid-cols-[.82fr_1.18fr]">
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Deliverability score</p>
-            <div className="mx-auto mt-4 grid size-40 place-items-center rounded-full bg-[conic-gradient(#2563eb_0_328deg,#dbeafe_328deg_360deg)] p-3 shadow-inner">
-              <div className="grid size-32 place-items-center rounded-full bg-white shadow-sm">
-                <div className="text-center">
-                  <p className="text-5xl font-semibold tracking-[-0.06em] text-slate-950">91</p>
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-blue-700">Ready</p>
-                </div>
-              </div>
-            </div>
-            <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-200">
-              <div className="h-full w-[91%] rounded-full bg-gradient-to-r from-blue-600 via-cyan-500 to-emerald-500" />
-            </div>
-          </div>
-
-          <div className="grid content-between gap-4">
-            <BeforeAfterRow label="Raw list quality" valid={58} invalid={24} risky={18} />
-            <BeforeAfterRow label="Verified export quality" valid={86} invalid={3} risky={11} />
-            <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-semibold text-slate-900">Verification progress</p>
-                <span className="text-sm font-semibold text-blue-700">72%</span>
-              </div>
-              <div className="mt-3 h-3 overflow-hidden rounded-full bg-white">
-                <div className="h-full w-[72%] rounded-full bg-gradient-to-r from-blue-600 via-cyan-500 to-emerald-500 shadow-[0_0_18px_rgba(37,99,235,.35)]" />
-              </div>
-              <p className="mt-3 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">MX, SMTP, disposable, catch-all, duplicate checks</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-5 grid gap-3 sm:grid-cols-3">
-          <EngineStat label="Valid" value="18,642" tone="green" />
-          <EngineStat label="Risky isolated" value="2,184" tone="amber" />
-          <EngineStat label="Invalid blocked" value="5,209" tone="red" />
-        </div>
-      </VerifyPanel>
-
-      <VerifyPanel className="overflow-hidden p-5 shadow-[0_16px_50px_rgba(15,23,42,.08)]">
-        <div className="grid gap-5 lg:grid-cols-[.9fr_1.1fr] lg:items-center">
-          <div>
-            <div className="flex items-center gap-2">
-              <FileCheck2 size={16} className="text-blue-700" />
-              <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Verification results preview</p>
-            </div>
-            <h3 className="mt-2 text-xl font-semibold tracking-[-0.03em] text-slate-950">What you get after verification</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              Download clear CSV reports and separate risky addresses before you send, so your team can protect bounce rate and sender reputation.
-            </p>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            <ResultPreviewCard title="Valid Emails" copy="Ready for campaigns and CRM updates." tone="green" />
-            <ResultPreviewCard title="Risky Emails" copy="Catch-all or uncertain emails marked for review." tone="amber" />
-            <ResultPreviewCard title="Invalid Emails" copy="Remove unreachable addresses before sending." tone="red" />
-            <ResultPreviewCard title="Disposable Emails" copy="Detect temporary or low-quality domains." tone="blue" />
-            <ResultPreviewCard title="Duplicates Removed" copy="Clean repeated addresses automatically." tone="blue" />
-            <ResultPreviewCard title="Full CSV Report" copy="Export segmented results for your team." tone="green" />
-          </div>
-        </div>
-      </VerifyPanel>
-    </div>
-  );
-}
-
-function ResultPreviewCard({ title, copy, tone }: { title: string; copy: string; tone: "green" | "amber" | "red" | "blue" }) {
-  const toneClass =
-    tone === "green"
-      ? "border-emerald-100 bg-emerald-50/70 text-emerald-700"
-      : tone === "amber"
-        ? "border-amber-100 bg-amber-50/70 text-amber-700"
-        : tone === "red"
-          ? "border-rose-100 bg-rose-50/70 text-rose-700"
-          : "border-blue-100 bg-blue-50/70 text-blue-700";
-  return (
-    <div className={`rounded-xl border p-3 ${toneClass}`}>
-      <p className="text-sm font-semibold text-slate-950">{title}</p>
-      <p className="mt-1 text-xs leading-5 text-slate-600">{copy}</p>
-    </div>
-  );
-}
-
-function EngineStat({ label, value, tone }: { label: string; value: string; tone: "green" | "amber" | "red" }) {
-  const toneClass =
-    tone === "green" ? "text-emerald-700 bg-emerald-50 border-emerald-100" : tone === "amber" ? "text-amber-700 bg-amber-50 border-amber-100" : "text-rose-700 bg-rose-50 border-rose-100";
-  return (
-    <div className={`rounded-2xl border p-4 ${toneClass}`}>
-      <p className="text-xs font-semibold uppercase tracking-[0.1em] opacity-80">{label}</p>
-      <p className="mt-2 text-2xl font-semibold tracking-[-0.03em]">{value}</p>
     </div>
   );
 }
