@@ -49,34 +49,34 @@ export default async function HomePage() {
             <div className="grid gap-6 xl:grid-cols-[0.88fr_1.12fr] xl:items-start">
               <div className="pt-2 xl:sticky xl:top-24">
                 <VerifyBadge tone="blue" className="shadow-sm">
-                  Bulk email verification & list cleaning
+                  Pre-send email list cleaning
                 </VerifyBadge>
                 <h1 className="mt-5 max-w-3xl text-4xl font-semibold text-slate-950 sm:text-5xl lg:text-6xl">
-                  Clean your email list before you send.
+                  Bad email lists silently burn campaign budget.
                 </h1>
                 <p className="mt-5 max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
-                  Upload a CSV or paste emails, remove duplicates, verify deliverability, and download clean valid/risky/invalid CSV reports for your next campaign.
+                  Verify every address before it hurts inbox placement, wastes sends, or damages sender reputation. Paste a list, see the risk, then download clean CSV segments before your next campaign.
                 </p>
                 <div className="mt-6 grid gap-3 sm:grid-cols-2">
                   <VerifyAction href="#verify-list" className="h-12 px-5 text-base shadow-lg shadow-blue-600/20">
-                    Upload list now
+                    Check my list now
                     <ArrowRight size={18} />
                   </VerifyAction>
                   <VerifyAction href="#pricing" variant="secondary" className="h-12 px-5 text-base">
-                    Start at ${starterPackage?.price ?? 9}
+                    Buy verification credits
                   </VerifyAction>
                 </div>
                 <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                  <HeroPromise icon={FileCheck2} title="Free pre-check" text="See unique emails and credit need before the paid verification job starts." />
-                  <HeroPromise icon={MailCheck} title="1 credit = 1 unique email" text="Duplicates are removed before credits are calculated." />
-                  <HeroPromise icon={ShieldCheck} title="Protect sender reputation" text="Separate invalid, disposable, risky, and catch-all addresses before sending." />
-                  <HeroPromise icon={Download} title="Download clean CSVs" text="Export valid-only, risky, invalid, disposable, and full reports." />
+                  <HeroPromise icon={TrendingDown} title="Stop wasted sends" text="Find invalid, risky, and disposable addresses before they drain campaign budget." />
+                  <HeroPromise icon={MailCheck} title="Pay per verified email" text="1 credit verifies 1 unique address after duplicates are removed." />
+                  <HeroPromise icon={ShieldCheck} title="Protect sender reputation" text="Clean bad addresses before they damage deliverability signals." />
+                  <HeroPromise icon={Download} title="Export clean segments" text="Download valid, risky, invalid, disposable, and full report CSVs." />
                 </div>
                 <div className="mt-5 flex flex-wrap gap-2 text-sm font-semibold text-slate-600">
-                  <AudiencePill icon={Users2} label="Lead lists" />
+                  <AudiencePill icon={Users2} label="Newsletter lists" />
                   <AudiencePill icon={Building2} label="Agencies" />
-                  <AudiencePill icon={DatabaseZap} label="B2B sales" />
-                  <AudiencePill icon={MailCheck} label="Email campaigns" />
+                  <AudiencePill icon={DatabaseZap} label="CRM exports" />
+                  <AudiencePill icon={MailCheck} label="SaaS & ecommerce" />
                 </div>
                 {starterPackage ? <HeroOfferCard starterPackage={starterPackage} /> : null}
               </div>
@@ -101,12 +101,12 @@ export default async function HomePage() {
         <section id="live-demo" className="border-b border-slate-200 bg-white">
           <VerifyContainer className="py-12 lg:py-16">
             <div className="mx-auto max-w-3xl text-center">
-              <VerifyBadge tone="blue">Operational proof</VerifyBadge>
+              <VerifyBadge tone="blue">Proof before you send</VerifyBadge>
               <h2 className="mt-4 text-3xl font-semibold tracking-[-0.035em] text-slate-950 sm:text-4xl">
-                The dashboard shows exactly what your campaign gained.
+                Know exactly what changed before you download.
               </h2>
               <p className="mt-4 text-base leading-7 text-slate-600">
-                Zeylora reports deliverability score, valid rate, bounce risk, duplicate removal, and segmented export readiness in one operator-friendly view.
+                Zeylora shows deliverability score, valid rate, bounce risk, duplicates removed, and export-ready segments so every send starts with cleaner data.
               </p>
             </div>
             <div className="mt-8">
@@ -120,15 +120,15 @@ export default async function HomePage() {
             <div>
               <VerifyBadge tone="green">Deliverability improvement</VerifyBadge>
               <h2 className="mt-4 text-3xl font-semibold tracking-[-0.035em] text-slate-950 sm:text-4xl">
-                See the bounce risk disappear before you spend on sending.
+                Turn a risky list into send-ready segments.
               </h2>
               <p className="mt-4 text-base leading-7 text-slate-600">
-                Upload a messy list, isolate the addresses that hurt deliverability, then export clean segments for CRMs, cold email tools, and newsletter platforms.
+                Upload a messy list, isolate addresses that hurt deliverability, then export cleaner segments for CRMs, newsletters, and campaign tools.
               </p>
               <div className="mt-6 grid gap-3">
-                <OutcomePoint icon={TrendingDown} label="Reduce wasted sends and bounce penalties." />
-                <OutcomePoint icon={ShieldCheck} label="Protect sender reputation before a campaign goes live." />
-                <OutcomePoint icon={MailCheck} label="Improve inbox placement by keeping risky mail out." />
+                  <OutcomePoint icon={TrendingDown} label="Cut wasted sends before campaign budget is spent." />
+                  <OutcomePoint icon={ShieldCheck} label="Protect sender reputation before a campaign goes live." />
+                  <OutcomePoint icon={MailCheck} label="Improve list quality before your next send." />
               </div>
             </div>
             <VerifyPanel className="p-5 shadow-[0_20px_60px_rgba(15,23,42,.08)]">
@@ -151,10 +151,10 @@ export default async function HomePage() {
               <div>
                 <VerifyBadge tone="amber">ROI protection</VerifyBadge>
                 <h2 className="mt-4 text-3xl font-semibold tracking-[-0.035em] text-slate-950 sm:text-4xl">
-                  How much list cleaning can save before you send.
+                  Stop paying to send emails that bounce.
                 </h2>
                 <p className="mt-4 text-base leading-7 text-slate-600">
-                  Every invalid address spends sending capacity, weakens domain trust, and hides the real campaign result. Zeylora turns that risk into a clear pre-send decision.
+                  Every invalid address wastes sending capacity, weakens domain trust, and hides the real campaign result. Zeylora turns that risk into a clear pre-send decision.
                 </p>
               </div>
               <MoneySavingCalculator />
@@ -167,7 +167,7 @@ export default async function HomePage() {
             <div className="mx-auto max-w-3xl text-center">
               <VerifyBadge>Verification workflow</VerifyBadge>
               <h2 className="mt-4 text-3xl font-semibold tracking-[-0.035em] text-slate-950 sm:text-4xl">
-                From raw list to clean sending segments.
+                From raw list to clean CSV exports.
               </h2>
               <p className="mt-4 text-base leading-7 text-slate-600">
                 The workflow is built around outcomes: fewer bounces, cleaner campaigns, and export files your team can use immediately.
@@ -198,10 +198,10 @@ export default async function HomePage() {
             <div className="mx-auto max-w-3xl text-center">
               <VerifyBadge tone="green">Trust and control</VerifyBadge>
               <h2 className="mt-4 text-3xl font-semibold tracking-[-0.035em] text-slate-950 sm:text-4xl">
-                Built for teams that protect sender reputation seriously.
+                Built for teams that cannot afford dirty-list mistakes.
               </h2>
               <p className="mt-4 text-base leading-7 text-slate-600">
-                Verification should feel operationally safe: private uploads, controlled exports, signed downloads, and provider-backed checks without subscription pressure.
+                Verification should feel operationally safe: private uploads, controlled exports, signed downloads, and clear checks without subscription pressure.
               </p>
             </div>
             <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -221,10 +221,10 @@ export default async function HomePage() {
               <div>
                 <VerifyBadge>Usage-based verification</VerifyBadge>
                 <h2 className="mt-4 text-3xl font-semibold tracking-[-0.035em] text-slate-950 sm:text-4xl">
-                  Buy verification volume, not another subscription.
+                  Buy verification volume only when you need it.
                 </h2>
                 <p className="mt-3 max-w-2xl text-base leading-7 text-slate-600">
-                  1 credit verifies 1 email. Start with a small list, then scale to higher-volume campaign hygiene when the numbers make sense.
+                  1 credit verifies 1 email. Start with a small list, then scale to higher-volume list cleaning when the numbers make sense.
                 </p>
               </div>
               <VerifyAction href="/pricing" variant="secondary">View all plans</VerifyAction>
@@ -295,7 +295,7 @@ function HeroOfferCard({ starterPackage }: { starterPackage: DisplayPackage }) {
     <VerifyPanel className="mt-6 overflow-hidden border-blue-200 bg-white/90 p-5 shadow-[0_18px_60px_rgba(37,99,235,.10)] backdrop-blur-xl">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-blue-700">Starter package</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-blue-700">Start cleaning today</p>
           <p className="mt-1 text-3xl font-semibold text-slate-950">${starterPackage.price}</p>
           <p className="mt-1 text-sm font-semibold text-slate-600">
             {starterPackage.totalCredits.toLocaleString()} email verifications
@@ -304,13 +304,13 @@ function HeroOfferCard({ starterPackage }: { starterPackage: DisplayPackage }) {
         <VerifyBadge tone="green">No subscription</VerifyBadge>
       </div>
       <div className="mt-4 grid gap-2 text-sm font-medium text-slate-700">
-        <OfferLine text="CSV/TXT upload, paste lists, duplicate removal, and server-side verification." />
-        <OfferLine text="Recent production test: 1,171 emails completed in about 1-2 minutes." />
-        <OfferLine text="Clear public limits: 5,000 pasted emails, 25 MB files, 50,000 emails per job." />
+        <OfferLine text="Verify a real list before your next campaign goes out." />
+        <OfferLine text="1 credit checks 1 unique email after duplicates are removed." />
+        <OfferLine text="Get valid, risky, invalid, disposable, duplicate, and full CSV exports." />
       </div>
       <CheckoutButton
         packageId={starterPackage.id}
-        label="Buy 1,000 verifications"
+        label={`Start with ${starterPackage.totalCredits.toLocaleString()} verifications`}
         className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-md bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700"
       />
     </VerifyPanel>
@@ -332,11 +332,11 @@ function CheckDot() {
 
 function HeroActivityStrip() {
   const items = [
-    ["Upload received", "CSV/TXT"],
-    ["Duplicates removed", "before credits"],
-    ["Credits estimated", "unique emails"],
-    ["Risk segments", "valid / risky / invalid"],
-    ["Exports prepared", "clean CSV"]
+    ["Risk found", "before you send"],
+    ["Duplicates removed", "no wasted credits"],
+    ["Invalid blocked", "fewer bounces"],
+    ["Clean exports", "ready for CRM"],
+    ["Budget protected", "pay as you go"]
   ];
 
   return (
@@ -423,7 +423,7 @@ function VerificationEnginePanel() {
           <div>
             <div className="flex items-center gap-2">
               <Radio size={16} className="animate-pulse text-emerald-600" />
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Live verification engine</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Live list cleanup</p>
             </div>
             <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-slate-950">campaign-leads-may.csv</h2>
           </div>
