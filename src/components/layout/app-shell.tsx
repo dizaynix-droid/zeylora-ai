@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { Menu, Upload } from "lucide-react";
 import { appConfig } from "@/config/app";
 import { brandIdentity } from "@/config/brand";
+import { HashScrollHandler } from "@/components/layout/hash-scroll-handler";
 import { adminNav, dashboardNav } from "@/config/navigation";
 import { adminTr } from "@/i18n/admin/tr";
 
@@ -17,11 +18,13 @@ type AppShellProps = {
 export function AppShell({ title, description, area, children }: AppShellProps) {
   const nav = area === "admin" ? adminNav : dashboardNav;
   const isAdmin = area === "admin";
+  const frameMaxWidth = isAdmin ? "max-w-[1760px]" : "max-w-[1320px]";
 
   return (
     <main className="min-h-screen w-full max-w-full overflow-x-hidden bg-[#f7f8fb] text-slate-950">
+      {area === "dashboard" ? <HashScrollHandler /> : null}
       <div className="w-full max-w-full overflow-x-hidden border-b border-slate-200 bg-white">
-        <div className="mx-auto flex h-14 w-full max-w-[1760px] items-center justify-between gap-3 px-4 sm:px-6">
+        <div className={`mx-auto flex h-14 w-full ${frameMaxWidth} items-center justify-between gap-3 px-4 sm:px-6`}>
           <Link href="/" className="flex min-w-0 items-center gap-2 text-sm font-semibold text-slate-950">
             <Image
               src={brandIdentity.assets.mark}
@@ -50,7 +53,7 @@ export function AppShell({ title, description, area, children }: AppShellProps) 
         className={
           isAdmin
             ? "mx-auto grid w-full max-w-[1760px] overflow-x-hidden gap-5 px-4 py-5 sm:px-6 xl:grid-cols-[248px_minmax(0,1fr)]"
-            : "mx-auto grid w-full max-w-[1760px] overflow-x-hidden gap-5 px-4 py-5 sm:px-6 xl:grid-cols-[248px_minmax(0,1fr)] xl:py-8"
+            : "mx-auto grid w-full max-w-[1320px] overflow-x-hidden gap-5 px-4 py-5 sm:px-6 xl:grid-cols-[248px_minmax(0,980px)] xl:justify-center xl:py-8"
         }
       >
         <aside className="hidden min-w-0 xl:block">
@@ -93,7 +96,7 @@ export function AppShell({ title, description, area, children }: AppShellProps) 
           </div>
         </aside>
 
-        <section className="verify-workspace min-w-0 max-w-full overflow-x-hidden">
+        <section className={isAdmin ? "verify-workspace min-w-0 max-w-full overflow-x-hidden" : "verify-workspace min-w-0 w-full max-w-[980px] overflow-x-hidden"}>
           <details className="mb-4 rounded-lg border border-slate-200 bg-white p-2 shadow-[0_1px_2px_rgba(15,23,42,.04)] xl:hidden">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-md px-3 py-2 text-sm font-semibold text-slate-950">
               <span className="inline-flex items-center gap-2">

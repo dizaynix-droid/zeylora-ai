@@ -263,13 +263,13 @@ export function VerificationDashboardClient({
   const postVerifyBalance = !file && estimatedEmails > 0 ? Math.max(0, displayCreditBalance - estimatedEmails) : null;
 
   return (
-    <div className="grid gap-6">
+    <div className="mx-auto grid w-full max-w-[980px] gap-5">
       <WorkspaceCommandCenter creditBalance={displayCreditBalance} packageCount={packages.length} />
 
-      <section id="verify" className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <section id="verify" className="grid scroll-mt-20 gap-5">
         <VerifyPanel className="overflow-hidden">
           <div className="border-b border-slate-200 bg-gradient-to-r from-blue-50 via-white to-emerald-50 p-5 md:p-7">
-            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="grid gap-4">
               <div className="max-w-3xl">
                 <VerifyBadge tone="blue">Verification workbench</VerifyBadge>
                 <h2 className="mt-3 text-3xl font-semibold tracking-[-0.03em] text-slate-950 md:text-4xl">Upload a list and get clean segments.</h2>
@@ -277,7 +277,7 @@ export function VerificationDashboardClient({
                   Upload CSV/TXT files or paste a small list. Zeylora parses, deduplicates, reserves credits, starts provider processing, and opens the job report.
                 </p>
               </div>
-              <div className="grid grid-cols-2 gap-2 rounded-lg border border-white/80 bg-white/80 p-3 shadow-[0_1px_2px_rgba(15,23,42,.04)] backdrop-blur md:min-w-[260px]">
+              <div className="grid gap-2 rounded-lg border border-white/80 bg-white/80 p-3 shadow-[0_1px_2px_rgba(15,23,42,.04)] backdrop-blur sm:grid-cols-2 lg:grid-cols-4">
                 <InputEstimate label="Balance" value={displayCreditBalance.toLocaleString()} tone="blue" />
                 <InputEstimate label="Paste max" value={MAX_PASTE_EMAILS.toLocaleString()} />
                 <InputEstimate label="File max" value="25 MB" />
@@ -341,7 +341,7 @@ export function VerificationDashboardClient({
         </div>
       </section>
 
-      <section id="payments" className="grid gap-5 lg:grid-cols-[minmax(0,.9fr)_minmax(0,1.1fr)]">
+      <section id="payments" className="grid scroll-mt-20 gap-5">
         <VerifyPanel className="p-5 md:p-6">
           <div className="flex items-start gap-3">
             <div className="rounded-md bg-blue-50 p-3 text-blue-700">
@@ -405,7 +405,7 @@ export function VerificationDashboardClient({
             </div>
             <ReceiptText className="hidden text-slate-300 sm:block" size={28} />
           </div>
-          <div className="mt-5 grid gap-3 2xl:grid-cols-2">
+          <div className="mt-5 grid gap-3">
             {packages.map((pack) => (
               <div key={pack.id} className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 sm:grid-cols-[1fr_auto] sm:items-center">
                 <div>
@@ -434,7 +434,7 @@ export function VerificationDashboardClient({
         </VerifyPanel>
       </section>
 
-      <section id="settings" className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <section id="settings" className="grid scroll-mt-20 gap-5">
         <VerifyPanel className="p-5 md:p-6">
           <div className="flex items-start gap-3">
             <div className="rounded-md bg-slate-100 p-3 text-slate-700">
@@ -514,7 +514,7 @@ function createIdempotencyKey() {
 
 function WorkspaceCommandCenter({ creditBalance, packageCount }: { creditBalance: number; packageCount: number }) {
   return (
-    <section id="overview" className="grid gap-4 xl:grid-cols-[minmax(360px,.9fr)_minmax(0,1.1fr)]">
+    <section id="overview" className="grid scroll-mt-20 gap-5">
       <VerifyPanel className="p-5 md:p-6">
         <WorkspaceReadyNotice creditBalance={creditBalance} />
       </VerifyPanel>
@@ -601,7 +601,7 @@ function UploadGuidancePanel() {
 
 function QuickCreditPanel({ creditBalance }: { creditBalance: number }) {
   return (
-    <VerifyPanel id="credits" className="p-5 md:p-6">
+    <VerifyPanel id="credits" className="scroll-mt-20 p-5 md:p-6">
       <VerifyBadge>Credits</VerifyBadge>
       <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50 p-4">
         <p className="text-xs font-semibold uppercase tracking-[0.08em] text-blue-700">Available balance</p>
