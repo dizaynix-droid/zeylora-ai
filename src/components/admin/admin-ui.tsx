@@ -3,7 +3,17 @@ import type { ReactNode } from "react";
 import { clsx } from "clsx";
 import { VerifyPanel, VerifyTable } from "@/components/verify-ui/core";
 
-export { formatAdminDate, formatAdminDateInputValue } from "@/lib/admin/date";
+export {
+  addAdminDays,
+  formatAdminDate,
+  formatAdminDateInputValue,
+  getAdminDayEndUtc,
+  getAdminDayStartUtc,
+  getAdminMonthEndUtc,
+  getAdminMonthStartUtc,
+  parseAdminDateInputEndUtc,
+  parseAdminDateInputStartUtc
+} from "@/lib/admin/date";
 
 export function AdminMetricCard({
   label,

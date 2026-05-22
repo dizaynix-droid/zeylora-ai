@@ -1,6 +1,20 @@
 import type { ReactNode } from "react";
 import { AppShell } from "@/components/layout/app-shell";
-import { AdminMetricCard, AdminSection, AdminStatusPill, AdminTable, formatAdminDate, formatAdminDateInputValue } from "@/components/admin/admin-ui";
+import {
+  addAdminDays,
+  AdminMetricCard,
+  AdminSection,
+  AdminStatusPill,
+  AdminTable,
+  formatAdminDate,
+  formatAdminDateInputValue,
+  getAdminDayEndUtc,
+  getAdminDayStartUtc,
+  getAdminMonthEndUtc,
+  getAdminMonthStartUtc,
+  parseAdminDateInputEndUtc,
+  parseAdminDateInputStartUtc
+} from "@/components/admin/admin-ui";
 import { requireAdmin } from "@/lib/admin/auth";
 import { deleteBusinessExpenseAction, upsertBusinessExpenseAction } from "@/lib/admin/actions";
 import { prisma } from "@/lib/db";
@@ -102,14 +116,14 @@ export default async function AdminReportsPage({
         <AdminMetricCard label="Net kâr" value={formatCurrency(data.summary.netProfit)} note={`Marj: ${data.summary.margin === null ? "-" : `${data.summary.margin.toFixed(1)}%`}`} />
         <AdminMetricCard label="Tamamlanan işler" value={data.summary.completedJobCount.toLocaleString()} note="Başarılı verification job" />
         <AdminMetricCard label="Hatalı işler" value={data.summary.failedJobCount.toLocaleString()} note="Provider veya sistem hatası" />
-        <AdminMetricCard label="Geçersiz/riskli ayrıldı" value={data.summary.riskRemoved.toLocaleString()} note="Invalid + risky + disposable + catch-all" />
+        <AdminMetricCard label="Geçersiz/riskli ayrıldı" value={data.summary.riskRemoved.toLocaleString()} note="Invalid + risky + disposable + catch-all + unknown" />
         <AdminMetricCard label="Ort. maliyet / 1K" value={formatCurrency(data.summary.costPerThousand)} note="Provider maliyeti / 1.000 doğrulama" />
         <AdminMetricCard label="Gelir / 1K" value={formatCurrency(data.summary.revenuePerThousand)} note="Ödeme geliri / 1.000 satılan doğrulama" />
         <AdminMetricCard label="İade" value={formatCurrency(data.summary.refundAmount)} note={`${data.summary.refundCount} iade/iptal kaydı`} />
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_.8fr]">
-        <AdminSection title="Email provider maliyetleri" description="Sadece mail verification provider kayıtları ve VerificationJob verileri kullanılır.">
+        <AdminSection title="Email provider maliyetleri" description="Tamamlanan işlerin TR tarihine göre net provider maliyeti kullanılır; provider iadesi olan riskli/catch-all sonuçlar maliyetten düşülür.">
           <AdminTable>
             <table className="min-w-[860px] w-full divide-y divide-slate-200 text-sm">
               <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.12em] text-slate-500">
@@ -294,18 +308,33 @@ async function getVerificationReportsData(params?: ReportsSearchParams) {
       take: 100,
       select: { amount: true, creditsDelivered: true, rawEventJson: true }
     }),
-    prisma.verificationJob.groupBy({
-      by: ["providerKey", "status"],
-      where: { deletedAt: null, createdAt: { gte: start, lte: end } },
-      _sum: {
+    prisma.verificationJob.findMany({
+      where: {
+        deletedAt: null,
+        status: "COMPLETED",
+        OR: [
+          { completedAt: { gte: start, lte: end } },
+          { completedAt: null, createdAt: { gte: start, lte: end } }
+        ]
+      },
+      orderBy: { completedAt: "desc" },
+      select: {
+        providerKey: true,
         uniqueEmails: true,
         creditsUsed: true,
         invalidCount: true,
         riskyCount: true,
         catchAllCount: true,
         disposableCount: true,
-        providerCostAtRun: true
-      },
+        unknownCount: true,
+        costPerVerificationAtRun: true,
+        providerCostAtRun: true,
+        metadataJson: true
+      }
+    }),
+    prisma.verificationJob.groupBy({
+      by: ["providerKey"],
+      where: { deletedAt: null, status: { in: ["FAILED", "PARTIAL_FAILED"] }, createdAt: { gte: start, lte: end } },
       _count: { _all: true }
     }),
     prisma.verificationJob.findMany({
@@ -343,21 +372,24 @@ async function getVerificationReportsData(params?: ReportsSearchParams) {
   const paidAggregate = resultOr(results[0], { _sum: { amount: null, creditsDelivered: null }, _count: { _all: 0 } });
   const refundAggregate = resultOr(results[1], { _sum: { amount: null }, _count: { _all: 0 } });
   const paidPayments = resultOr(results[2], [] as Array<{ amount: unknown; creditsDelivered: number; rawEventJson: unknown }>);
-  const jobGroups = resultOr(results[3], [] as Array<{
+  const completedJobs = resultOr(results[3], [] as Array<{
     providerKey: string;
-    status: string;
-    _sum: {
-      uniqueEmails: number | null;
-      creditsUsed: number | null;
-      invalidCount: number | null;
-      riskyCount: number | null;
-      catchAllCount: number | null;
-      disposableCount: number | null;
-      providerCostAtRun: unknown;
-    };
+    uniqueEmails: number;
+    creditsUsed: number;
+    invalidCount: number;
+    riskyCount: number;
+    catchAllCount: number;
+    disposableCount: number;
+    unknownCount: number;
+    costPerVerificationAtRun: unknown;
+    providerCostAtRun: unknown;
+    metadataJson: unknown;
+  }>);
+  const failedJobGroups = resultOr(results[4], [] as Array<{
+    providerKey: string;
     _count: { _all: number };
   }>);
-  const recentJobs = resultOr(results[4], [] as Array<{
+  const recentJobs = resultOr(results[5], [] as Array<{
     id: string;
     status: string;
     originalFilename: string | null;
@@ -366,7 +398,7 @@ async function getVerificationReportsData(params?: ReportsSearchParams) {
     errorMessage: string | null;
     createdAt: Date;
   }>);
-  const expenses = resultOr(results[5], [] as Array<{
+  const expenses = resultOr(results[6], [] as Array<{
     id: string;
     title: string;
     category: ExpenseCategory;
@@ -375,14 +407,15 @@ async function getVerificationReportsData(params?: ReportsSearchParams) {
     expenseDate: Date;
     note: string | null;
   }>);
-  const providers = resultOr(results[6], [] as Array<{ providerKey: string; name: string; estimatedCostPerRun: unknown }>);
+  const providers = resultOr(results[7], [] as Array<{ providerKey: string; name: string; estimatedCostPerRun: unknown }>);
   const safeMode = results.some((result) => result.status === "rejected");
   if (safeMode) {
     console.error("[admin-reports-failed]", results.filter((item) => item.status === "rejected").map((item) => item.reason instanceof Error ? item.reason.message : String(item.reason)));
   }
 
   const providerRows = buildProviderRows(
-    jobGroups,
+    completedJobs,
+    failedJobGroups,
     providers
   );
   const completedProviderRows = providerRows.filter((row) => row.completedJobs > 0);
@@ -394,7 +427,7 @@ async function getVerificationReportsData(params?: ReportsSearchParams) {
   const verificationsUsed = completedProviderRows.reduce((sum, row) => sum + row.verifications, 0);
   const failedJobCount = providerRows.reduce((sum, row) => sum + row.failedJobs, 0);
   const completedJobCount = completedProviderRows.reduce((sum, row) => sum + row.completedJobs, 0);
-  const riskRemoved = jobGroups.reduce((sum, row) => sum + (row.status === "COMPLETED" ? (row._sum.invalidCount ?? 0) + (row._sum.riskyCount ?? 0) + (row._sum.catchAllCount ?? 0) + (row._sum.disposableCount ?? 0) : 0), 0);
+  const riskRemoved = completedJobs.reduce((sum, job) => sum + job.invalidCount + job.riskyCount + job.catchAllCount + job.disposableCount + job.unknownCount, 0);
   const netProfit = revenue - providerCost - manualExpenses;
 
   return {
@@ -431,11 +464,24 @@ function resultOr<T>(result: PromiseSettledResult<unknown> | undefined, fallback
   return result?.status === "fulfilled" ? (result.value as T) : fallback;
 }
 
+type CompletedVerificationJobForReport = {
+  providerKey: string;
+  uniqueEmails: number;
+  creditsUsed: number;
+  invalidCount: number;
+  riskyCount: number;
+  catchAllCount: number;
+  disposableCount: number;
+  unknownCount: number;
+  costPerVerificationAtRun: unknown;
+  providerCostAtRun: unknown;
+  metadataJson: unknown;
+};
+
 function buildProviderRows(
-  groups: Array<{
+  jobs: CompletedVerificationJobForReport[],
+  failedGroups: Array<{
     providerKey: string;
-    status: string;
-    _sum: { uniqueEmails: number | null; creditsUsed: number | null; providerCostAtRun: unknown };
     _count: { _all: number };
   }>,
   settings: Array<{ providerKey: string; name: string; estimatedCostPerRun: unknown }>
@@ -444,7 +490,24 @@ function buildProviderRows(
   const costByProvider = new Map(settings.map((provider) => [provider.providerKey, getProviderUnitCost(provider.providerKey, provider.estimatedCostPerRun)]));
   const rows = new Map<string, { providerKey: string; name: string; completedJobs: number; failedJobs: number; verifications: number; providerCost: number }>();
 
-  for (const group of groups) {
+  for (const job of jobs) {
+    const row = rows.get(job.providerKey) || {
+      providerKey: job.providerKey,
+      name: names.get(job.providerKey) || job.providerKey,
+      completedJobs: 0,
+      failedJobs: 0,
+      verifications: 0,
+      providerCost: 0
+    };
+
+    const verifications = job.creditsUsed || job.uniqueEmails || 0;
+    row.completedJobs += 1;
+    row.verifications += verifications;
+    row.providerCost += getVerificationJobNetProviderCost(job, costByProvider.get(job.providerKey) ?? getProviderUnitCost(job.providerKey, null));
+    rows.set(job.providerKey, row);
+  }
+
+  for (const group of failedGroups) {
     const row = rows.get(group.providerKey) || {
       providerKey: group.providerKey,
       name: names.get(group.providerKey) || group.providerKey,
@@ -453,15 +516,7 @@ function buildProviderRows(
       verifications: 0,
       providerCost: 0
     };
-
-    if (group.status === "COMPLETED") {
-      const verifications = group._sum.creditsUsed ?? group._sum.uniqueEmails ?? 0;
-      const snapshotCost = decimalToNumber(group._sum.providerCostAtRun);
-      row.completedJobs += group._count._all;
-      row.verifications += verifications;
-      row.providerCost += snapshotCost > 0 ? snapshotCost : verifications * (costByProvider.get(group.providerKey) ?? getProviderUnitCost(group.providerKey, null));
-    }
-    if (group.status === "FAILED") row.failedJobs += group._count._all;
+    row.failedJobs += group._count._all;
     rows.set(group.providerKey, row);
   }
 
@@ -482,6 +537,36 @@ function buildProviderRows(
     ...row,
     costPerThousand: row.verifications > 0 ? (row.providerCost / row.verifications) * 1000 : 0
   })).sort((a, b) => b.verifications - a.verifications);
+}
+
+function getVerificationJobNetProviderCost(job: CompletedVerificationJobForReport, fallbackUnitCost: number) {
+  const metadata = toRecord(job.metadataJson);
+  const metadataNetCost = numberFromMetadata(metadata.providerNetCostAtRun);
+  if (metadataNetCost !== null) return metadataNetCost;
+
+  const storedCost = decimalToNumber(job.providerCostAtRun);
+  const storedUnitCost = decimalToNumber(job.costPerVerificationAtRun);
+  const unitCost = storedUnitCost > 0 ? storedUnitCost : fallbackUnitCost;
+  const refundableCredits = numberFromMetadata(metadata.providerRefundedCreditsAtRun) ?? getProviderRefundableCredits(job);
+
+  if (storedCost > 0 && unitCost > 0) return Math.max(0, storedCost - refundableCredits * unitCost);
+
+  const verifications = job.creditsUsed || job.uniqueEmails || 0;
+  return Math.max(0, verifications - refundableCredits) * unitCost;
+}
+
+function getProviderRefundableCredits(job: CompletedVerificationJobForReport) {
+  if (job.providerKey.toLowerCase() !== "millionverifier") return 0;
+  return Math.max(0, job.catchAllCount + job.unknownCount);
+}
+
+function toRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function numberFromMetadata(value: unknown) {
+  const parsed = typeof value === "number" ? value : typeof value === "string" && value.trim() ? Number(value) : NaN;
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function getProviderUnitCost(providerKey: string, storedCost: unknown) {
@@ -521,32 +606,26 @@ function normalizeRange(value: string | undefined) {
 
 function getDateRange(range: string, from?: string, to?: string) {
   const now = new Date();
-  const todayStart = startOfDay(now);
-  if (range === "today") return { start: todayStart, end: endOfDay(now) };
+  const todayStart = getAdminDayStartUtc(now);
+  const todayEnd = getAdminDayEndUtc(now);
+  if (range === "today") return { start: todayStart, end: todayEnd };
   if (range === "yesterday") {
-    const yesterday = new Date(todayStart.getTime() - 86_400_000);
-    return { start: startOfDay(yesterday), end: endOfDay(yesterday) };
+    const yesterdayStart = addAdminDays(todayStart, -1);
+    return { start: yesterdayStart, end: new Date(todayStart.getTime() - 1) };
   }
-  if (range === "last7") return { start: startOfDay(new Date(todayStart.getTime() - 6 * 86_400_000)), end: endOfDay(now) };
-  if (range === "thisMonth") return { start: new Date(now.getFullYear(), now.getMonth(), 1), end: endOfDay(now) };
+  if (range === "last7") return { start: addAdminDays(todayStart, -6), end: todayEnd };
+  if (range === "thisMonth") return { start: getAdminMonthStartUtc(now), end: todayEnd };
   if (range === "lastMonth") {
-    const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    return { start, end: endOfDay(new Date(now.getFullYear(), now.getMonth(), 0)) };
+    const thisMonthStart = getAdminMonthStartUtc(now);
+    const previousMonthReference = new Date(thisMonthStart.getTime() - 1);
+    return { start: getAdminMonthStartUtc(previousMonthReference), end: getAdminMonthEndUtc(previousMonthReference) };
   }
-  if (range === "custom" && from && to) return { start: startOfDay(new Date(from)), end: endOfDay(new Date(to)) };
-  return { start: startOfDay(new Date(todayStart.getTime() - 29 * 86_400_000)), end: endOfDay(now) };
-}
-
-function startOfDay(date: Date) {
-  const clone = new Date(date);
-  clone.setHours(0, 0, 0, 0);
-  return clone;
-}
-
-function endOfDay(date: Date) {
-  const clone = new Date(date);
-  clone.setHours(23, 59, 59, 999);
-  return clone;
+  if (range === "custom" && from && to) {
+    const start = parseAdminDateInputStartUtc(from);
+    const end = parseAdminDateInputEndUtc(to);
+    if (start && end) return { start, end };
+  }
+  return { start: addAdminDays(todayStart, -29), end: todayEnd };
 }
 
 function normalizeExpenseCategory(value: string | undefined): ExpenseCategory | undefined {

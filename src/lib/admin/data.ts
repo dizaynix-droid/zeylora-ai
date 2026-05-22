@@ -6,7 +6,16 @@ import { adminPerfNow, logAdminPerf, measureAdminQuery } from "@/lib/admin/perf"
 import { getOperationalSettings } from "@/lib/settings/operations";
 import { getMarketingTrackingSettings } from "@/lib/settings/marketing";
 import { getBackupRecoveryData } from "@/lib/admin/backup";
-import { formatAdminDateKey } from "@/lib/admin/date";
+import {
+  addAdminDays,
+  formatAdminDateKey,
+  getAdminDayEndUtc,
+  getAdminDayStartUtc,
+  getAdminMonthEndUtc,
+  getAdminMonthStartUtc,
+  parseAdminDateInputEndUtc,
+  parseAdminDateInputStartUtc
+} from "@/lib/admin/date";
 import type { ExpenseCategory, Prisma } from "@prisma/client";
 
 const ADMIN_PAGE_SIZE = 25;
@@ -62,13 +71,14 @@ export async function getAdminOverviewData() {
 
 async function buildAdminOverviewData() {
   const startedAt = adminPerfNow();
-  const todayStart = startOfDay(new Date());
-  const todayEnd = endOfDay(new Date());
-  const yesterdayStart = startOfDay(new Date(todayStart.getTime() - 86_400_000));
-  const yesterdayEnd = endOfDay(yesterdayStart);
-  const last7Start = startOfDay(new Date(todayStart.getTime() - 6 * 86_400_000));
-  const last30Start = startOfDay(new Date(todayStart.getTime() - 29 * 86_400_000));
-  const monthStart = new Date(todayStart.getFullYear(), todayStart.getMonth(), 1);
+  const now = new Date();
+  const todayStart = getAdminDayStartUtc(now);
+  const todayEnd = getAdminDayEndUtc(now);
+  const yesterdayStart = addAdminDays(todayStart, -1);
+  const yesterdayEnd = new Date(todayStart.getTime() - 1);
+  const last7Start = addAdminDays(todayStart, -6);
+  const last30Start = addAdminDays(todayStart, -29);
+  const monthStart = getAdminMonthStartUtc(now);
   const cardsStartedAt = adminPerfNow();
 
   const overviewPromise = Promise.all([
@@ -124,7 +134,14 @@ async function buildAdminOverviewData() {
     measureAdminQuery(
       "overview.verificationJobs.today",
       prisma.verificationJob.aggregate({
-        where: { deletedAt: null, createdAt: { gte: todayStart, lte: todayEnd } },
+        where: {
+          deletedAt: null,
+          status: "COMPLETED",
+          OR: [
+            { completedAt: { gte: todayStart, lte: todayEnd } },
+            { completedAt: null, createdAt: { gte: todayStart, lte: todayEnd } }
+          ]
+        },
         _sum: { creditsUsed: true, providerCostAtRun: true },
         _count: { _all: true }
       })
@@ -1090,8 +1107,8 @@ export async function getAdminAnalyticsData() {
 
 async function buildAdminAnalyticsData() {
   const startedAt = adminPerfNow();
-  const since = startOfDay(new Date(Date.now() - 29 * 86_400_000));
-  const todayStart = startOfDay(new Date());
+  const todayStart = getAdminDayStartUtc(new Date());
+  const since = addAdminDays(todayStart, -29);
   const failureRateStartedAt = adminPerfNow();
   const failureRatePromise = measureAdminQuery(
     "analytics.verification.failureRate.statusGroup",
@@ -1447,7 +1464,7 @@ export async function getAdminProvidersData(): Promise<AdminProvider[]> {
 export type AdminProvidersData = AdminProvider[];
 
 export async function getAdminProviderMonitoringData() {
-  const todayStart = startOfDay(new Date());
+  const todayStart = getAdminDayStartUtc(new Date());
   const [providers, jobGroups] = await Promise.all([
     getAdminProvidersData(),
     measureAdminQuery(
@@ -2131,28 +2148,28 @@ function normalizeExpenseCategory(value: unknown): ExpenseCategory | undefined {
 
 function getReportDateRange(range: AdminReportRangeKey, from?: string, to?: string) {
   const now = new Date();
-  const todayStart = startOfDay(now);
-  const todayEnd = endOfDay(now);
+  const todayStart = getAdminDayStartUtc(now);
+  const todayEnd = getAdminDayEndUtc(now);
 
   if (range === "custom") {
-    const start = from ? startOfDay(new Date(from)) : new Date(todayStart.getTime() - 29 * 86_400_000);
-    const end = to ? endOfDay(new Date(to)) : todayEnd;
+    const start = parseAdminDateInputStartUtc(from) ?? addAdminDays(todayStart, -29);
+    const end = parseAdminDateInputEndUtc(to) ?? todayEnd;
     return { start, end };
   }
 
   if (range === "today") return { start: todayStart, end: todayEnd };
   if (range === "yesterday") {
-    const yesterday = new Date(todayStart.getTime() - 86_400_000);
-    return { start: startOfDay(yesterday), end: endOfDay(yesterday) };
+    const yesterdayStart = addAdminDays(todayStart, -1);
+    return { start: yesterdayStart, end: new Date(todayStart.getTime() - 1) };
   }
-  if (range === "last7") return { start: startOfDay(new Date(todayStart.getTime() - 6 * 86_400_000)), end: todayEnd };
-  if (range === "thisMonth") return { start: new Date(now.getFullYear(), now.getMonth(), 1), end: todayEnd };
+  if (range === "last7") return { start: addAdminDays(todayStart, -6), end: todayEnd };
+  if (range === "thisMonth") return { start: getAdminMonthStartUtc(now), end: todayEnd };
   if (range === "lastMonth") {
-    const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const end = endOfDay(new Date(now.getFullYear(), now.getMonth(), 0));
-    return { start, end };
+    const thisMonthStart = getAdminMonthStartUtc(now);
+    const previousMonthReference = new Date(thisMonthStart.getTime() - 1);
+    return { start: getAdminMonthStartUtc(previousMonthReference), end: getAdminMonthEndUtc(previousMonthReference) };
   }
-  return { start: startOfDay(new Date(todayStart.getTime() - 29 * 86_400_000)), end: todayEnd };
+  return { start: addAdminDays(todayStart, -29), end: todayEnd };
 }
 
 function buildReportSeries(input: {
@@ -2453,10 +2470,6 @@ function getAdminCreditsRangeWindow(range: AdminCreditsRange, now: Date) {
   if (range === "last24") return { start: new Date(now.getTime() - dayMs), end: null };
   if (range === "last30") return { start: new Date(todayStart.getTime() - 29 * dayMs), end: null };
   return { start: new Date(todayStart.getTime() - 6 * dayMs), end: null };
-}
-
-function endOfDay(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
 }
 
 function decimalToNumber(value: unknown) {

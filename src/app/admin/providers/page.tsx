@@ -38,7 +38,7 @@ export default async function AdminProvidersPage({
     <AppShell
       area="admin"
       title="Provider yönetimi"
-      description="Email verification sağlayıcılarını yönet. 1 müşteri doğrulaması = 1 provider email doğrulaması mantığıyla maliyet ve kapasite takip edilir."
+      description="Email verification sağlayıcılarını yönet. Maliyet hesabı ödediğin toplam tutarın bonus dahil aldığın toplam provider kredisine bölünmesiyle takip edilir."
     >
       {params?.saved ? <Notice tone="good">Provider kaydedildi: {decodeURIComponent(params.saved)}</Notice> : null}
       {params?.deleted ? <Notice tone="warn">Provider pasife alındı: {decodeURIComponent(params.deleted)}</Notice> : null}
@@ -116,7 +116,7 @@ export default async function AdminProvidersPage({
               </select>
               <AdminInput className="lg:col-span-2" name="notes" defaultValue={provider.notes || ""} placeholder="Not" />
               <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-600 lg:col-span-8">
-                Email başı maliyet boş bırakılırsa MillionVerifier için sistem otomatik varsayılan maliyeti kullanır. Sadece gerçek satın alma maliyetin farklıysa buradan override et.
+                Email başı maliyet = sağlayıcıya ödediğin toplam tutar / bonus dahil toplam provider kredisi. Örn. 500k + 50k hediye için toplam ödeme / 550k. Bu satın alımı ayrıca manuel provider gideri olarak ekleme; raporda iki kez maliyet yazılır. Provider riskli/catch-all iadesi varsa net maliyetten düşülür.
               </div>
               <button className="h-10 rounded-md bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700 lg:col-span-4">
                 Kaydet
