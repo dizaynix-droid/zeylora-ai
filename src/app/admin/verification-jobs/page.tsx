@@ -73,26 +73,7 @@ export default async function AdminVerificationJobsPage({
             </thead>
             <tbody className="divide-y divide-slate-200">
               {jobs.map((job) => (
-                <tr key={job.id}>
-                  <td className="px-4 py-3">
-                    <Link href={`/dashboard/jobs/${job.id}`} className="font-black text-blue-600 hover:text-blue-700">{job.id.slice(0, 8)}</Link>
-                    <p className="text-xs text-slate-500">{job.originalFilename || "paste"}</p>
-                  </td>
-                  <td className="px-4 py-3"><Status status={job.status} /></td>
-                  <td className="px-4 py-3 text-slate-700">{job.user.email}</td>
-                  <td className="px-4 py-3 text-slate-700">
-                    {job.processedCount.toLocaleString()} / {job.uniqueEmails.toLocaleString()}
-                    <p className="text-xs text-slate-500">syntax hata {job.syntaxInvalidCount.toLocaleString()} · batch hata {job.failedBatchCount.toLocaleString()}</p>
-                  </td>
-                  <td className="px-4 py-3 text-slate-700">{job.validCount.toLocaleString()} / {(job.invalidCount + job.riskyCount + job.catchAllCount + job.disposableCount).toLocaleString()}</td>
-                  <td className="px-4 py-3 text-slate-700">{job.creditsUsed.toLocaleString()}</td>
-                  <td className="px-4 py-3 text-slate-700">
-                    ${Number(job.estimatedProfitAtRun || 0).toFixed(4)}
-                    <p className="text-xs text-slate-500">cost ${Number(job.providerCostAtRun || 0).toFixed(4)}</p>
-                  </td>
-                  <td className="max-w-sm truncate px-4 py-3 text-slate-400">{job.errorMessage || "-"}</td>
-                  <td className="px-4 py-3 text-slate-400">{formatAdminDate(job.createdAt)}</td>
-                </tr>
+                <VerificationJobRow key={job.id} job={job} />
               ))}
               {jobs.length === 0 ? <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-400">Kayıt yok.</td></tr> : null}
             </tbody>
@@ -128,10 +109,13 @@ async function getSafeVerificationJobs(where: Record<string, unknown>, page: num
           riskyCount: true,
           catchAllCount: true,
           disposableCount: true,
+          unknownCount: true,
           creditsUsed: true,
+          costPerVerificationAtRun: true,
           providerCostAtRun: true,
           estimatedRevenueAtRun: true,
           estimatedProfitAtRun: true,
+          metadataJson: true,
           errorMessage: true,
           createdAt: true,
           user: { select: { email: true } }
@@ -149,6 +133,80 @@ async function getSafeVerificationJobs(where: Record<string, unknown>, page: num
     });
     return { jobs: [], total: 0, error };
   }
+}
+
+type AdminVerificationJobRow = Awaited<ReturnType<typeof getSafeVerificationJobs>>["jobs"][number];
+
+function VerificationJobRow({ job }: { job: AdminVerificationJobRow }) {
+  const economics = getDisplayedProviderEconomics(job);
+  const riskCount = job.invalidCount + job.riskyCount + job.catchAllCount + job.disposableCount;
+
+  return (
+    <tr>
+      <td className="px-4 py-3">
+        <Link href={`/dashboard/jobs/${job.id}`} className="font-black text-blue-600 hover:text-blue-700">{job.id.slice(0, 8)}</Link>
+        <p className="text-xs text-slate-500">{job.originalFilename || "paste"}</p>
+      </td>
+      <td className="px-4 py-3"><Status status={job.status} /></td>
+      <td className="px-4 py-3 text-slate-700">{job.user.email}</td>
+      <td className="px-4 py-3 text-slate-700">
+        {job.processedCount.toLocaleString()} / {job.uniqueEmails.toLocaleString()}
+        <p className="text-xs text-slate-500">syntax hata {job.syntaxInvalidCount.toLocaleString()} · batch hata {job.failedBatchCount.toLocaleString()}</p>
+      </td>
+      <td className="px-4 py-3 text-slate-700">
+        {job.validCount.toLocaleString()} / {riskCount.toLocaleString()}
+        {job.unknownCount > 0 ? <p className="text-xs text-slate-500">unknown {job.unknownCount.toLocaleString()}</p> : null}
+      </td>
+      <td className="px-4 py-3 text-slate-700">{job.creditsUsed.toLocaleString()}</td>
+      <td className="px-4 py-3 text-slate-700">
+        ${economics.netProfit.toFixed(4)}
+        <p className="text-xs text-slate-500">net cost ${economics.netCost.toFixed(4)}</p>
+        {economics.refundedCredits > 0 ? (
+          <p className="text-xs font-semibold text-emerald-700">provider iadesi {economics.refundedCredits.toLocaleString()} kredi</p>
+        ) : null}
+      </td>
+      <td className="max-w-sm truncate px-4 py-3 text-slate-400">{job.errorMessage || "-"}</td>
+      <td className="px-4 py-3 text-slate-400">{formatAdminDate(job.createdAt)}</td>
+    </tr>
+  );
+}
+
+function getDisplayedProviderEconomics(job: AdminVerificationJobRow) {
+  const metadata = readJobMetadata(job.metadataJson);
+  const grossCost = Number(job.providerCostAtRun || 0);
+  const costPerVerification = Number(job.costPerVerificationAtRun || 0) || (job.uniqueEmails > 0 ? grossCost / job.uniqueEmails : 0);
+  const storedRefundedCredits = readMetadataNumber(metadata.providerRefundedCreditsAtRun);
+  const refundedCredits = storedRefundedCredits ?? (
+    job.providerKey.toLowerCase() === "millionverifier"
+      ? Math.max(0, job.catchAllCount + job.unknownCount)
+      : 0
+  );
+  const storedNetCost = readMetadataNumber(metadata.providerNetCostAtRun);
+  const netCost = costPerVerification > 0
+    ? storedNetCost ?? Math.max(0, grossCost - refundedCredits * costPerVerification)
+    : grossCost;
+  const revenue = Number(job.estimatedRevenueAtRun || 0);
+  const storedProfit = Number(job.estimatedProfitAtRun || 0);
+  const netProfit = storedNetCost !== null ? storedProfit : revenue > 0 ? revenue - netCost : storedProfit;
+
+  return {
+    refundedCredits,
+    netCost: roundMoney(netCost),
+    netProfit: roundMoney(netProfit)
+  };
+}
+
+function roundMoney(value: number) {
+  return Math.round(value * 10_000) / 10_000;
+}
+
+function readJobMetadata(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function readMetadataNumber(value: unknown) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 }
 
 function Status({ status }: { status: string }) {

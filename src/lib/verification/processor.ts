@@ -731,8 +731,11 @@ async function completeVerificationJob(jobId: string) {
       id: true,
       status: true,
       userId: true,
+      providerKey: true,
       originalFilename: true,
       uniqueEmails: true,
+      costPerVerificationAtRun: true,
+      estimatedRevenueAtRun: true,
       metadataJson: true,
       user: {
         select: {
@@ -774,6 +777,16 @@ async function completeVerificationJob(jobId: string) {
   }
 
   const resultCounts = countStatuses(allResults.map((result) => result.status));
+  const providerRefundedCredits = getProviderRefundableCredits(job.providerKey, resultCounts);
+  const costPerVerification = Number(job.costPerVerificationAtRun || 0);
+  const providerChargeableCredits = Math.max(0, job.uniqueEmails - providerRefundedCredits);
+  const providerCostAtRun = costPerVerification > 0
+    ? roundVerificationMoney(providerChargeableCredits * costPerVerification)
+    : null;
+  const estimatedProfitAtRun = providerCostAtRun !== null && job.estimatedRevenueAtRun !== null && job.estimatedRevenueAtRun !== undefined
+    ? roundVerificationMoney(Number(job.estimatedRevenueAtRun) - providerCostAtRun)
+    : null;
+
   await prisma.verificationJob.update({
     where: { id: job.id },
     data: {
@@ -787,6 +800,8 @@ async function completeVerificationJob(jobId: string) {
       catchAllCount: resultCounts.CATCH_ALL,
       disposableCount: resultCounts.DISPOSABLE,
       unknownCount: resultCounts.UNKNOWN,
+      ...(providerCostAtRun !== null ? { providerCostAtRun } : {}),
+      ...(estimatedProfitAtRun !== null ? { estimatedProfitAtRun } : {}),
       fullReportStorageKey: fullReportKey,
       validExportStorageKey: validExportKey,
       invalidExportStorageKey: invalidExportKey,
@@ -796,6 +811,9 @@ async function completeVerificationJob(jobId: string) {
         worker: "chunked",
         completedAt: new Date().toISOString(),
         exportRows: allResults.length,
+        providerRefundedCreditsAtRun: providerRefundedCredits,
+        providerChargeableCreditsAtRun: providerChargeableCredits,
+        ...(providerCostAtRun !== null ? { providerNetCostAtRun: providerCostAtRun } : {}),
         ...(exportStorageError ? { exportStorageError } : {})
       })
     }
@@ -815,6 +833,15 @@ async function completeVerificationJob(jobId: string) {
       riskyCount: resultCounts.RISKY + resultCounts.CATCH_ALL + resultCounts.DISPOSABLE
     }
   });
+}
+
+function getProviderRefundableCredits(providerKey: string, counts: Record<VerificationEmailStatus, number>) {
+  if (providerKey.toLowerCase() !== "millionverifier") return 0;
+  return Math.max(0, counts.CATCH_ALL + counts.UNKNOWN);
+}
+
+function roundVerificationMoney(value: number) {
+  return Math.round(value * 10_000) / 10_000;
 }
 
 async function readVerificationJobInput(job: {
