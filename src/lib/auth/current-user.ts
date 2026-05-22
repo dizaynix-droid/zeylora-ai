@@ -35,17 +35,17 @@ export async function getCurrentSessionUser(): Promise<SessionUser | null> {
   }
 
   const {
-    data: { session },
+    data: { user },
     error
-  } = await supabase.auth.getSession();
+  } = await supabase.auth.getUser();
 
-  if (error || !session?.user?.email) {
+  if (error || !user?.email) {
     return null;
   }
 
   return {
-    id: session.user.id,
-    email: session.user.email
+    id: user.id,
+    email: user.email
   };
 }
 
@@ -57,19 +57,19 @@ export async function getCurrentAppUserForRead(): Promise<SessionUser | null> {
   }
 
   const {
-    data: { session },
+    data: { user },
     error
-  } = await supabase.auth.getSession();
+  } = await supabase.auth.getUser();
 
-  if (error || !session?.user?.email) {
+  if (error || !user?.email) {
     return null;
   }
 
   const appUser = await prisma.user.findFirst({
     where: {
       OR: [
-        { id: session.user.id },
-        { email: session.user.email }
+        { id: user.id },
+        { email: user.email }
       ],
       deletedAt: null
     },
@@ -80,8 +80,8 @@ export async function getCurrentAppUserForRead(): Promise<SessionUser | null> {
   });
 
   return {
-    id: appUser?.id ?? session.user.id,
-    email: appUser?.email ?? session.user.email
+    id: appUser?.id ?? user.id,
+    email: appUser?.email ?? user.email
   };
 }
 

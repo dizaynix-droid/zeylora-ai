@@ -632,11 +632,12 @@ export function normalizeAdminCreditsRange(value: unknown): AdminCreditsRange {
   return "last7";
 }
 
-export async function getAdminCreditsData(input: { page?: number; pageSize?: number; range?: AdminCreditsRange } = {}) {
+export async function getAdminCreditsData(input: { page?: number; pageSize?: number; range?: AdminCreditsRange; audit?: boolean } = {}) {
   const startedAt = adminPerfNow();
   const page = normalizeAdminPage(input.page);
   const pageSize = normalizeAdminPageSize(input.pageSize);
   const range = input.range || "last7";
+  const audit = input.audit === true;
   const { start: rangeStart, end: rangeEnd } = getAdminCreditsRangeWindow(range, new Date());
   const createdAt: Prisma.DateTimeFilter = { gte: rangeStart };
   if (rangeEnd) createdAt.lt = rangeEnd;
@@ -669,39 +670,43 @@ export async function getAdminCreditsData(input: { page?: number; pageSize?: num
       }),
       { page, take: pageSize + 1, range, since: rangeStart.toISOString() }
     ),
-    measureAdminQuery(
-      "credits.transactions.summary",
-      prisma.creditTransaction.groupBy({
-        by: ["type"],
-        where,
-        _sum: { amount: true },
-        _count: { _all: true }
-      }),
-      { range, since: rangeStart.toISOString() }
-    ).catch(() => []),
-    measureAdminQuery(
-      "credits.payments.recentPaid",
-      prisma.payment.findMany({
-        where: {
-          deletedAt: null,
-          status: "PAID",
-          creditsDelivered: { gt: 0 },
-          createdAt: paymentCreatedAt
-        },
-        orderBy: { createdAt: "desc" },
-        take: 20,
-        select: {
-          id: true,
-          amount: true,
-          currency: true,
-          creditsDelivered: true,
-          stripeCheckoutSessionId: true,
-          createdAt: true,
-          user: { select: { email: true, creditBalance: true } }
-        }
-      }),
-      { range, since: rangeStart.toISOString(), take: 20 }
-    ).catch(() => [])
+    audit
+      ? measureAdminQuery(
+          "credits.transactions.summary",
+          prisma.creditTransaction.groupBy({
+            by: ["type"],
+            where,
+            _sum: { amount: true },
+            _count: { _all: true }
+          }),
+          { range, since: rangeStart.toISOString() }
+        ).catch(() => [])
+      : Promise.resolve([]),
+    audit
+      ? measureAdminQuery(
+          "credits.payments.recentPaid",
+          prisma.payment.findMany({
+            where: {
+              deletedAt: null,
+              status: "PAID",
+              creditsDelivered: { gt: 0 },
+              createdAt: paymentCreatedAt
+            },
+            orderBy: { createdAt: "desc" },
+            take: 20,
+            select: {
+              id: true,
+              amount: true,
+              currency: true,
+              creditsDelivered: true,
+              stripeCheckoutSessionId: true,
+              createdAt: true,
+              user: { select: { email: true, creditBalance: true } }
+            }
+          }),
+          { range, since: rangeStart.toISOString(), take: 20 }
+        ).catch(() => [])
+      : Promise.resolve([])
   ]);
   const recentPaymentIds = recentPaidPayments.map((payment) => payment.id);
   const ledgerPaymentIds = recentPaymentIds.length
@@ -735,14 +740,15 @@ export async function getAdminCreditsData(input: { page?: number; pageSize?: num
       }
       return acc;
     },
-    { issued: 0, used: 0, manualAdjustments: 0, purchases: 0 }
+    audit ? createEmptyCreditSummary() : summarizeCreditTransactions(transactions)
   );
   logAdminPerf("admin.credits.data", {
     duration: `${adminPerfNow() - startedAt}ms`,
-    queryCount: recentPaymentIds.length ? 4 : 3,
+    queryCount: audit ? (recentPaymentIds.length ? 4 : 3) : 1,
     page,
     take: pageSize,
     range,
+    audit,
     resultCount: transactions.length,
     hasNext,
     since: rangeStart.toISOString(),
@@ -759,6 +765,29 @@ export async function getAdminCreditsData(input: { page?: number; pageSize?: num
     totals,
     summary
   };
+}
+
+function createEmptyCreditSummary() {
+  return { issued: 0, used: 0, manualAdjustments: 0, purchases: 0 };
+}
+
+function summarizeCreditTransactions(transactions: Array<{ type: string; amount: number }>) {
+  return transactions.reduce((acc, transaction) => {
+    if (["PURCHASE", "REFUND", "REFERRAL_REWARD"].includes(transaction.type)) {
+      acc.issued += Math.max(0, transaction.amount);
+    }
+    if (transaction.type === "ADMIN_ADJUSTMENT") {
+      acc.manualAdjustments += 1;
+      acc.issued += Math.max(0, transaction.amount);
+    }
+    if (transaction.type === "USE") {
+      acc.used += Math.abs(transaction.amount);
+    }
+    if (transaction.type === "PURCHASE") {
+      acc.purchases += 1;
+    }
+    return acc;
+  }, createEmptyCreditSummary());
 }
 
 export async function getAdminJobsData(input: {
@@ -910,7 +939,9 @@ export async function getAdminPaymentsData(input: { page?: number; pageSize?: nu
   };
 }
 
-export async function getAdminPaymentDiagnosticsData() {
+export async function getAdminPaymentDiagnosticsData(input: { mode?: "fast" | "full" } = {}) {
+  if (input.mode !== "full") return buildAdminPaymentDiagnosticsFallback();
+
   const cached = getAdminCache(adminPaymentDiagnosticsCache);
   if (cached) return cached;
 
@@ -919,8 +950,8 @@ export async function getAdminPaymentDiagnosticsData() {
   return result;
 }
 
-async function buildAdminPaymentDiagnosticsData() {
-  const fallback = {
+function buildAdminPaymentDiagnosticsFallback() {
+  return {
     stripeSecretConfigured: Boolean(process.env.STRIPE_SECRET_KEY),
     stripeWebhookConfigured: Boolean(process.env.STRIPE_WEBHOOK_SECRET),
     siteUrlConfigured: Boolean(process.env.NEXT_PUBLIC_SITE_URL),
@@ -935,6 +966,10 @@ async function buildAdminPaymentDiagnosticsData() {
     missingLedgerPaymentCount: 0,
     diagnosticsError: null as string | null
   };
+}
+
+async function buildAdminPaymentDiagnosticsData() {
+  const fallback = buildAdminPaymentDiagnosticsFallback();
   const recentSince = new Date(Date.now() - 30 * 86_400_000);
 
   const webhookSelect = {

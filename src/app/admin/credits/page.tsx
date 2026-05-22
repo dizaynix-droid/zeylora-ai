@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminCreditsPage({
   searchParams
 }: {
-  searchParams?: Promise<{ page?: string; range?: string }>;
+  searchParams?: Promise<{ page?: string; range?: string; audit?: string }>;
 }) {
   const pageStartedAt = adminPerfNow();
   const authStartedAt = adminPerfNow();
@@ -19,14 +19,16 @@ export default async function AdminCreditsPage({
   const params = await searchParams;
   const page = normalizeAdminPage(params?.page);
   const range = normalizeAdminCreditsRange(params?.range);
+  const auditEnabled = params?.audit === "1";
   const dataStartedAt = adminPerfNow();
-  const { data, error } = await getSafeCreditsData(page, range);
+  const { data, error } = await getSafeCreditsData(page, range, auditEnabled);
   logAdminPerf("page./admin/credits [admin-perf]", {
     authMs: `${authMs}ms`,
     dataMs: `${adminPerfNow() - dataStartedAt}ms`,
     totalMs: `${adminPerfNow() - pageStartedAt}ms`,
     page,
     range,
+    auditEnabled,
     resultCount: data.transactions.length
   });
 
@@ -41,12 +43,18 @@ export default async function AdminCreditsPage({
           Defter güvenli modda açıldı. Credit ledger migration eksik olabilir; Sistem Sağlığı ve Kayıtlar ekranından kontrol et.
         </div>
       ) : null}
-      <CreditRangeControls activeRange={range} />
+      <CreditRangeControls activeRange={range} auditEnabled={auditEnabled} />
+      {!auditEnabled ? (
+        <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-800">
+          Defter hızlı modda açıldı. Ödeme var ama ledger satırı eksik mi kontrol etmek için audit modunu aç.
+          <Link href={`/admin/credits?range=${range}&audit=1`} className="ml-2 underline">Ledger audit aç</Link>
+        </div>
+      ) : null}
       <div className="grid gap-3 md:grid-cols-4">
-        <AdminMetricCard label="Verilen hak" value={data.summary.issued} note="Satın alma, iade, pozitif admin işlemi" />
-        <AdminMetricCard label="Kullanılan hak" value={data.summary.used} note="Email verification kullanımları" />
-        <AdminMetricCard label="Manuel düzenleme" value={data.summary.manualAdjustments} note="Admin kredi değişiklikleri" />
-        <AdminMetricCard label="Satın alma" value={data.summary.purchases} note="Ödeme ile gelen kredi" />
+        <AdminMetricCard label="Verilen hak" value={data.summary.issued} note={auditEnabled ? "Seçili aralık toplamı" : "Bu sayfadaki hareketler"} />
+        <AdminMetricCard label="Kullanılan hak" value={data.summary.used} note={auditEnabled ? "Seçili aralık toplamı" : "Bu sayfadaki hareketler"} />
+        <AdminMetricCard label="Manuel düzenleme" value={data.summary.manualAdjustments} note={auditEnabled ? "Seçili aralık toplamı" : "Bu sayfadaki hareketler"} />
+        <AdminMetricCard label="Satın alma" value={data.summary.purchases} note={auditEnabled ? "Seçili aralık toplamı" : "Bu sayfadaki hareketler"} />
       </div>
 
       {data.missingLedgerPayments.length > 0 ? (
@@ -140,9 +148,9 @@ export default async function AdminCreditsPage({
   );
 }
 
-async function getSafeCreditsData(page: number, range: AdminCreditsRange) {
+async function getSafeCreditsData(page: number, range: AdminCreditsRange, audit: boolean) {
   try {
-    return { data: await getAdminCreditsData({ page, range }), error: null };
+    return { data: await getAdminCreditsData({ page, range, audit }), error: null };
   } catch (error) {
     console.error("[admin-page-failed]", {
       page: "/admin/credits",
@@ -187,13 +195,13 @@ const creditRanges: Array<{ value: AdminCreditsRange; label: string }> = [
   { value: "last30", label: "Son 30 gün" }
 ];
 
-function CreditRangeControls({ activeRange }: { activeRange: AdminCreditsRange }) {
+function CreditRangeControls({ activeRange, auditEnabled }: { activeRange: AdminCreditsRange; auditEnabled: boolean }) {
   return (
     <div className="mb-4 flex flex-wrap gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
       {creditRanges.map((item) => (
         <Link
           key={item.value}
-          href={item.value === "last7" ? "/admin/credits" : `/admin/credits?range=${item.value}`}
+          href={buildCreditRangeHref(item.value, auditEnabled)}
           className={
             activeRange === item.value
               ? "rounded-md bg-blue-600 px-3 py-2 text-xs font-semibold text-white"
@@ -205,6 +213,14 @@ function CreditRangeControls({ activeRange }: { activeRange: AdminCreditsRange }
       ))}
     </div>
   );
+}
+
+function buildCreditRangeHref(range: AdminCreditsRange, auditEnabled: boolean) {
+  const params = new URLSearchParams();
+  if (range !== "last7") params.set("range", range);
+  if (auditEnabled) params.set("audit", "1");
+  const query = params.toString();
+  return query ? `/admin/credits?${query}` : "/admin/credits";
 }
 
 function rangeLabel(range: AdminCreditsRange) {

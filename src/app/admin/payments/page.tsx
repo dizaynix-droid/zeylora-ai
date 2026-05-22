@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/layout/app-shell";
+import Link from "next/link";
 import { AdminPaginationControls, AdminSection, AdminStatusPill, AdminTable, formatAdminDate } from "@/components/admin/admin-ui";
 import { requestWebhookReprocessAction } from "@/lib/admin/actions";
 import { requireAdmin } from "@/lib/admin/auth";
@@ -10,7 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminPaymentsPage({
   searchParams
 }: {
-  searchParams?: Promise<{ page?: string }>;
+  searchParams?: Promise<{ page?: string; diagnostics?: string }>;
 }) {
   const pageStartedAt = adminPerfNow();
   const authStartedAt = adminPerfNow();
@@ -18,11 +19,12 @@ export default async function AdminPaymentsPage({
   const authMs = adminPerfNow() - authStartedAt;
   const params = await searchParams;
   const page = normalizeAdminPage(params?.page);
+  const diagnosticsEnabled = params?.diagnostics === "1";
   const dataStartedAt = adminPerfNow();
   const [packageReadiness, payments, diagnostics] = await Promise.all([
     getAdminPackageReadinessData(),
     getAdminPaymentsData({ page }),
-    getAdminPaymentDiagnosticsData()
+    getAdminPaymentDiagnosticsData({ mode: diagnosticsEnabled ? "full" : "fast" })
   ]);
   logAdminPerf("page./admin/payments", {
     authMs: `${authMs}ms`,
@@ -32,6 +34,7 @@ export default async function AdminPaymentsPage({
     resultCount: payments.items.length,
     packageCount: packageReadiness.totalCount,
     webhookEvents: diagnostics.webhookEvents.length,
+    diagnosticsEnabled,
     diagnosticsFallback: Boolean(diagnostics.diagnosticsError)
   });
   const checklist = [
@@ -56,13 +59,20 @@ export default async function AdminPaymentsPage({
         </div>
       ) : null}
 
-      <div className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <DiagnosticCard label="Son webhook" value={diagnostics.lastWebhook?.eventType || "Yok"} note={diagnostics.lastWebhook ? `${diagnostics.lastWebhook.status} · ${formatAdminDate(diagnostics.lastWebhook.createdAt)}` : "Henüz Stripe event gelmedi"} tone={diagnostics.lastWebhook?.status === "failed" ? "bad" : "neutral"} />
-        <DiagnosticCard label="Son başarılı ödeme" value={diagnostics.lastSuccessfulPayment ? `${diagnostics.lastSuccessfulPayment.amount.toString()} ${diagnostics.lastSuccessfulPayment.currency.toUpperCase()}` : "$0.00"} note={diagnostics.lastSuccessfulPayment?.user.email || "Başarılı ödeme yok"} tone={diagnostics.lastSuccessfulPayment ? "good" : "neutral"} />
-        <DiagnosticCard label="Hatalı/iptal ödeme" value={diagnostics.failedPaymentCount} note="Son 30 gün FAILED + CANCELLED" tone={diagnostics.failedPaymentCount > 0 ? "warn" : "good"} />
-        <DiagnosticCard label="Ledger eksik" value={diagnostics.missingLedgerPaymentCount} note="Son 30 gün PAID ama defter satırı yok" tone={diagnostics.missingLedgerPaymentCount > 0 ? "bad" : "good"} />
-        <DiagnosticCard label="Idempotency" value={diagnostics.duplicateSessionRisk ? "Risk" : "Hazır"} note="Aynı session/event iki kez kredi yazmamalı" tone={diagnostics.duplicateSessionRisk ? "bad" : "good"} />
-      </div>
+      {diagnosticsEnabled ? (
+        <div className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <DiagnosticCard label="Son webhook" value={diagnostics.lastWebhook?.eventType || "Yok"} note={diagnostics.lastWebhook ? `${diagnostics.lastWebhook.status} · ${formatAdminDate(diagnostics.lastWebhook.createdAt)}` : "Henüz Stripe event gelmedi"} tone={diagnostics.lastWebhook?.status === "failed" ? "bad" : "neutral"} />
+          <DiagnosticCard label="Son başarılı ödeme" value={diagnostics.lastSuccessfulPayment ? `${diagnostics.lastSuccessfulPayment.amount.toString()} ${diagnostics.lastSuccessfulPayment.currency.toUpperCase()}` : "$0.00"} note={diagnostics.lastSuccessfulPayment?.user.email || "Başarılı ödeme yok"} tone={diagnostics.lastSuccessfulPayment ? "good" : "neutral"} />
+          <DiagnosticCard label="Hatalı/iptal ödeme" value={diagnostics.failedPaymentCount} note="Son 30 gün FAILED + CANCELLED" tone={diagnostics.failedPaymentCount > 0 ? "warn" : "good"} />
+          <DiagnosticCard label="Ledger eksik" value={diagnostics.missingLedgerPaymentCount} note="Son 30 gün PAID ama defter satırı yok" tone={diagnostics.missingLedgerPaymentCount > 0 ? "bad" : "good"} />
+          <DiagnosticCard label="Idempotency" value={diagnostics.duplicateSessionRisk ? "Risk" : "Hazır"} note="Aynı session/event iki kez kredi yazmamalı" tone={diagnostics.duplicateSessionRisk ? "bad" : "good"} />
+        </div>
+      ) : (
+        <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-800">
+          Ödeme sayfası hızlı modda açıldı. Webhook, ledger ve failed ödeme kontrollerini sadece gerektiğinde çalıştır.
+          <Link href="/admin/payments?diagnostics=1" className="ml-2 underline">Detaylı diagnostik aç</Link>
+        </div>
+      )}
 
       <AdminSection title="Ödeme kurulum kontrolü" description="Secret değerleri gösterilmez; sadece hazır/eksik durumu gösterilir.">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -80,6 +90,7 @@ export default async function AdminPaymentsPage({
         </div>
       </AdminSection>
 
+      {diagnosticsEnabled ? (
       <div className="mt-4">
         <AdminSection title="Stripe webhook event kayıtları" description="Son 25 webhook. Secret/payload token gösterilmez; sadece operasyon durumu görünür.">
           <AdminTable>
@@ -124,6 +135,7 @@ export default async function AdminPaymentsPage({
           </AdminTable>
         </AdminSection>
       </div>
+      ) : null}
 
       <div className="mt-4">
         <AdminSection
