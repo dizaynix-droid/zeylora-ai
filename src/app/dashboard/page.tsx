@@ -38,45 +38,6 @@ export default async function DashboardPage() {
     }),
     getCreditPackagesForDisplay()
   ]);
-  const initialJobs = appUser ? await prisma.verificationJob.findMany({
-    where: {
-      userId: appUser.id,
-      deletedAt: null
-    },
-    orderBy: { createdAt: "desc" },
-    take: 5,
-    select: {
-      id: true,
-      status: true,
-      originalFilename: true,
-      totalEmails: true,
-      uniqueEmails: true,
-      syntaxInvalidCount: true,
-      processedCount: true,
-      failedBatchCount: true,
-      validCount: true,
-      invalidCount: true,
-      riskyCount: true,
-      catchAllCount: true,
-      disposableCount: true,
-      unknownCount: true,
-      creditsReserved: true,
-      creditsUsed: true,
-      providerKey: true,
-      progressPercent: true,
-      createdAt: true,
-      completedAt: true,
-      errorMessage: true,
-      validExportStorageKey: true,
-      fullReportStorageKey: true
-    }
-  }) : [];
-  const initialJobCount = appUser ? await prisma.verificationJob.count({
-    where: {
-      userId: appUser.id,
-      deletedAt: null
-    }
-  }) : 0;
 
   if (process.env.NODE_ENV === "development") {
     console.info("[dashboard-shell-timing]", {
@@ -101,20 +62,8 @@ export default async function DashboardPage() {
           totalCredits: pack.totalCredits,
           badgeText: pack.badgeText
         }))}
-        initialJobs={initialJobs.map((job) => ({
-          ...job,
-          createdAt: job.createdAt.toISOString(),
-          completedAt: job.completedAt?.toISOString() ?? null
-        }))}
-        initialPagination={{
-          page: 1,
-          totalPages: Math.max(1, Math.ceil(initialJobCount / 5)),
-          total: initialJobCount,
-          hasPrevious: false,
-          hasNext: initialJobCount > 5,
-          from: initialJobCount === 0 ? 0 : 1,
-          to: Math.min(5, initialJobCount)
-        }}
+        initialJobs={[]}
+        initialPagination={null}
       />
     </AppShell>
   );

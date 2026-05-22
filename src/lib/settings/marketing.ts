@@ -35,7 +35,8 @@ const emptyMarketingTrackingSettings: MarketingTrackingSettings = {
 };
 
 let cachedSettings: { expiresAt: number; value: MarketingTrackingSettings } | null = null;
-const SETTINGS_CACHE_MS = 30_000;
+let cachedSettingsPromise: Promise<MarketingTrackingSettings> | null = null;
+const SETTINGS_CACHE_MS = 5 * 60_000;
 
 export async function getMarketingTrackingSettings(options: { bypassCache?: boolean } = {}) {
   noStore();
@@ -44,6 +45,19 @@ export async function getMarketingTrackingSettings(options: { bypassCache?: bool
     return cachedSettings.value;
   }
 
+  if (!options.bypassCache && cachedSettingsPromise) {
+    return cachedSettingsPromise;
+  }
+
+  cachedSettingsPromise = readMarketingTrackingSettings();
+  try {
+    return await cachedSettingsPromise;
+  } finally {
+    cachedSettingsPromise = null;
+  }
+}
+
+async function readMarketingTrackingSettings() {
   try {
     const setting = await prisma.siteSetting.findUnique({
       where: { key: MARKETING_TRACKING_SETTING_KEY },
@@ -94,6 +108,7 @@ export function toMarketingTrackingJson(settings: MarketingTrackingSettings): Pr
 
 export function clearMarketingTrackingSettingsCache() {
   cachedSettings = null;
+  cachedSettingsPromise = null;
 }
 
 function sanitizePublicId(value: unknown) {

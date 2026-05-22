@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
 import { creditPackages } from "@/config/pricing";
 
@@ -19,11 +20,32 @@ export type PublicCreditPackage = {
   sortOrder: number;
 };
 
-export async function getCreditPackagesForDisplay(): Promise<PublicCreditPackage[]> {
+export const CREDIT_PACKAGES_DISPLAY_CACHE_TAG = "credit-packages-display";
+
+const getCachedCreditPackagesForDisplay = unstable_cache(
+  async () => readCreditPackagesForDisplay(),
+  ["credit-packages-for-display-v1"],
+  {
+    revalidate: 300,
+    tags: [CREDIT_PACKAGES_DISPLAY_CACHE_TAG]
+  }
+);
+
+export async function getCreditPackagesForDisplay(
+  options: { bypassCache?: boolean } = {}
+): Promise<PublicCreditPackage[]> {
   if (process.env.NEXT_PHASE === "phase-production-build") {
     return getFallbackCreditPackages();
   }
 
+  if (!options.bypassCache) {
+    return getCachedCreditPackagesForDisplay();
+  }
+
+  return readCreditPackagesForDisplay();
+}
+
+async function readCreditPackagesForDisplay(): Promise<PublicCreditPackage[]> {
   try {
     const dbPackages = await prisma.creditPackage.findMany({
       where: {
@@ -97,6 +119,10 @@ export async function getCreditPackagesForDisplay(): Promise<PublicCreditPackage
     }
   }
 
+  return getFallbackCreditPackages();
+}
+
+export function getFallbackCreditPackagesForDisplay(): PublicCreditPackage[] {
   return getFallbackCreditPackages();
 }
 

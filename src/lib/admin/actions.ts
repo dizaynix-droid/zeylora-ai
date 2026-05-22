@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { ExpenseCategory } from "@prisma/client";
 import { prisma } from "@/lib/db";
@@ -8,6 +8,7 @@ import { requireAdmin } from "@/lib/admin/auth";
 import { logAdminAction } from "@/lib/admin/audit";
 import { deleteDashboardCache } from "@/lib/dashboard/cache";
 import { sendTransactionalEmail } from "@/lib/email/resend";
+import { CREDIT_PACKAGES_DISPLAY_CACHE_TAG } from "@/lib/pricing/packages";
 import {
   clearMarketingTrackingSettingsCache,
   MARKETING_TRACKING_SETTING_KEY,
@@ -422,6 +423,7 @@ export async function updateCreditPackageAction(formData: FormData) {
   revalidatePath("/admin/pricing");
   revalidatePath("/pricing");
   revalidatePath("/");
+  revalidateTag(CREDIT_PACKAGES_DISPLAY_CACHE_TAG);
   redirect(`/admin/pricing?saved=${encodeURIComponent(name)}`);
 }
 
@@ -484,6 +486,7 @@ export async function createCreditPackageAction(formData: FormData) {
   revalidatePath("/admin/pricing");
   revalidatePath("/pricing");
   revalidatePath("/");
+  revalidateTag(CREDIT_PACKAGES_DISPLAY_CACHE_TAG);
   redirect(`/admin/pricing?saved=${encodeURIComponent(name)}`);
 }
 
@@ -516,6 +519,7 @@ export async function deleteCreditPackageAction(formData: FormData) {
   revalidatePath("/admin/pricing");
   revalidatePath("/pricing");
   revalidatePath("/");
+  revalidateTag(CREDIT_PACKAGES_DISPLAY_CACHE_TAG);
   redirect(`/admin/pricing?deleted=${encodeURIComponent(pack.name)}`);
 }
 
@@ -537,6 +541,7 @@ export async function syncLaunchCreditPackagesAction() {
   revalidatePath("/admin/pricing");
   revalidatePath("/pricing");
   revalidatePath("/");
+  revalidateTag(CREDIT_PACKAGES_DISPLAY_CACHE_TAG);
   redirect("/admin/pricing?saved=launch-packages");
 }
 
