@@ -11,6 +11,7 @@ import { sendTransactionalEmail } from "@/lib/email/resend";
 import { CREDIT_PACKAGES_DISPLAY_CACHE_TAG } from "@/lib/pricing/packages";
 import {
   clearMarketingTrackingSettingsCache,
+  MARKETING_TRACKING_CACHE_TAG,
   MARKETING_TRACKING_SETTING_KEY,
   toMarketingTrackingJson,
   type MarketingTrackingSettings
@@ -688,6 +689,7 @@ export async function updateMarketingTrackingSettingsAction(formData: FormData) 
 
   revalidatePath("/", "layout");
   revalidatePath("/admin/settings");
+  revalidateTag(MARKETING_TRACKING_CACHE_TAG);
   redirect("/admin/settings?saved=tracking");
 }
 

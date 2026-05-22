@@ -1,8 +1,9 @@
-import { unstable_noStore as noStore } from "next/cache";
+import { unstable_cache } from "next/cache";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 
 export const MARKETING_TRACKING_SETTING_KEY = "marketing_tracking";
+export const MARKETING_TRACKING_CACHE_TAG = "marketing-tracking-settings";
 
 export type MarketingTrackingSettings = {
   ga4MeasurementId: string;
@@ -38,9 +39,16 @@ let cachedSettings: { expiresAt: number; value: MarketingTrackingSettings } | nu
 let cachedSettingsPromise: Promise<MarketingTrackingSettings> | null = null;
 const SETTINGS_CACHE_MS = 5 * 60_000;
 
-export async function getMarketingTrackingSettings(options: { bypassCache?: boolean } = {}) {
-  noStore();
+const getCachedMarketingTrackingSettings = unstable_cache(
+  async () => readMarketingTrackingSettings(),
+  ["marketing-tracking-settings-v1"],
+  {
+    revalidate: 300,
+    tags: [MARKETING_TRACKING_CACHE_TAG]
+  }
+);
 
+export async function getMarketingTrackingSettings(options: { bypassCache?: boolean } = {}) {
   if (!options.bypassCache && cachedSettings && cachedSettings.expiresAt > Date.now()) {
     return cachedSettings.value;
   }
@@ -49,7 +57,7 @@ export async function getMarketingTrackingSettings(options: { bypassCache?: bool
     return cachedSettingsPromise;
   }
 
-  cachedSettingsPromise = readMarketingTrackingSettings();
+  cachedSettingsPromise = options.bypassCache ? readMarketingTrackingSettings() : getCachedMarketingTrackingSettings();
   try {
     return await cachedSettingsPromise;
   } finally {
@@ -58,6 +66,10 @@ export async function getMarketingTrackingSettings(options: { bypassCache?: bool
 }
 
 async function readMarketingTrackingSettings() {
+  if (!process.env.DATABASE_URL) {
+    return emptyMarketingTrackingSettings;
+  }
+
   try {
     const setting = await prisma.siteSetting.findUnique({
       where: { key: MARKETING_TRACKING_SETTING_KEY },
