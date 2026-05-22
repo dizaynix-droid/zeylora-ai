@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import { clsx } from "clsx";
 import { VerifyPanel, VerifyTable } from "@/components/verify-ui/core";
 
+export { formatAdminDate, formatAdminDateInputValue } from "@/lib/admin/date";
+
 export function AdminMetricCard({
   label,
   value,
@@ -147,15 +149,4 @@ export function AdminPaginationControls({
       </div>
     </div>
   );
-}
-
-export function formatAdminDate(date: Date | string | null | undefined) {
-  if (!date) return "-";
-  return new Intl.DateTimeFormat("tr-TR", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit"
-  }).format(new Date(date));
 }

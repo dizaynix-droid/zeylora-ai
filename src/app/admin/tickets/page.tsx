@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
-import { AdminSection, AdminStatusPill } from "@/components/admin/admin-ui";
+import { AdminSection, AdminStatusPill, formatAdminDate } from "@/components/admin/admin-ui";
 import { adminReplyToTicketAction, adminUpdateTicketStatusAction } from "@/lib/support/actions";
 import { requireAdmin } from "@/lib/admin/auth";
 import { listAdminTickets, ticketCategories, ticketStatuses } from "@/lib/support/tickets";
@@ -45,7 +45,7 @@ export default async function AdminTicketsPage({
           <AdminSection
             key={ticket.id}
             title={ticket.subject}
-            description={`${ticket.user.email} • ${ticket.category.replaceAll("_", " ")} • Son yanıt ${formatDate(ticket.lastMessageAt)}`}
+            description={`${ticket.user.email} • ${ticket.category.replaceAll("_", " ")} • Son yanıt ${formatAdminDate(ticket.lastMessageAt)}`}
             action={<AdminStatusPill tone={ticket.status === "CLOSED" ? "neutral" : ticket.status === "ANSWERED" ? "good" : "warn"}>{ticketStatusLabel(ticket.status)}</AdminStatusPill>}
           >
             <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
@@ -54,7 +54,7 @@ export default async function AdminTicketsPage({
                   <div key={message.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-blue-700">{message.actorType} {message.user?.email ? `• ${message.user.email}` : ""}</p>
                     <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{message.body}</p>
-                    <p className="mt-2 text-xs text-slate-500">{formatDate(message.createdAt)}</p>
+                    <p className="mt-2 text-xs text-slate-500">{formatAdminDate(message.createdAt)}</p>
                   </div>
                 ))}
                 <form action={adminReplyToTicketAction} className="grid gap-2">
@@ -108,10 +108,6 @@ export default async function AdminTicketsPage({
 
 function Notice({ children, tone }: { children: string; tone: "good" | "bad" }) {
   return <div className={`mb-5 rounded-lg border p-4 text-sm font-semibold ${tone === "good" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-rose-200 bg-rose-50 text-rose-800"}`}>{children}</div>;
-}
-
-function formatDate(date: Date | string) {
-  return new Intl.DateTimeFormat("tr-TR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(date));
 }
 
 function ticketStatusLabel(status: string) {

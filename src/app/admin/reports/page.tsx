@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { AppShell } from "@/components/layout/app-shell";
-import { AdminMetricCard, AdminSection, AdminStatusPill, AdminTable, formatAdminDate } from "@/components/admin/admin-ui";
+import { AdminMetricCard, AdminSection, AdminStatusPill, AdminTable, formatAdminDate, formatAdminDateInputValue } from "@/components/admin/admin-ui";
 import { requireAdmin } from "@/lib/admin/auth";
 import { deleteBusinessExpenseAction, upsertBusinessExpenseAction } from "@/lib/admin/actions";
 import { prisma } from "@/lib/db";
@@ -155,7 +155,7 @@ export default async function AdminReportsPage({
                 <input name="amount" type="number" min="0.01" step="0.01" placeholder="Tutar" className={inputClass} />
                 <input name="currency" defaultValue="usd" className={inputClass} />
               </div>
-              <input name="expenseDate" type="date" defaultValue={new Date().toISOString().slice(0, 10)} className={inputClass} />
+              <input name="expenseDate" type="date" defaultValue={formatAdminDateInputValue(new Date())} className={inputClass} />
               <textarea name="note" placeholder="Not (opsiyonel)" className="min-h-24 rounded-md border border-slate-300 bg-white px-3 py-3 text-sm font-medium text-slate-950 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
               <button className="h-11 rounded-md bg-blue-600 text-sm font-semibold text-white transition hover:bg-blue-700">
                 Gider ekle

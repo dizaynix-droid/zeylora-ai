@@ -6,6 +6,7 @@ import { adminPerfNow, logAdminPerf, measureAdminQuery } from "@/lib/admin/perf"
 import { getOperationalSettings } from "@/lib/settings/operations";
 import { getMarketingTrackingSettings } from "@/lib/settings/marketing";
 import { getBackupRecoveryData } from "@/lib/admin/backup";
+import { formatAdminDateKey } from "@/lib/admin/date";
 import type { ExpenseCategory, Prisma } from "@prisma/client";
 
 const ADMIN_PAGE_SIZE = 25;
@@ -1290,7 +1291,7 @@ function topBreakdown(values: string[], limit = 6) {
 function buildDailyTrend(rows: Array<{ event: string; createdAt: Date; sessionId: string | null; anonymousId: string | null }>) {
   const byDay = new Map<string, { date: string; visitors: Set<string>; uploads: number; previews: number; checkouts: number; payments: number }>();
   for (const row of rows) {
-    const date = row.createdAt.toISOString().slice(0, 10);
+    const date = formatAdminDateKey(row.createdAt);
     const current = byDay.get(date) ?? { date, visitors: new Set<string>(), uploads: 0, previews: 0, checkouts: 0, payments: 0 };
     current.visitors.add(row.sessionId || row.anonymousId || "unknown");
     if (row.event === "upload_click" || row.event === "upload_started") current.uploads += 1;

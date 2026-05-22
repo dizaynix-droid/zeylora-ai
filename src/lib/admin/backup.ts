@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { uploadPrivateObject, createPrivateReadUrl } from "@/lib/storage/s3-client";
 import type { AdminSession } from "@/lib/admin/auth";
+import { formatAdminDate } from "@/lib/admin/date";
 
 export type BackupHealthStatus = "HAZIR" | "UYARI" | "KRITIK";
 
@@ -647,7 +648,7 @@ function buildBackupStatusItems(input: {
     {
       label: "Son başarılı export",
       status: exportStatus,
-      value: input.lastExport?.completedAt ? input.lastExport.completedAt.toLocaleString("tr-TR") : "Henüz export yok",
+      value: input.lastExport?.completedAt ? formatAdminDate(input.lastExport.completedAt) : "Henüz export yok",
       note: input.lastExport?.fileSize ? `${formatBytes(input.lastExport.fileSize)} private R2 snapshot` : "Emergency snapshot üret."
     },
     {
@@ -665,7 +666,7 @@ function buildBackupStatusItems(input: {
     {
       label: "Restore test",
       status: input.lastRestoreTest?.status === "COMPLETED" ? "HAZIR" : "UYARI",
-      value: input.lastRestoreTest?.completedAt ? input.lastRestoreTest.completedAt.toLocaleString("tr-TR") : "Restore testi yok",
+      value: input.lastRestoreTest?.completedAt ? formatAdminDate(input.lastRestoreTest.completedAt) : "Restore testi yok",
       note: "Canlı DB üstüne otomatik restore yapılmaz; staging simülasyonu önerilir."
     },
     {
