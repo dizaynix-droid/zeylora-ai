@@ -144,7 +144,7 @@ export function HomepageListChecker() {
           event: "homepage_pricing_required",
           properties: { uniqueEmails: uniqueCount, creditBalance: balance }
         });
-        setMessage(`You need ${uniqueCount.toLocaleString()} verification credits. ${recommendedPackage.name} is the best fit for this list.`);
+        setMessage(`You need ${uniqueCount.toLocaleString()} email verifications. ${recommendedPackage.name} is the best fit for this list.`);
         releaseMobileInputViewport();
         router.push(`/pricing?checkoutPackage=${recommendedPackage.key}&resumeVerification=1`);
         return;
@@ -172,7 +172,7 @@ export function HomepageListChecker() {
         });
       }
       if (jobResponse.status === 402 || jobPayload?.code === "insufficient_credits") {
-        setMessage(`You need ${uniqueCount.toLocaleString()} verification credits. ${recommendedPackage.name} is the best fit for this list.`);
+        setMessage(`You need ${uniqueCount.toLocaleString()} email verifications. ${recommendedPackage.name} is the best fit for this list.`);
         releaseMobileInputViewport();
         router.push(`/pricing?checkoutPackage=${recommendedPackage.key}&resumeVerification=1`);
         return;
@@ -229,7 +229,7 @@ export function HomepageListChecker() {
             </div>
             <h2 className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-slate-950">Upload, paste, verify.</h2>
             <p className="mt-2 max-w-lg text-sm leading-6 text-slate-600">
-              See unique emails, duplicates, required credits, and list risk before you spend anything.
+              See unique emails, duplicates, required verifications, and list risk before you spend anything.
             </p>
           </div>
           <VerifyBadge tone={ready ? "green" : "blue"}>
@@ -282,7 +282,7 @@ export function HomepageListChecker() {
           <Stat label="Uploaded" value={totalCount} />
           <Stat label="Unique" value={uniqueCount} tone="blue" />
           <Stat label="Duplicates" value={duplicateCount} tone="amber" />
-          <Stat label="Credits" value={uniqueCount} tone="green" />
+          <Stat label="Needed" value={uniqueCount} tone="green" />
         </div>
 
         <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
@@ -291,8 +291,8 @@ export function HomepageListChecker() {
               <p className="text-xs font-semibold uppercase tracking-[0.1em] text-blue-700">Ready workflow</p>
               <p className="mt-1 text-sm font-medium text-slate-700">
                 {ready
-                  ? `${uniqueCount.toLocaleString()} unique emails need ${uniqueCount.toLocaleString()} credits. Best fit: ${recommendedPackage.name}.`
-                  : "Paste or upload emails to estimate list quality and credits."}
+                  ? `${uniqueCount.toLocaleString()} unique emails need ${uniqueCount.toLocaleString()} email verifications. Best fit: ${recommendedPackage.name}.`
+                  : "Paste or upload emails to estimate list quality and required verifications."}
               </p>
             </div>
             <div className="min-w-[150px]">
@@ -392,7 +392,7 @@ function getFriendlyStartError(error: unknown) {
   const message = error instanceof Error ? error.message : "";
   const lower = message.toLowerCase();
 
-  if (lower.includes("provider") || lower.includes("millionverifier")) {
+  if (lower.includes("temporarily unavailable") || lower.includes("service unavailable")) {
     return "Verification is temporarily unavailable. Your list is saved in this browser; please try again shortly or contact support.";
   }
 
