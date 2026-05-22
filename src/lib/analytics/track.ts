@@ -21,13 +21,17 @@ declare global {
     fbq?: (...args: unknown[]) => void;
     ttq?: { track?: (event: string, properties?: Record<string, unknown>) => void };
     pintrk?: (...args: unknown[]) => void;
+    zeyloraGoogleAdsConversion?: {
+      sendTo?: string;
+    };
     zeyloraTrack?: (event: string, properties?: Record<string, unknown>) => void;
     zeyloraTrackSignup?: () => void;
     zeyloraTrackLogin?: () => void;
     zeyloraTrackPreviewGenerated?: () => void;
     zeyloraTrackCleanExport?: () => void;
     zeyloraTrackCheckoutStarted?: () => void;
-    zeyloraTrackPurchase?: (value?: number, currency?: string) => void;
+    zeyloraTrackGoogleAdsPurchase?: (value?: number, currency?: string, transactionId?: string) => void;
+    zeyloraTrackPurchase?: (value?: number, currency?: string, transactionId?: string) => void;
   }
 }
 
@@ -220,8 +224,60 @@ function fireMarketingPixels(event: string, properties: Record<string, unknown>)
   }
 
   if (event === "purchase" || event === "checkout_completed") {
+    fireGoogleAdsPurchaseConversion(properties);
     window.fbq?.("track", "Purchase", properties);
     window.ttq?.track?.("CompletePayment", properties);
     window.pintrk?.("track", "checkout", properties);
   }
+}
+
+function fireGoogleAdsPurchaseConversion(properties: Record<string, unknown>) {
+  const sendTo = window.zeyloraGoogleAdsConversion?.sendTo;
+  if (!sendTo) return;
+  if (!window.gtag) return;
+
+  const transactionId = readString(properties.transaction_id) || readString(properties.transactionId) || readString(properties.paymentId);
+  const dedupeKey = `zeylora_google_ads_purchase:${sendTo}:${transactionId || "checkout-success"}`;
+  if (wasConversionAlreadySent(dedupeKey)) return;
+
+  const value = readNumber(properties.value) ?? readNumber(properties.amount) ?? 0;
+  const currency = readString(properties.currency)?.toUpperCase() || "USD";
+  const payload: Record<string, unknown> = {
+    send_to: sendTo,
+    value,
+    currency
+  };
+
+  if (transactionId) {
+    payload.transaction_id = transactionId;
+  }
+
+  window.gtag?.("event", "conversion", payload);
+  markConversionSent(dedupeKey);
+}
+
+function wasConversionAlreadySent(key: string) {
+  try {
+    return sessionStorage.getItem(key) === "1" || localStorage.getItem(key) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markConversionSent(key: string) {
+  try {
+    sessionStorage.setItem(key, "1");
+    localStorage.setItem(key, "1");
+  } catch {
+    // Storage can be unavailable in strict privacy modes; the conversion event itself has already been queued.
+  }
+}
+
+function readString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function readNumber(value: unknown) {
+  const parsed = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 }

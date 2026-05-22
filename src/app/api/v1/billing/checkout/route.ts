@@ -93,7 +93,7 @@ export async function POST(request: Request) {
     }
 
     const checkoutUrls = getCheckoutUrls({ resumeVerification });
-    const successUrl = checkoutUrls.successUrl;
+    const successUrl = new URL(checkoutUrls.successUrl);
     const cancelUrl = checkoutUrls.cancelUrl;
     const amount = Number(selectedPackage.price);
     const currency = selectedPackage.currency.toLowerCase();
@@ -116,7 +116,7 @@ export async function POST(request: Request) {
       credits,
       hasStripePriceId: Boolean(stripePriceId),
       ignoredStripePriceId: Boolean(selectedPackage.stripePriceId && !stripePriceId),
-      successUrl: sanitizeUrlForLog(successUrl),
+      successUrl: sanitizeUrlForLog(successUrl.toString()),
       cancelUrl: sanitizeUrlForLog(cancelUrl)
     });
 
@@ -141,6 +141,11 @@ export async function POST(request: Request) {
         id: true
       }
     });
+    successUrl.searchParams.set("checkout", "success");
+    successUrl.searchParams.set("paymentId", payment.id);
+    successUrl.searchParams.set("value", amount.toFixed(2));
+    successUrl.searchParams.set("currency", currency.toUpperCase());
+    successUrl.searchParams.set("credits", String(credits));
 
     const priceDataLineItem = {
       quantity: 1,
@@ -157,7 +162,7 @@ export async function POST(request: Request) {
       mode: "payment" as const,
       customer_email: user.email,
       client_reference_id: payment.id,
-      success_url: successUrl,
+      success_url: successUrl.toString(),
       cancel_url: cancelUrl,
       metadata: {
         paymentId: payment.id,
@@ -219,7 +224,7 @@ export async function POST(request: Request) {
           packageSource: dbPackage ? "db" : "config_fallback",
           credits,
           lineItemMode,
-          successUrl,
+          successUrl: successUrl.toString(),
           cancelUrl,
           checkoutRequestId: requestId,
           resumeVerification

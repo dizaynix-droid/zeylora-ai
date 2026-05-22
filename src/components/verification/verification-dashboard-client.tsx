@@ -159,6 +159,49 @@ export function VerificationDashboardClient({
   }, [submitStatus, refreshTick]);
 
   useEffect(() => {
+    if (searchParams.get("checkout") !== "success") return;
+
+    const paymentId = searchParams.get("paymentId") || "";
+    const value = Number(searchParams.get("value") || 0);
+    const currency = (searchParams.get("currency") || "USD").toUpperCase();
+    const credits = Number(searchParams.get("credits") || 0);
+    const transactionId = paymentId || `checkout-${new Date().toISOString().slice(0, 10)}`;
+    const dedupeKey = `zeylora_checkout_success_tracked:${transactionId}`;
+
+    try {
+      if (sessionStorage.getItem(dedupeKey) === "1" || localStorage.getItem(dedupeKey) === "1") {
+        return;
+      }
+      sessionStorage.setItem(dedupeKey, "1");
+      localStorage.setItem(dedupeKey, "1");
+    } catch {
+      // Tracking should still run if browser storage is blocked.
+    }
+
+    setMessage("Payment successful. Your verification balance is refreshing now.");
+    setRefreshTick((tick) => tick + 1);
+
+    const payload = {
+      paymentId: paymentId || null,
+      transaction_id: transactionId,
+      transactionId,
+      value: Number.isFinite(value) ? value : 0,
+      currency,
+      credits: Number.isFinite(credits) ? credits : 0,
+      source: "stripe_success_redirect"
+    };
+
+    const timer = window.setTimeout(() => {
+      trackEvent({
+        event: "purchase",
+        properties: payload
+      });
+    }, 900);
+
+    return () => window.clearTimeout(timer);
+  }, [searchParams]);
+
+  useEffect(() => {
     if (draftRestored || searchParams.get("resumeVerification") !== "1") return;
     setDraftRestored(true);
 

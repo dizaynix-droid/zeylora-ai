@@ -27,6 +27,10 @@ export async function MarketingHeadTags() {
 export async function MarketingBodyScripts() {
   const settings = await getMarketingTrackingSettings();
   const googleTagId = settings.ga4MeasurementId || settings.googleAdsConversionId;
+  const googleAdsSendTo =
+    settings.googleAdsConversionId && settings.googleAdsConversionLabel
+      ? `${settings.googleAdsConversionId}/${settings.googleAdsConversionLabel}`
+      : "";
 
   return (
     <>
@@ -41,6 +45,7 @@ export async function MarketingBodyScripts() {
               gtag('js', new Date());
               ${settings.ga4MeasurementId ? `gtag('config', '${escapeJs(settings.ga4MeasurementId)}');` : ""}
               ${settings.googleAdsConversionId ? `gtag('config', '${escapeJs(settings.googleAdsConversionId)}');` : ""}
+              ${googleAdsSendTo ? `window.zeyloraGoogleAdsConversion = { sendTo: '${escapeJs(googleAdsSendTo)}' };` : ""}
             `}
           </Script>
         </>
@@ -102,7 +107,31 @@ export async function MarketingBodyScripts() {
           window.zeyloraTrackPreviewGenerated = function(){ window.zeyloraTrack && window.zeyloraTrack('preview_generated'); };
           window.zeyloraTrackCleanExport = function(){ window.zeyloraTrack && window.zeyloraTrack('clean_export_clicked'); };
           window.zeyloraTrackCheckoutStarted = function(){ window.zeyloraTrack && window.zeyloraTrack('checkout_started'); };
-          window.zeyloraTrackPurchase = function(value, currency){ window.zeyloraTrack && window.zeyloraTrack('purchase', { value: value, currency: currency || 'USD' }); };
+          window.zeyloraTrackGoogleAdsPurchase = function(value, currency, transactionId){
+            if (!window.gtag || !window.zeyloraGoogleAdsConversion || !window.zeyloraGoogleAdsConversion.sendTo) return;
+            var dedupeKey = 'zeylora_google_ads_purchase:' + window.zeyloraGoogleAdsConversion.sendTo + ':' + (transactionId || 'checkout-success');
+            try {
+              if (sessionStorage.getItem(dedupeKey) === '1' || localStorage.getItem(dedupeKey) === '1') return;
+            } catch (error) {}
+            var payload = {
+              send_to: window.zeyloraGoogleAdsConversion.sendTo,
+              value: Number(value || 0),
+              currency: currency || 'USD'
+            };
+            if (transactionId) payload.transaction_id = String(transactionId);
+            window.gtag('event', 'conversion', payload);
+            try {
+              sessionStorage.setItem(dedupeKey, '1');
+              localStorage.setItem(dedupeKey, '1');
+            } catch (error) {}
+          };
+          window.zeyloraTrackPurchase = function(value, currency, transactionId){
+            if (window.zeyloraTrack) {
+              window.zeyloraTrack('purchase', { value: value, currency: currency || 'USD', transaction_id: transactionId });
+            } else {
+              window.zeyloraTrackGoogleAdsPurchase && window.zeyloraTrackGoogleAdsPurchase(value, currency || 'USD', transactionId);
+            }
+          };
         `}
       </Script>
 
