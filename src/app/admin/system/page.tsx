@@ -141,7 +141,7 @@ export default async function AdminSystemPage({
               value={data.email.lastSuccessfulEmail ? `${data.email.lastSuccessfulEmail.templateKey} · ${formatAdminDate(data.email.lastSuccessfulEmail.sentAt || data.email.lastSuccessfulEmail.createdAt)}` : "Henüz yok"}
             />
             <Info
-              label="Başarısız email"
+              label="Başarısız email (30 gün)"
               value={`${data.email.failedEmailCount} adet${data.email.lastFailedEmail?.errorMessage ? ` · ${data.email.lastFailedEmail.errorMessage}` : ""}`}
             />
             <form action="/api/v1/email/test" method="post">

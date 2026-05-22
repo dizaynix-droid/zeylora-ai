@@ -107,9 +107,9 @@ export default async function AdminUsersPage({
                 <th className="px-4 py-3">Email</th>
                 <th className="px-4 py-3">Rol</th>
                 <th className="px-4 py-3">Kredi</th>
-                <th className="px-4 py-3">Doğrulama</th>
-                <th className="px-4 py-3">Toplam harcama</th>
-                <th className="px-4 py-3">Son ödeme</th>
+                <th className="px-4 py-3">Son doğrulama</th>
+                <th className="px-4 py-3">Son paid tutarı</th>
+                <th className="px-4 py-3">Son ödeme durumu</th>
                 <th className="px-4 py-3">Kayıt</th>
                 <th className="px-4 py-3">Kredi düzenle</th>
               </tr>
@@ -132,14 +132,15 @@ export default async function AdminUsersPage({
                     ) : null}
                   </td>
                   <td className="px-4 py-3 text-slate-700">
-                    <p>{user._count.verificationJobs} doğrulama</p>
                     <p className="text-xs text-slate-500">
                       {user.lastVerificationJob
                         ? `${user.lastVerificationJob.status} · ${user.lastVerificationJob.uniqueEmails.toLocaleString()} email`
                         : "Henüz doğrulama yok"}
                     </p>
                   </td>
-                  <td className="px-4 py-3 font-semibold text-slate-800">${user.totalSpend.toFixed(2)}</td>
+                  <td className="px-4 py-3 font-semibold text-slate-800">
+                    {user.lastPayment?.status === "PAID" ? `$${user.totalSpend.toFixed(2)}` : "-"}
+                  </td>
                   <td className="px-4 py-3 text-slate-700">
                     {user.lastPayment ? (
                       <>

@@ -255,6 +255,7 @@ model User {
   @@index([role, status])
   @@index([affiliateCode])
   @@index([referredByUserId])
+  @@index([deletedAt, createdAt])
 }
 
 model AffiliateProfile {
@@ -593,6 +594,7 @@ model CreditTransaction {
 
   @@index([userId, createdAt])
   @@index([type])
+  @@index([createdAt])
   @@index([createdAt, type])
   @@index([verificationJobId])
   @@index([paymentId])
@@ -653,6 +655,8 @@ model VerificationJob {
   @@index([providerKey, status, createdAt])
   @@index([completedAt])
   @@index([createdAt, status])
+  @@index([deletedAt, createdAt])
+  @@index([deletedAt, status, createdAt])
 }
 
 model VerificationEmailResult {
@@ -753,6 +757,8 @@ model Payment {
   @@index([status])
   @@index([status, createdAt])
   @@index([stripePaymentIntentId])
+  @@index([deletedAt, createdAt])
+  @@index([deletedAt, status, createdAt])
 }
 
 model Subscription {
@@ -844,6 +850,8 @@ model AdminLog {
 
   @@index([adminUserId, createdAt])
   @@index([entityType, entityId])
+  @@index([createdAt])
+  @@index([action, createdAt])
 }
 
 model BlogPost {
@@ -940,6 +948,7 @@ model WebhookLog {
   createdAt    DateTime @default(now())
 
   @@index([source, eventType])
+  @@index([source, createdAt])
   @@index([status, createdAt])
   @@unique([source, externalEventId])
 }
@@ -964,6 +973,8 @@ model EmailEvent {
 
   @@index([userId, createdAt])
   @@index([eventType, status])
+  @@index([status, updatedAt])
+  @@index([status, sentAt])
   @@index([recipientEmail, createdAt])
 }
 
@@ -1006,6 +1017,7 @@ model AnalyticsEvent {
   user User? @relation(fields: [userId], references: [id])
 
   @@index([event, createdAt])
+  @@index([createdAt])
   @@index([userId, createdAt])
   @@index([sessionId, createdAt])
   @@index([anonymousId, createdAt])

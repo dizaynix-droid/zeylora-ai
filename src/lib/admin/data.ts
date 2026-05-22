@@ -3,6 +3,7 @@ import { creditPackages } from "@/config/pricing";
 import { aiAdCreativeConfig, aiBackgroundReplacerConfig, objectRemoverConfig } from "@/config/ai-tools";
 import { resolveToolEconomy } from "@/config/tool-economy";
 import { adminPerfNow, logAdminPerf, measureAdminQuery } from "@/lib/admin/perf";
+import { ensureAdminPerformanceIndexes } from "@/lib/admin/readiness";
 import { getOperationalSettings } from "@/lib/settings/operations";
 import { getMarketingTrackingSettings } from "@/lib/settings/marketing";
 import { getBackupRecoveryData } from "@/lib/admin/backup";
@@ -248,6 +249,7 @@ export async function getAdminUsersData(input: {
   pageSize?: number;
 } = {}) {
   const startedAt = adminPerfNow();
+  await ensureAdminPerformanceIndexes("users");
   const query = input.query?.trim();
   const filter = input.filter || "all";
   const page = normalizeAdminPage(input.page);
@@ -267,84 +269,64 @@ export async function getAdminUsersData(input: {
     ...(filter === "recent" ? { createdAt: { gte: new Date(Date.now() - 1000 * 60 * 60 * 24 * 14) } } : {})
   };
 
-  const [rawItems, total] = await Promise.all([
-    measureAdminQuery(
-      "users.list",
-      prisma.user.findMany({
-        where,
-        orderBy: { createdAt: "desc" },
-        skip: getSkip(page, pageSize),
-        take: pageSize,
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          role: true,
-          status: true,
-          creditBalance: true,
-          createdAt: true,
-          _count: {
-            select: {
-              verificationJobs: true,
-              creditTransactions: true,
-              payments: true
-            }
-          },
-          payments: {
-            where: { deletedAt: null },
-            orderBy: { createdAt: "desc" },
-            take: 1,
-            select: { amount: true, currency: true, status: true, createdAt: true }
-          },
-          verificationJobs: {
-            where: { deletedAt: null },
-            orderBy: { createdAt: "desc" },
-            take: 1,
-            select: { id: true, status: true, uniqueEmails: true, createdAt: true }
-          }
+  const fetchedUsers = await measureAdminQuery(
+    "users.list.window",
+    prisma.user.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: getSkip(page, pageSize),
+      take: pageSize + 1,
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        status: true,
+        creditBalance: true,
+        createdAt: true,
+        payments: {
+          where: { deletedAt: null },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { amount: true, currency: true, status: true, createdAt: true }
+        },
+        verificationJobs: {
+          where: { deletedAt: null },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { id: true, status: true, uniqueEmails: true, createdAt: true }
         }
-      }),
-      { page, take: pageSize, filter, hasQuery: Boolean(query) }
-    ),
-    measureAdminQuery("users.count", prisma.user.count({ where }), { filter, hasQuery: Boolean(query) })
-  ]);
-  const userIds = rawItems.map((user) => user.id);
-  const spendRows = userIds.length
-    ? await measureAdminQuery(
-        "users.paidSpend.group",
-        prisma.payment.groupBy({
-          by: ["userId"],
-          where: {
-            deletedAt: null,
-            status: "PAID",
-            userId: { in: userIds }
-          },
-          _sum: { amount: true }
-        }),
-        { page, take: pageSize }
-      )
-    : [];
-  const spendByUser = new Map(spendRows.map((row) => [row.userId, decimalToNumber(row._sum.amount)]));
+      }
+    }),
+    { page, take: pageSize + 1, filter, hasQuery: Boolean(query) }
+  );
+  const hasNext = fetchedUsers.length > pageSize;
+  const rawItems = fetchedUsers.slice(0, pageSize);
   const items = rawItems.map((user) => ({
     ...user,
-    totalSpend: spendByUser.get(user.id) ?? 0,
+    _count: {
+      verificationJobs: user.verificationJobs.length,
+      creditTransactions: 0,
+      payments: user.payments.length
+    },
+    totalSpend: user.payments[0]?.status === "PAID" ? decimalToNumber(user.payments[0].amount) : 0,
     lastPayment: user.payments[0] ?? null,
     lastVerificationJob: user.verificationJobs[0] ?? null
   }));
   logAdminPerf("admin.users.data", {
     duration: `${adminPerfNow() - startedAt}ms`,
-    queryCount: userIds.length ? 3 : 2,
+    queryCount: 1,
     page,
     take: pageSize,
     filter,
     hasQuery: Boolean(query),
     resultCount: items.length,
-    total
+    hasNext
   });
 
   return {
     items,
-    pagination: createPagination({ page, pageSize, total })
+    pagination: createWindowPagination({ page, pageSize, resultCount: items.length, hasNext })
   };
 }
 
@@ -622,52 +604,102 @@ export async function getAdminPackageReadinessData() {
   };
 }
 
-export async function getAdminCreditsData(input: { page?: number; pageSize?: number } = {}) {
+export type AdminCreditsRange = "today" | "yesterday" | "last24" | "last7" | "last30";
+
+export function normalizeAdminCreditsRange(value: unknown): AdminCreditsRange {
+  if (value === "today" || value === "yesterday" || value === "last24" || value === "last30") return value;
+  return "last7";
+}
+
+export async function getAdminCreditsData(input: { page?: number; pageSize?: number; range?: AdminCreditsRange } = {}) {
   const startedAt = adminPerfNow();
+  await ensureAdminPerformanceIndexes("credits");
   const page = normalizeAdminPage(input.page);
   const pageSize = normalizeAdminPageSize(input.pageSize);
-  const todayStart = getIstanbulDayStartUtc(new Date());
+  const range = input.range || "last7";
+  const { start: rangeStart, end: rangeEnd } = getAdminCreditsRangeWindow(range, new Date());
+  const createdAt: Prisma.DateTimeFilter = { gte: rangeStart };
+  if (rangeEnd) createdAt.lt = rangeEnd;
   const where: Prisma.CreditTransactionWhereInput = {
-    createdAt: { gte: todayStart }
+    createdAt
   };
 
-  const fetchedTransactions = await measureAdminQuery(
-    "credits.transactions.list",
-    prisma.creditTransaction.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      skip: getSkip(page, pageSize),
-      take: pageSize + 1,
-      select: {
-        id: true,
-        type: true,
-        amount: true,
-        balanceAfter: true,
-        note: true,
-        createdAt: true,
-        user: { select: { email: true } },
-        verificationJob: { select: { id: true, originalFilename: true, uniqueEmails: true } },
-        payment: { select: { id: true, amount: true, currency: true } }
-      }
-    }),
-    { page, take: pageSize + 1, since: todayStart.toISOString() }
-  );
+  const paymentCreatedAt: Prisma.DateTimeFilter = { gte: rangeStart };
+  if (rangeEnd) paymentCreatedAt.lt = rangeEnd;
+
+  const [fetchedTransactions, totals, missingLedgerPayments] = await Promise.all([
+    measureAdminQuery(
+      "credits.transactions.list",
+      prisma.creditTransaction.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip: getSkip(page, pageSize),
+        take: pageSize + 1,
+        select: {
+          id: true,
+          type: true,
+          amount: true,
+          balanceAfter: true,
+          note: true,
+          createdAt: true,
+          user: { select: { email: true } },
+          verificationJob: { select: { id: true, originalFilename: true, uniqueEmails: true } },
+          payment: { select: { id: true, amount: true, currency: true } }
+        }
+      }),
+      { page, take: pageSize + 1, range, since: rangeStart.toISOString() }
+    ),
+    measureAdminQuery(
+      "credits.transactions.summary",
+      prisma.creditTransaction.groupBy({
+        by: ["type"],
+        where,
+        _sum: { amount: true },
+        _count: { _all: true }
+      }),
+      { range, since: rangeStart.toISOString() }
+    ).catch(() => []),
+    measureAdminQuery(
+      "credits.payments.missingLedger",
+      prisma.payment.findMany({
+        where: {
+          deletedAt: null,
+          status: "PAID",
+          creditsDelivered: { gt: 0 },
+          createdAt: paymentCreatedAt,
+          creditTransactions: { none: { type: "PURCHASE" } }
+        },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+        select: {
+          id: true,
+          amount: true,
+          currency: true,
+          creditsDelivered: true,
+          stripeCheckoutSessionId: true,
+          createdAt: true,
+          user: { select: { email: true, creditBalance: true } }
+        }
+      }),
+      { range, since: rangeStart.toISOString(), take: 10 }
+    ).catch(() => [])
+  ]);
   const hasNext = fetchedTransactions.length > pageSize;
   const transactions = fetchedTransactions.slice(0, pageSize);
-  const summary = transactions.reduce(
+  const summary = totals.reduce(
     (acc, transaction) => {
       if (["PURCHASE", "REFUND", "REFERRAL_REWARD"].includes(transaction.type)) {
-        acc.issued += Math.max(0, transaction.amount);
+        acc.issued += Math.max(0, transaction._sum.amount ?? 0);
       }
       if (transaction.type === "ADMIN_ADJUSTMENT") {
-        acc.manualAdjustments += 1;
-        acc.issued += Math.max(0, transaction.amount);
+        acc.manualAdjustments += transaction._count._all;
+        acc.issued += Math.max(0, transaction._sum.amount ?? 0);
       }
       if (transaction.type === "USE") {
-        acc.used += Math.abs(transaction.amount);
+        acc.used += Math.abs(transaction._sum.amount ?? 0);
       }
       if (transaction.type === "PURCHASE") {
-        acc.purchases += 1;
+        acc.purchases += transaction._count._all;
       }
       return acc;
     },
@@ -675,19 +707,24 @@ export async function getAdminCreditsData(input: { page?: number; pageSize?: num
   );
   logAdminPerf("admin.credits.data", {
     duration: `${adminPerfNow() - startedAt}ms`,
-    queryCount: 1,
+    queryCount: 3,
     page,
     take: pageSize,
+    range,
     resultCount: transactions.length,
     hasNext,
-    since: todayStart.toISOString()
+    since: rangeStart.toISOString(),
+    missingLedgerPayments: missingLedgerPayments.length
   });
 
   return {
-    rangeStart: todayStart,
+    range,
+    rangeStart,
+    rangeEnd,
     transactions,
+    missingLedgerPayments,
     pagination: createWindowPagination({ page, pageSize, resultCount: transactions.length, hasNext }),
-    totals: [],
+    totals,
     summary
   };
 }
@@ -799,46 +836,46 @@ export async function getAdminLogsData(input: { page?: number; pageSize?: number
 
 export async function getAdminPaymentsData(input: { page?: number; pageSize?: number } = {}) {
   const startedAt = adminPerfNow();
+  await ensureAdminPerformanceIndexes("payments");
   const page = normalizeAdminPage(input.page);
   const pageSize = normalizeAdminPageSize(input.pageSize);
 
-  const [items, total] = await Promise.all([
-    measureAdminQuery(
-      "payments.list",
-      prisma.payment.findMany({
-        where: { deletedAt: null },
-        orderBy: { createdAt: "desc" },
-        skip: getSkip(page, pageSize),
-        take: pageSize,
-        select: {
-          id: true,
-          amount: true,
-          currency: true,
-          status: true,
-          stripeCheckoutSessionId: true,
-          stripePaymentIntentId: true,
-          creditsDelivered: true,
-          couponCode: true,
-          createdAt: true,
-          user: { select: { email: true } }
-        }
-      }),
-      { page, take: pageSize }
-    ),
-    measureAdminQuery("payments.count", prisma.payment.count({ where: { deletedAt: null } }))
-  ]);
+  const fetchedItems = await measureAdminQuery(
+    "payments.list.window",
+    prisma.payment.findMany({
+      where: { deletedAt: null },
+      orderBy: { createdAt: "desc" },
+      skip: getSkip(page, pageSize),
+      take: pageSize + 1,
+      select: {
+        id: true,
+        amount: true,
+        currency: true,
+        status: true,
+        stripeCheckoutSessionId: true,
+        stripePaymentIntentId: true,
+        creditsDelivered: true,
+        couponCode: true,
+        createdAt: true,
+        user: { select: { email: true } }
+      }
+    }),
+    { page, take: pageSize + 1 }
+  );
+  const hasNext = fetchedItems.length > pageSize;
+  const items = fetchedItems.slice(0, pageSize);
   logAdminPerf("admin.payments.data", {
     duration: `${adminPerfNow() - startedAt}ms`,
-    queryCount: 2,
+    queryCount: 1,
     page,
     take: pageSize,
     resultCount: items.length,
-    total
+    hasNext
   });
 
   return {
     items,
-    pagination: createPagination({ page, pageSize, total })
+    pagination: createWindowPagination({ page, pageSize, resultCount: items.length, hasNext })
   };
 }
 
@@ -864,8 +901,10 @@ async function buildAdminPaymentDiagnosticsData() {
     webhookEvents: [],
     lastSuccessfulPayment: null,
     failedPaymentCount: 0,
+    missingLedgerPaymentCount: 0,
     diagnosticsError: null as string | null
   };
+  const recentSince = new Date(Date.now() - 30 * 86_400_000);
 
   const webhookSelect = {
     id: true,
@@ -879,7 +918,7 @@ async function buildAdminPaymentDiagnosticsData() {
     processedAt: true
   } as const;
 
-  const [lastWebhook, webhookEvents, lastSuccessfulPayment, failedPaymentCount, recentSessions] = await Promise.all([
+  const [lastWebhook, webhookEvents, lastSuccessfulPayment, failedPaymentCount, missingLedgerPaymentCount] = await Promise.all([
     measureAdminQuery(
       "payments.diagnostics.lastWebhook",
       prisma.webhookLog.findFirst({
@@ -922,35 +961,31 @@ async function buildAdminPaymentDiagnosticsData() {
     }),
     measureAdminQuery(
       "payments.diagnostics.failedCount",
-      prisma.payment.count({ where: { deletedAt: null, status: { in: ["FAILED", "CANCELLED"] } } })
+      prisma.payment.count({ where: { deletedAt: null, status: { in: ["FAILED", "CANCELLED"] }, createdAt: { gte: recentSince } } })
     ).catch(() => 0),
     measureAdminQuery(
-      "payments.diagnostics.recentSessions",
-      prisma.payment.findMany({
-        where: { stripeCheckoutSessionId: { not: null } },
-        orderBy: { createdAt: "desc" },
-        take: 200,
-        select: { stripeCheckoutSessionId: true }
+      "payments.diagnostics.missingLedgerCount",
+      prisma.payment.count({
+        where: {
+          deletedAt: null,
+          status: "PAID",
+          creditsDelivered: { gt: 0 },
+          createdAt: { gte: recentSince },
+          creditTransactions: { none: { type: "PURCHASE" } }
+        }
       }),
-      { take: 200 }
-    ).catch(() => [])
+      { since: recentSince.toISOString() }
+    ).catch(() => 0)
   ]);
-  const seenSessions = new Set<string>();
-  const duplicateSessionRisk = recentSessions.some((payment) => {
-    const sessionId = payment.stripeCheckoutSessionId;
-    if (!sessionId) return false;
-    if (seenSessions.has(sessionId)) return true;
-    seenSessions.add(sessionId);
-    return false;
-  });
 
   return {
     ...fallback,
-    duplicateSessionRisk,
+    duplicateSessionRisk: false,
     lastWebhook,
     webhookEvents,
     lastSuccessfulPayment,
-    failedPaymentCount
+    failedPaymentCount,
+    missingLedgerPaymentCount
   };
 }
 
@@ -966,6 +1001,7 @@ export async function getAdminAnalyticsData() {
     return cached;
   }
 
+  await ensureAdminPerformanceIndexes("analytics");
   const result = await buildAdminAnalyticsData();
   adminAnalyticsCache = createAdminCacheEntry(result, ADMIN_ANALYTICS_CACHE_TTL_MS);
   return result;
@@ -1236,6 +1272,7 @@ export async function getAdminProvidersData(): Promise<AdminProvider[]> {
   const cached = getAdminCache(adminProvidersCache);
   if (cached) return cached;
 
+  await ensureAdminPerformanceIndexes("providers");
   const startedAt = adminPerfNow();
   const dbProviders = await measureAdminQuery(
     "providers.settings.list",
@@ -1366,6 +1403,8 @@ export async function getAdminProviderMonitoringData() {
 }
 
 export async function getAdminSystemData() {
+  await ensureAdminPerformanceIndexes("system");
+  const recentEmailSince = new Date(Date.now() - 30 * 86_400_000);
   const [operations, providers, recentAdminActions, recentSecurityEvents, lastSuccessfulEmail, lastFailedEmail, failedEmailCount, backup] = await Promise.all([
     getOperationalSettings({ bypassCache: true }),
     getAdminProviderMonitoringData(),
@@ -1410,7 +1449,7 @@ export async function getAdminSystemData() {
     ),
     measureAdminQuery(
       "system.email.failedCount",
-      prisma.emailEvent.count({ where: { status: "FAILED" } })
+      prisma.emailEvent.count({ where: { status: "FAILED", updatedAt: { gte: recentEmailSince } } })
     ),
     getBackupRecoveryData()
   ]);
@@ -1481,6 +1520,7 @@ export async function getAdminReportsData(input: {
   expenseCategory?: string;
 } = {}) {
   const startedAt = adminPerfNow();
+  await ensureAdminPerformanceIndexes("reports");
   const range = normalizeReportRange(input.range);
   const grouping = normalizeReportGrouping(input.group);
   const dateRange = getReportDateRange(range, input.from, input.to);
@@ -2324,6 +2364,17 @@ function getIstanbulDayStartUtc(date: Date) {
       0
     ) - istanbulOffsetMs
   );
+}
+
+function getAdminCreditsRangeWindow(range: AdminCreditsRange, now: Date) {
+  const dayMs = 86_400_000;
+  const todayStart = getIstanbulDayStartUtc(now);
+
+  if (range === "today") return { start: todayStart, end: null };
+  if (range === "yesterday") return { start: new Date(todayStart.getTime() - dayMs), end: todayStart };
+  if (range === "last24") return { start: new Date(now.getTime() - dayMs), end: null };
+  if (range === "last30") return { start: new Date(todayStart.getTime() - 29 * dayMs), end: null };
+  return { start: new Date(todayStart.getTime() - 6 * dayMs), end: null };
 }
 
 function endOfDay(date: Date) {

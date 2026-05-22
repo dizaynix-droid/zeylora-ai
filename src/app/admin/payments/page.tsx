@@ -2,7 +2,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { AdminPaginationControls, AdminSection, AdminStatusPill, AdminTable, formatAdminDate } from "@/components/admin/admin-ui";
 import { requestWebhookReprocessAction } from "@/lib/admin/actions";
 import { requireAdmin } from "@/lib/admin/auth";
-import { getAdminPaymentDiagnosticsData, getAdminPaymentsData, getAdminPricingData, normalizeAdminPage } from "@/lib/admin/data";
+import { getAdminPackageReadinessData, getAdminPaymentDiagnosticsData, getAdminPaymentsData, normalizeAdminPage } from "@/lib/admin/data";
 import { adminPerfNow, logAdminPerf } from "@/lib/admin/perf";
 
 export const dynamic = "force-dynamic";
@@ -19,8 +19,8 @@ export default async function AdminPaymentsPage({
   const params = await searchParams;
   const page = normalizeAdminPage(params?.page);
   const dataStartedAt = adminPerfNow();
-  const [packages, payments, diagnostics] = await Promise.all([
-    getAdminPricingData(),
+  const [packageReadiness, payments, diagnostics] = await Promise.all([
+    getAdminPackageReadinessData(),
     getAdminPaymentsData({ page }),
     getAdminPaymentDiagnosticsData()
   ]);
@@ -30,7 +30,7 @@ export default async function AdminPaymentsPage({
     totalMs: `${adminPerfNow() - pageStartedAt}ms`,
     page,
     resultCount: payments.items.length,
-    packageCount: packages.length,
+    packageCount: packageReadiness.totalCount,
     webhookEvents: diagnostics.webhookEvents.length,
     diagnosticsFallback: Boolean(diagnostics.diagnosticsError)
   });
@@ -38,7 +38,7 @@ export default async function AdminPaymentsPage({
     { label: "Stripe secret key", ready: diagnostics.stripeSecretConfigured, note: "Checkout session için gerekli." },
     { label: "Stripe webhook secret", ready: diagnostics.stripeWebhookConfigured, note: "Webhook doğrulaması için gerekli." },
     { label: "NEXT_PUBLIC_SITE_URL", ready: diagnostics.siteUrlConfigured, note: "Success/cancel URL ve canonical domain için gerekli." },
-    { label: "Aktif kredi paketleri", ready: packages.some((pack) => pack.status === "ACTIVE"), note: "Public paketlerin aktif olması gerekir." },
+    { label: "Aktif kredi paketleri", ready: packageReadiness.activeCount > 0, note: "Public paketlerin aktif olması gerekir." },
     { label: "Checkout endpoint", ready: diagnostics.checkoutEndpointReady, note: "/api/v1/billing/checkout" },
     { label: "Webhook endpoint", ready: diagnostics.webhookEndpointReady, note: "/api/v1/billing/webhook" },
     { label: "Duplicate koruması", ready: diagnostics.idempotencyReady && !diagnostics.duplicateSessionRisk, note: "Stripe event id ve payment status ile çift kredi önlenir." }
@@ -59,7 +59,8 @@ export default async function AdminPaymentsPage({
       <div className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <DiagnosticCard label="Son webhook" value={diagnostics.lastWebhook?.eventType || "Yok"} note={diagnostics.lastWebhook ? `${diagnostics.lastWebhook.status} · ${formatAdminDate(diagnostics.lastWebhook.createdAt)}` : "Henüz Stripe event gelmedi"} tone={diagnostics.lastWebhook?.status === "failed" ? "bad" : "neutral"} />
         <DiagnosticCard label="Son başarılı ödeme" value={diagnostics.lastSuccessfulPayment ? `${diagnostics.lastSuccessfulPayment.amount.toString()} ${diagnostics.lastSuccessfulPayment.currency.toUpperCase()}` : "$0.00"} note={diagnostics.lastSuccessfulPayment?.user.email || "Başarılı ödeme yok"} tone={diagnostics.lastSuccessfulPayment ? "good" : "neutral"} />
-        <DiagnosticCard label="Hatalı/iptal ödeme" value={diagnostics.failedPaymentCount} note="FAILED + CANCELLED kayıtları" tone={diagnostics.failedPaymentCount > 0 ? "warn" : "good"} />
+        <DiagnosticCard label="Hatalı/iptal ödeme" value={diagnostics.failedPaymentCount} note="Son 30 gün FAILED + CANCELLED" tone={diagnostics.failedPaymentCount > 0 ? "warn" : "good"} />
+        <DiagnosticCard label="Ledger eksik" value={diagnostics.missingLedgerPaymentCount} note="Son 30 gün PAID ama defter satırı yok" tone={diagnostics.missingLedgerPaymentCount > 0 ? "bad" : "good"} />
         <DiagnosticCard label="Idempotency" value={diagnostics.duplicateSessionRisk ? "Risk" : "Hazır"} note="Aynı session/event iki kez kredi yazmamalı" tone={diagnostics.duplicateSessionRisk ? "bad" : "good"} />
       </div>
 
