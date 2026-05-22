@@ -3,47 +3,11 @@
 import { ChangeEvent, FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AlertCircle, Bell, CheckCircle2, Clock, CreditCard, Download, FileText, HelpCircle, Loader2, MailCheck, ReceiptText, Settings, Shield, ShieldCheck, Trash2, UploadCloud, UserCircle, XCircle } from "lucide-react";
+import { Bell, CheckCircle2, CreditCard, Download, FileText, HelpCircle, Loader2, MailCheck, ReceiptText, Settings, Shield, ShieldCheck, Trash2, UploadCloud, UserCircle } from "lucide-react";
 import { CheckoutButton } from "@/components/billing/checkout-button";
 import { trackEvent } from "@/lib/analytics/events";
 import { releaseMobileInputViewport } from "@/lib/dom/mobile-viewport";
 import { VerifyAction, VerifyBadge, VerifyPanel } from "@/components/verify-ui/core";
-
-type VerificationJob = {
-  id: string;
-  status: string;
-  originalFilename: string | null;
-  totalEmails: number;
-  uniqueEmails: number;
-  syntaxInvalidCount: number;
-  processedCount: number;
-  failedBatchCount: number;
-  validCount: number;
-  invalidCount: number;
-  riskyCount: number;
-  catchAllCount: number;
-  disposableCount: number;
-  unknownCount: number;
-  creditsUsed: number;
-  creditsReserved: number;
-  providerKey: string;
-  progressPercent: number;
-  createdAt: string;
-  completedAt: string | null;
-  errorMessage: string | null;
-  validExportStorageKey?: string | null;
-  fullReportStorageKey?: string | null;
-};
-
-type Pagination = {
-  page: number;
-  totalPages: number;
-  total: number;
-  hasPrevious: boolean;
-  hasNext: boolean;
-  from: number;
-  to: number;
-};
 
 type Package = {
   id: string;
@@ -70,22 +34,14 @@ const MAX_EMAILS_PER_JOB = 50_000;
 export function VerificationDashboardClient({
   email,
   creditBalance,
-  packages,
-  initialJobs = [],
-  initialPagination = null
+  packages
 }: {
   email: string;
   creditBalance: number;
   packages: Package[];
-  initialJobs?: VerificationJob[];
-  initialPagination?: Pagination | null;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [jobs, setJobs] = useState<VerificationJob[]>(initialJobs);
-  const [pagination, setPagination] = useState<Pagination | null>(initialPagination);
-  const [jobsPage, setJobsPage] = useState(1);
-  const [jobsStatus, setJobsStatus] = useState<"loading" | "ready" | "error">(initialJobs.length > 0 ? "ready" : "loading");
   const [file, setFile] = useState<File | null>(null);
   const [emails, setEmails] = useState("");
   const [submitStatus, setSubmitStatus] = useState<"idle" | "running" | "error" | "success">("idle");
@@ -101,40 +57,6 @@ export function VerificationDashboardClient({
     const matches = emails.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) ?? [];
     return new Set(matches.map((item) => item.toLowerCase())).size;
   }, [emails]);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function loadJobs() {
-      try {
-        const response = await fetch(`/api/v1/verification/jobs?page=${jobsPage}&pageSize=5`, { cache: "no-store" });
-        const payload = await response.json();
-        if (!payload?.ok) throw new Error(payload?.error || "Jobs could not be loaded.");
-        if (!cancelled) {
-          setJobs(payload.jobs || []);
-          setPagination(payload.pagination || null);
-          setJobsStatus("ready");
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setJobsStatus("error");
-          setMessage(error instanceof Error ? error.message : "Jobs could not be loaded.");
-        }
-      }
-    }
-    void loadJobs();
-    return () => {
-      cancelled = true;
-    };
-  }, [jobsPage, submitStatus, refreshTick]);
-
-  useEffect(() => {
-    const hasActiveJob = jobs.some((job) => job.status === "QUEUED" || job.status === "PROCESSING");
-    if (!hasActiveJob) return;
-    const interval = window.setInterval(() => {
-      setRefreshTick((tick) => tick + 1);
-    }, 5000);
-    return () => window.clearInterval(interval);
-  }, [jobs]);
 
   useEffect(() => {
     let cancelled = false;
@@ -299,7 +221,6 @@ export function VerificationDashboardClient({
       setFile(null);
       setEmails("");
       setIdempotencyKey(createIdempotencyKey());
-      setJobsPage(1);
       if (payload?.job?.id) {
         releaseMobileInputViewport();
         router.push(`/dashboard/jobs/${payload.job.id}`);
@@ -339,28 +260,11 @@ export function VerificationDashboardClient({
     setIdempotencyKey(createIdempotencyKey());
   }
 
-  const completedJobs = jobs.filter((job) => job.status === "COMPLETED");
-  const activeJobs = jobs.filter((job) => job.status === "QUEUED" || job.status === "PROCESSING");
-  const latestActiveJob = activeJobs[0] ?? null;
-  const readyDownloads = jobs.filter((job) => Boolean(job.fullReportStorageKey) && ["COMPLETED", "PARTIAL_FAILED", "CANCELED", "CANCELLED"].includes(job.status)).length;
-  const failedJobs = jobs.filter((job) => job.status === "FAILED" || job.status === "PARTIAL_FAILED").length;
-  const totalVerified = completedJobs.reduce((sum, job) => sum + job.uniqueEmails, 0);
-  const validRate =
-    totalVerified > 0 ? Math.round((completedJobs.reduce((sum, job) => sum + job.validCount, 0) / totalVerified) * 100) : 0;
-  const riskyRemoved = completedJobs.reduce((sum, job) => sum + job.invalidCount + job.riskyCount + job.catchAllCount + job.disposableCount, 0);
   const postVerifyBalance = !file && estimatedEmails > 0 ? Math.max(0, displayCreditBalance - estimatedEmails) : null;
 
   return (
     <div className="grid gap-6">
-      <WorkspaceCommandCenter
-        creditBalance={displayCreditBalance}
-        totalVerified={totalVerified}
-        validRate={validRate}
-        riskyRemoved={riskyRemoved}
-        readyDownloads={readyDownloads}
-        failedJobs={failedJobs}
-        activeJob={latestActiveJob}
-      />
+      <WorkspaceCommandCenter creditBalance={displayCreditBalance} packageCount={packages.length} />
 
       <section id="verify" className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <VerifyPanel className="overflow-hidden">
@@ -433,7 +337,7 @@ export function VerificationDashboardClient({
 
         <div className="grid gap-5">
           <UploadGuidancePanel />
-          <QuickCreditPanel packages={packages} creditBalance={displayCreditBalance} />
+          <QuickCreditPanel creditBalance={displayCreditBalance} />
         </div>
       </section>
 
@@ -496,13 +400,13 @@ export function VerificationDashboardClient({
         <VerifyPanel className="p-5 md:p-6">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <VerifyBadge>Recommended packages</VerifyBadge>
-              <h3 className="mt-3 text-xl font-semibold tracking-[-0.02em] text-slate-950">Continue verification without leaving the workflow.</h3>
+              <VerifyBadge>All packages</VerifyBadge>
+              <h3 className="mt-3 text-xl font-semibold tracking-[-0.02em] text-slate-950">Choose the right verification volume.</h3>
             </div>
             <ReceiptText className="hidden text-slate-300 sm:block" size={28} />
           </div>
-          <div className="mt-5 grid gap-3">
-            {packages.slice(0, 4).map((pack) => (
+          <div className="mt-5 grid gap-3 2xl:grid-cols-2">
+            {packages.map((pack) => (
               <div key={pack.id} className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 sm:grid-cols-[1fr_auto] sm:items-center">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
@@ -521,61 +425,12 @@ export function VerificationDashboardClient({
                 </div>
               </div>
             ))}
-          </div>
-        </VerifyPanel>
-      </section>
-
-      <section id="jobs">
-        <VerifyPanel className="p-4 md:p-6">
-          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-            <div>
-              <VerifyBadge>Jobs / History</VerifyBadge>
-              <h2 className="mt-3 text-2xl font-semibold tracking-[-0.02em] text-slate-950">Recent verification jobs</h2>
-            </div>
-            {pagination ? (
-              <p className="text-sm font-medium text-slate-500">
-                Showing {pagination.from}-{pagination.to} of {pagination.total}
-              </p>
-            ) : null}
-          </div>
-
-          <div className="mt-5 grid gap-3">
-            {jobsStatus === "loading" ? <p className="text-sm font-semibold text-slate-500">Loading jobs...</p> : null}
-            {jobsStatus === "ready" && jobs.length === 0 ? (
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-6 text-center">
-                <ShieldCheck className="mx-auto text-blue-700" size={34} />
-                <p className="mt-3 text-lg font-semibold text-slate-950">No verification jobs yet</p>
-                <p className="mt-2 text-sm text-slate-500">Upload a CSV or paste emails to create your first clean list.</p>
+            {packages.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-5 text-sm font-semibold text-slate-500">
+                Verification packages will appear here when pricing is configured.
               </div>
             ) : null}
-            {jobs.map((job) => (
-              <JobRow key={job.id} job={job} />
-            ))}
           </div>
-
-          {pagination && pagination.totalPages > 1 ? (
-            <div className="mt-5 flex items-center justify-between">
-              <button
-                type="button"
-                onClick={() => setJobsPage((page) => Math.max(1, page - 1))}
-                disabled={!pagination.hasPrevious}
-                className="rounded-md border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-900 disabled:opacity-40"
-              >
-                Previous
-              </button>
-              <p className="text-sm font-medium text-slate-500">
-                Page {pagination.page} / {pagination.totalPages}
-              </p>
-              <button
-                type="button"
-                onClick={() => setJobsPage((page) => page + 1)}
-                disabled={!pagination.hasNext}
-                className="rounded-md border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-900 disabled:opacity-40"
-              >
-                Next
-              </button>
-            </div>
-          ) : null}
         </VerifyPanel>
       </section>
 
@@ -657,82 +512,33 @@ function createIdempotencyKey() {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-function WorkspaceCommandCenter({
-  creditBalance,
-  totalVerified,
-  validRate,
-  riskyRemoved,
-  readyDownloads,
-  failedJobs,
-  activeJob
-}: {
-  creditBalance: number;
-  totalVerified: number;
-  validRate: number;
-  riskyRemoved: number;
-  readyDownloads: number;
-  failedJobs: number;
-  activeJob: VerificationJob | null;
-}) {
+function WorkspaceCommandCenter({ creditBalance, packageCount }: { creditBalance: number; packageCount: number }) {
   return (
     <section id="overview" className="grid gap-4 xl:grid-cols-[minmax(360px,.9fr)_minmax(0,1.1fr)]">
-      <VerifyPanel className={activeJob ? "border-blue-200 bg-blue-50 p-5 md:p-6" : "p-5 md:p-6"}>
-        {activeJob ? <ActiveJobNotice job={activeJob} compact /> : <WorkspaceReadyNotice creditBalance={creditBalance} />}
+      <VerifyPanel className="p-5 md:p-6">
+        <WorkspaceReadyNotice creditBalance={creditBalance} />
       </VerifyPanel>
       <VerifyPanel className="p-4 md:p-5">
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
             <VerifyBadge>Workspace summary</VerifyBadge>
-            <h2 className="mt-2 text-xl font-semibold tracking-[-0.02em] text-slate-950">Credits, quality, and downloads at a glance.</h2>
+            <h2 className="mt-2 text-xl font-semibold tracking-[-0.02em] text-slate-950">Everything needed to verify a list, without loading history first.</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Start a new upload here. Job history and CSV downloads now live on a dedicated page so the dashboard opens faster.
+            </p>
           </div>
-          {failedJobs > 0 ? (
-            <Link href="/dashboard#jobs" className="text-sm font-semibold text-rose-700 hover:text-rose-800">
-              {failedJobs} job needs review
-            </Link>
-          ) : null}
+          <Link href="/dashboard/jobs" className="text-sm font-semibold text-blue-700 hover:text-blue-800">
+            Open job history
+          </Link>
         </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <WorkspaceMetric label="Credits" value={creditBalance.toLocaleString()} tone="blue" />
-          <WorkspaceMetric label="Verified" value={totalVerified.toLocaleString()} />
-          <WorkspaceMetric label="Valid rate" value={`${validRate}%`} tone="green" />
-          <WorkspaceMetric label="Risk removed" value={riskyRemoved.toLocaleString()} tone="amber" />
-          <WorkspaceMetric label="Downloads" value={readyDownloads.toLocaleString()} tone={failedJobs > 0 ? "red" : "neutral"} />
+          <WorkspaceMetric label="Packages" value={packageCount.toLocaleString()} tone="green" />
+          <WorkspaceMetric label="Paste max" value={MAX_PASTE_EMAILS.toLocaleString()} />
+          <WorkspaceMetric label="Job max" value={MAX_EMAILS_PER_JOB.toLocaleString()} tone="amber" />
         </div>
       </VerifyPanel>
     </section>
-  );
-}
-
-function ActiveJobNotice({ job, compact = false }: { job: VerificationJob; compact?: boolean }) {
-  const progress = Math.max(5, Math.min(100, job.progressPercent || 5));
-  return (
-    <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-2">
-          <VerifyBadge tone="blue">
-            <Clock className="mr-1" size={13} />
-            Active verification
-          </VerifyBadge>
-          <span className="text-sm font-semibold text-blue-700">{job.status}</span>
-        </div>
-        <h3 className={`${compact ? "text-2xl" : "text-lg"} mt-3 truncate font-semibold tracking-[-0.02em] text-slate-950`}>{job.originalFilename || "Email list"}</h3>
-        <p className="mt-2 text-sm leading-6 text-slate-600">
-          {job.processedCount.toLocaleString()} of {job.uniqueEmails.toLocaleString()} unique emails tracked. Zeylora keeps this running in the background and refreshes the report automatically.
-        </p>
-        <div className="mt-4 h-2 overflow-hidden rounded-full bg-white">
-          <div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: `${progress}%` }} />
-        </div>
-        <p className="mt-2 text-xs font-semibold uppercase tracking-[0.08em] text-blue-700">{progress}% complete</p>
-      </div>
-      <div className="flex flex-wrap gap-2 lg:justify-end">
-        <Link href={`/dashboard/jobs/${job.id}`} className="inline-flex h-10 items-center justify-center rounded-md bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700">
-          View progress
-        </Link>
-        <Link href="/dashboard#jobs" className="inline-flex h-10 items-center justify-center rounded-md border border-blue-200 bg-white px-4 text-sm font-semibold text-blue-700 hover:bg-blue-50">
-          History
-        </Link>
-      </div>
-    </div>
   );
 }
 
@@ -757,7 +563,7 @@ function WorkspaceReadyNotice({ creditBalance }: { creditBalance: number }) {
           <Link href={creditBalance > 0 ? "/dashboard#verify" : "/pricing"} className="inline-flex h-10 items-center justify-center rounded-md bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700">
             {creditBalance > 0 ? "Upload list" : "Buy credits"}
           </Link>
-          <Link href="/dashboard#jobs" className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 hover:bg-slate-50">
+          <Link href="/dashboard/jobs" className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 hover:bg-slate-50">
             View history
           </Link>
         </div>
@@ -793,7 +599,7 @@ function UploadGuidancePanel() {
   );
 }
 
-function QuickCreditPanel({ packages, creditBalance }: { packages: Package[]; creditBalance: number }) {
+function QuickCreditPanel({ creditBalance }: { creditBalance: number }) {
   return (
     <VerifyPanel id="credits" className="p-5 md:p-6">
       <VerifyBadge>Credits</VerifyBadge>
@@ -802,27 +608,12 @@ function QuickCreditPanel({ packages, creditBalance }: { packages: Package[]; cr
         <p className="mt-1 text-3xl font-semibold tracking-tight text-blue-700">{creditBalance.toLocaleString()}</p>
         <p className="mt-1 text-sm text-slate-600">1 credit verifies 1 unique email.</p>
       </div>
-      <div className="mt-4 grid gap-3">
-        {packages.slice(0, 2).map((pack) => (
-          <div key={pack.id} className="rounded-lg border border-slate-200 bg-white p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-base font-semibold text-slate-950">{pack.name}</p>
-                <p className="text-sm font-semibold text-blue-700">{pack.totalCredits.toLocaleString()} verifications</p>
-              </div>
-              <p className="text-lg font-semibold text-slate-950">${pack.price}</p>
-            </div>
-            <CheckoutButton
-              packageId={pack.id}
-              label="Buy credits"
-              className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-blue-600 text-sm font-semibold text-white transition hover:bg-blue-700"
-            />
-          </div>
-        ))}
+      <div className="mt-4 grid gap-2">
+        <VerifyAction href="/dashboard#payments">View packages</VerifyAction>
+        <VerifyAction href="/dashboard/jobs" variant="secondary">
+          Job history
+        </VerifyAction>
       </div>
-      <Link href="/pricing" className="mt-4 inline-flex text-sm font-semibold text-blue-700 hover:text-blue-800">
-        View all packages
-      </Link>
     </VerifyPanel>
   );
 }
@@ -1002,74 +793,6 @@ function TransactionRow({ transaction }: { transaction: CreditTransaction }) {
   );
 }
 
-function JobRow({ job }: { job: VerificationJob }) {
-  const completed = job.status === "COMPLETED";
-  const canceled = job.status === "CANCELED" || job.status === "CANCELLED";
-  const partial = job.status === "PARTIAL_FAILED" || canceled;
-  const failed = job.status === "FAILED" || job.status === "PARTIAL_FAILED";
-  const active = job.status === "QUEUED" || job.status === "PROCESSING";
-  const downloadable = completed || ((partial || failed) && Boolean(job.fullReportStorageKey) && job.processedCount > 0);
-
-  return (
-    <div className="grid gap-4 rounded-lg border border-slate-200 bg-white p-4 lg:grid-cols-[1fr_auto] lg:items-center">
-      <div>
-        <div className="flex flex-wrap items-center gap-2">
-          <VerifyBadge tone={completed ? "green" : failed || canceled ? "red" : "blue"}>
-            {completed ? <CheckCircle2 className="mr-1" size={13} /> : failed || canceled ? <XCircle className="mr-1" size={13} /> : <Loader2 className="mr-1 animate-spin" size={13} />}
-            {job.status}
-          </VerifyBadge>
-          <p className="text-sm font-medium text-slate-500">{new Date(job.createdAt).toLocaleString()}</p>
-          {job.originalFilename ? <p className="text-sm font-medium text-slate-600">{job.originalFilename}</p> : null}
-        </div>
-        <div className="mt-3 grid gap-2 text-sm md:grid-cols-6">
-          <Count label="Unique" value={job.uniqueEmails} />
-          <Count label="Processed" value={job.processedCount} />
-          <Count label="Valid" value={job.validCount} tone="good" />
-          <Count label="Invalid" value={job.invalidCount} tone="bad" />
-          <Count label="Risky" value={job.riskyCount + job.catchAllCount} tone="warn" />
-          <Count label="Failed" value={job.failedBatchCount + job.syntaxInvalidCount} tone={job.failedBatchCount + job.syntaxInvalidCount > 0 ? "bad" : undefined} />
-        </div>
-        {active ? (
-          <div className="mt-3">
-            <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
-              <span>{job.status === "QUEUED" ? "Queued for processing" : "Processing in chunks"}</span>
-              <span>{Math.max(0, Math.min(100, job.progressPercent || 0))}%</span>
-            </div>
-            <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
-              <div
-                className="h-full rounded-full bg-blue-600 transition-all"
-                style={{ width: `${Math.max(5, Math.min(100, job.progressPercent || 5))}%` }}
-              />
-            </div>
-          </div>
-        ) : null}
-        {job.errorMessage ? (
-          <p className="mt-3 inline-flex items-center text-sm font-semibold text-rose-700">
-            <AlertCircle className="mr-2" size={15} />
-            {job.errorMessage}
-          </p>
-        ) : null}
-      </div>
-      <div className="flex flex-wrap gap-2 lg:justify-end">
-        <Link href={`/dashboard/jobs/${job.id}`} className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 px-4 text-sm font-semibold text-slate-900 hover:bg-slate-50">
-          View report
-        </Link>
-        {failed ? (
-          <Link href={`/dashboard/support?jobId=${job.id}`} className="inline-flex h-10 items-center justify-center rounded-md border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-700 hover:bg-rose-100">
-            Get help
-          </Link>
-        ) : null}
-        {downloadable ? (
-          <>
-            {job.validExportStorageKey ? <DownloadLink jobId={job.id} type="valid" label={completed ? "Valid CSV" : "Partial valid CSV"} /> : null}
-            <DownloadLink jobId={job.id} type="full" label={completed ? "Full report" : "Partial report"} />
-          </>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
 function transactionLabel(type: string) {
   if (type === "PURCHASE") return "Credit purchase";
   if (type === "USE") return "Verification usage";
@@ -1088,33 +811,4 @@ function formatBytes(value: number | null | undefined) {
   if (!value) return "0 KB";
   if (value >= 1024 * 1024) return `${(value / 1024 / 1024).toFixed(1)} MB`;
   return `${Math.max(1, Math.round(value / 1024)).toLocaleString()} KB`;
-}
-
-function Count({ label, value, tone }: { label: string; value: number; tone?: "good" | "bad" | "warn" }) {
-  const color = tone === "good" ? "text-emerald-700" : tone === "bad" ? "text-rose-700" : tone === "warn" ? "text-amber-700" : "text-slate-950";
-  return (
-    <div className="rounded-md bg-slate-50 px-3 py-2">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">{label}</p>
-      <p className={`mt-1 text-lg font-semibold ${color}`}>{value.toLocaleString()}</p>
-    </div>
-  );
-}
-
-function DownloadLink({ jobId, type, label }: { jobId: string; type: string; label: string }) {
-  async function download() {
-    const response = await fetch(`/api/v1/verification/jobs/${jobId}/download?type=${type}`, { cache: "no-store" });
-    const payload = await response.json();
-    if (payload?.url) window.location.href = payload.url;
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={download}
-      className="inline-flex h-10 items-center justify-center rounded-md bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700"
-    >
-      <Download className="mr-2" size={15} />
-      {label}
-    </button>
-  );
 }

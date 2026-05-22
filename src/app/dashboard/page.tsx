@@ -62,8 +62,6 @@ export default async function DashboardPage() {
           totalCredits: pack.totalCredits,
           badgeText: pack.badgeText
         }))}
-        initialJobs={[]}
-        initialPagination={null}
       />
     </AppShell>
   );

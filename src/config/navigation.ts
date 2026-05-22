@@ -6,9 +6,10 @@ export const marketingNav = [
 ] as const;
 
 export const dashboardNav = [
+  { label: "Homepage", href: "/" },
   { label: "Overview", href: "/dashboard#overview" },
   { label: "Verify List", href: "/dashboard#verify" },
-  { label: "Job History", href: "/dashboard#jobs" },
+  { label: "Job History", href: "/dashboard/jobs" },
   { label: "Verification Credits", href: "/dashboard#credits" },
   { label: "Payments", href: "/dashboard#payments" },
   { label: "Support Tickets", href: "/dashboard/support" },

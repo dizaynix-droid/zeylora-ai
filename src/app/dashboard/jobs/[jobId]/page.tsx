@@ -123,7 +123,7 @@ export default async function VerificationJobPage({
               </p>
             </div>
             <div className="grid gap-2 sm:flex sm:flex-wrap">
-              <Link href="/dashboard#jobs" className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50">
+              <Link href="/dashboard/jobs" className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50">
                 Back to history
               </Link>
               <Link href={`/dashboard/support?jobId=${job.id}`} className="inline-flex min-h-10 items-center justify-center rounded-md border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100">
