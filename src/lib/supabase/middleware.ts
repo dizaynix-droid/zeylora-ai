@@ -27,7 +27,7 @@ export async function updateSession(request: NextRequest) {
   const hasAuthCookie = request.cookies.getAll().some((cookie) => cookie.name.includes("auth-token"));
 
   if (hasAuthCookie) {
-    await supabase.auth.getClaims();
+    await supabase.auth.getUser();
   }
 
   if (process.env.NODE_ENV === "development") {
