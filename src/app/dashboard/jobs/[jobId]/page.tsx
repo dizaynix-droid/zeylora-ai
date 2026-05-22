@@ -116,7 +116,7 @@ export default async function VerificationJobPage({
         <VerifyPanel className="min-w-0 max-w-full overflow-hidden p-4 sm:p-5 md:p-7">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-blue-700">{job.providerKey}</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-blue-700">Email verification</p>
               <h2 className="mt-2 break-words text-2xl font-semibold tracking-[-0.03em] text-slate-950 sm:text-3xl">{job.originalFilename || "Pasted email list"}</h2>
               <p className="mt-2 text-sm font-semibold text-slate-500">
                 {job.status} · {job.uniqueEmails.toLocaleString()} unique emails · {job.creditsUsed || job.creditsReserved} credits

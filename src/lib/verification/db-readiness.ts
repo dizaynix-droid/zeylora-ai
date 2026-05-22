@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db";
 
 let readinessPromise: Promise<void> | null = null;
 
-const statements = [
+const criticalStatements = [
   `DO $$ BEGIN
     CREATE TYPE "VerificationJobStatus" AS ENUM ('DRAFT','QUEUED','PROCESSING','COMPLETED','FAILED','PARTIAL_FAILED','CANCELED','CANCELLED');
   EXCEPTION WHEN duplicate_object THEN NULL;
@@ -145,6 +145,11 @@ const statements = [
   `ALTER TABLE "VerificationJob" ADD COLUMN IF NOT EXISTS "deletedAt" TIMESTAMP(3)`,
   `ALTER TABLE "VerificationJob" ADD COLUMN IF NOT EXISTS "startedAt" TIMESTAMP(3)`,
   `ALTER TABLE "VerificationJob" ADD COLUMN IF NOT EXISTS "completedAt" TIMESTAMP(3)`,
+  `ALTER TABLE "VerificationJob" ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP`,
+  `ALTER TABLE "VerificationJob" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP`,
+  `ALTER TABLE "VerificationEmailResult" ADD COLUMN IF NOT EXISTS "email" TEXT NOT NULL DEFAULT ''`,
+  `ALTER TABLE "VerificationEmailResult" ADD COLUMN IF NOT EXISTS "normalizedEmail" TEXT NOT NULL DEFAULT ''`,
+  `ALTER TABLE "VerificationEmailResult" ADD COLUMN IF NOT EXISTS "status" "VerificationEmailStatus" NOT NULL DEFAULT 'UNKNOWN'`,
   `ALTER TABLE "VerificationEmailResult" ADD COLUMN IF NOT EXISTS "reason" TEXT`,
   `ALTER TABLE "VerificationEmailResult" ADD COLUMN IF NOT EXISTS "domain" TEXT`,
   `ALTER TABLE "VerificationEmailResult" ADD COLUMN IF NOT EXISTS "mxFound" BOOLEAN`,
@@ -152,12 +157,57 @@ const statements = [
   `ALTER TABLE "VerificationEmailResult" ADD COLUMN IF NOT EXISTS "roleBased" BOOLEAN`,
   `ALTER TABLE "VerificationEmailResult" ADD COLUMN IF NOT EXISTS "freeProvider" BOOLEAN`,
   `ALTER TABLE "VerificationEmailResult" ADD COLUMN IF NOT EXISTS "rawJson" JSONB`,
+  `ALTER TABLE "VerificationEmailResult" ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP`,
+  `ALTER TABLE "VerificationBatch" ADD COLUMN IF NOT EXISTS "verificationJobId" TEXT NOT NULL DEFAULT ''`,
+  `ALTER TABLE "VerificationBatch" ADD COLUMN IF NOT EXISTS "batchIndex" INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE "VerificationBatch" ADD COLUMN IF NOT EXISTS "status" TEXT NOT NULL DEFAULT 'PENDING'`,
+  `ALTER TABLE "VerificationBatch" ADD COLUMN IF NOT EXISTS "emailStart" INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE "VerificationBatch" ADD COLUMN IF NOT EXISTS "emailEnd" INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE "VerificationBatch" ADD COLUMN IF NOT EXISTS "emailCount" INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE "VerificationBatch" ADD COLUMN IF NOT EXISTS "attemptCount" INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE "VerificationBatch" ADD COLUMN IF NOT EXISTS "processedCount" INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE "VerificationBatch" ADD COLUMN IF NOT EXISTS "validCount" INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE "VerificationBatch" ADD COLUMN IF NOT EXISTS "invalidCount" INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE "VerificationBatch" ADD COLUMN IF NOT EXISTS "riskyCount" INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE "VerificationBatch" ADD COLUMN IF NOT EXISTS "catchAllCount" INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE "VerificationBatch" ADD COLUMN IF NOT EXISTS "disposableCount" INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE "VerificationBatch" ADD COLUMN IF NOT EXISTS "unknownCount" INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE "VerificationBatch" ADD COLUMN IF NOT EXISTS "errorMessage" TEXT`,
+  `ALTER TABLE "VerificationBatch" ADD COLUMN IF NOT EXISTS "startedAt" TIMESTAMP(3)`,
+  `ALTER TABLE "VerificationBatch" ADD COLUMN IF NOT EXISTS "completedAt" TIMESTAMP(3)`,
+  `ALTER TABLE "VerificationBatch" ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP`,
+  `ALTER TABLE "VerificationBatch" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP`,
   `ALTER TABLE "CreditTransaction" ADD COLUMN IF NOT EXISTS "verificationJobId" TEXT`,
   `DO $$ BEGIN
     IF to_regclass('"Ticket"') IS NOT NULL THEN
       ALTER TABLE "Ticket" ADD COLUMN IF NOT EXISTS "verificationJobId" TEXT;
     END IF;
   END $$`,
+  `DELETE FROM "VerificationEmailResult" newer
+    USING "VerificationEmailResult" older
+    WHERE newer."verificationJobId" = older."verificationJobId"
+      AND newer."normalizedEmail" = older."normalizedEmail"
+      AND (newer."createdAt", newer."id") > (older."createdAt", older."id")`,
+  `DELETE FROM "VerificationBatch" newer
+    USING "VerificationBatch" older
+    WHERE newer."verificationJobId" = older."verificationJobId"
+      AND newer."batchIndex" = older."batchIndex"
+      AND (newer."createdAt", newer."id") > (older."createdAt", older."id")`,
+  `WITH duplicate_jobs AS (
+    SELECT
+      "id",
+      row_number() OVER (
+        PARTITION BY "userId", "providerRequestId"
+        ORDER BY "createdAt" DESC, "id" DESC
+      ) AS duplicate_rank
+    FROM "VerificationJob"
+    WHERE "providerRequestId" IS NOT NULL
+  )
+  UPDATE "VerificationJob" job
+  SET "providerRequestId" = CONCAT(job."providerRequestId", ':legacy-duplicate:', job."id")
+  FROM duplicate_jobs
+  WHERE job."id" = duplicate_jobs."id"
+    AND duplicate_jobs.duplicate_rank > 1`,
   `CREATE INDEX IF NOT EXISTS "VerificationJob_userId_status_createdAt_idx" ON "VerificationJob"("userId", "status", "createdAt")`,
   `CREATE INDEX IF NOT EXISTS "VerificationJob_userId_createdAt_idx" ON "VerificationJob"("userId", "createdAt")`,
   `CREATE INDEX IF NOT EXISTS "VerificationJob_status_createdAt_idx" ON "VerificationJob"("status", "createdAt")`,
@@ -165,9 +215,11 @@ const statements = [
   `CREATE INDEX IF NOT EXISTS "VerificationJob_completedAt_idx" ON "VerificationJob"("completedAt")`,
   `CREATE INDEX IF NOT EXISTS "VerificationJob_createdAt_status_idx" ON "VerificationJob"("createdAt", "status")`,
   `CREATE INDEX IF NOT EXISTS "VerificationJob_userId_providerRequestId_idx" ON "VerificationJob"("userId", "providerRequestId")`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "VerificationJob_userId_providerRequestId_key" ON "VerificationJob"("userId", "providerRequestId") WHERE "providerRequestId" IS NOT NULL`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "VerificationBatch_verificationJobId_batchIndex_key" ON "VerificationBatch"("verificationJobId", "batchIndex")`,
   `CREATE INDEX IF NOT EXISTS "VerificationBatch_verificationJobId_status_batchIndex_idx" ON "VerificationBatch"("verificationJobId", "status", "batchIndex")`,
   `CREATE INDEX IF NOT EXISTS "VerificationBatch_status_updatedAt_idx" ON "VerificationBatch"("status", "updatedAt")`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "VerificationEmailResult_verificationJobId_normalizedEmail_key" ON "VerificationEmailResult"("verificationJobId", "normalizedEmail")`,
   `CREATE INDEX IF NOT EXISTS "VerificationEmailResult_verificationJobId_status_idx" ON "VerificationEmailResult"("verificationJobId", "status")`,
   `CREATE INDEX IF NOT EXISTS "VerificationEmailResult_verificationJobId_createdAt_idx" ON "VerificationEmailResult"("verificationJobId", "createdAt")`,
   `CREATE INDEX IF NOT EXISTS "VerificationEmailResult_verificationJobId_status_createdAt_idx" ON "VerificationEmailResult"("verificationJobId", "status", "createdAt")`,
@@ -178,7 +230,10 @@ const statements = [
     IF to_regclass('"Ticket"') IS NOT NULL THEN
       CREATE INDEX IF NOT EXISTS "Ticket_verificationJobId_idx" ON "Ticket"("verificationJobId");
     END IF;
-  END $$`,
+  END $$`
+];
+
+const bestEffortConstraintStatements = [
   `DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'VerificationJob_userId_fkey') THEN
       ALTER TABLE "VerificationJob" ADD CONSTRAINT "VerificationJob_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -236,15 +291,64 @@ async function runReadiness(traceId: string) {
     return;
   }
 
-  for (const statement of statements) {
-    await prisma.$executeRawUnsafe(statement);
+  let criticalStatementCount = 0;
+  for (const statement of criticalStatements) {
+    criticalStatementCount += 1;
+    await executeReadinessStatement(statement, {
+      traceId,
+      phase: "critical",
+      index: criticalStatementCount,
+      required: true
+    });
   }
+
+  const repairedReady = await hasRequiredVerificationSchema();
+  if (!repairedReady) {
+    throw new Error("Verification schema repair finished but required tables or columns are still missing.");
+  }
+
+  let bestEffortStatementCount = 0;
+  for (const statement of bestEffortConstraintStatements) {
+    bestEffortStatementCount += 1;
+    await executeReadinessStatement(statement, {
+      traceId,
+      phase: "constraint",
+      index: bestEffortStatementCount,
+      required: false
+    });
+  }
+
   console.info("[verification-db-ready]", {
     traceId,
     mode: "repair",
-    statementCount: statements.length,
+    statementCount: criticalStatements.length + bestEffortConstraintStatements.length,
+    criticalStatementCount,
+    bestEffortStatementCount,
     durationMs: Date.now() - startedAt
   });
+}
+
+async function executeReadinessStatement(
+  statement: string,
+  input: { traceId: string; phase: "critical" | "constraint"; index: number; required: boolean }
+) {
+  try {
+    await prisma.$executeRawUnsafe(statement);
+  } catch (error) {
+    console.error("[verification-db-readiness-statement-failed]", {
+      traceId: input.traceId,
+      phase: input.phase,
+      index: input.index,
+      required: input.required,
+      statement: summarizeSql(statement),
+      message: error instanceof Error ? error.message : "Schema readiness statement failed",
+      stack: error instanceof Error ? error.stack : null
+    });
+
+    if (input.required) {
+      throw error;
+    }
+  }
 }
 
 async function hasRequiredVerificationSchema() {
@@ -259,10 +363,12 @@ async function hasRequiredVerificationSchema() {
     "costPerVerificationAtRun",
     "processedCount",
     "syntaxInvalidCount",
-    "failedBatchCount"
+    "failedBatchCount",
+    "createdAt",
+    "updatedAt"
   ];
-  const requiredResultColumns = ["normalizedEmail", "status", "rawJson"];
-  const requiredBatchColumns = ["verificationJobId", "batchIndex", "status", "emailStart", "emailEnd", "attemptCount"];
+  const requiredResultColumns = ["email", "normalizedEmail", "status", "rawJson", "createdAt"];
+  const requiredBatchColumns = ["verificationJobId", "batchIndex", "status", "emailStart", "emailEnd", "emailCount", "attemptCount", "createdAt", "updatedAt"];
   const rows = await prisma.$queryRawUnsafe<Array<{ ready: boolean }>>(
     `SELECT (
       to_regclass('"VerificationJob"') IS NOT NULL
@@ -312,4 +418,8 @@ async function hasRequiredVerificationSchema() {
   );
 
   return Boolean(rows[0]?.ready);
+}
+
+function summarizeSql(statement: string) {
+  return statement.replace(/\s+/g, " ").trim().slice(0, 220);
 }

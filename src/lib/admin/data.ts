@@ -2,7 +2,6 @@ import { prisma } from "@/lib/db";
 import { creditPackages } from "@/config/pricing";
 import { aiAdCreativeConfig, aiBackgroundReplacerConfig, objectRemoverConfig } from "@/config/ai-tools";
 import { resolveToolEconomy } from "@/config/tool-economy";
-import { ensureLaunchCreditPackageDefaults } from "@/lib/pricing/packages";
 import { adminPerfNow, logAdminPerf, measureAdminQuery } from "@/lib/admin/perf";
 import { getOperationalSettings } from "@/lib/settings/operations";
 import { getMarketingTrackingSettings } from "@/lib/settings/marketing";
@@ -561,7 +560,6 @@ async function ensureAdminGenerativeTool(input: {
 
 export async function getAdminPricingData() {
   const startedAt = adminPerfNow();
-  await ensureLaunchCreditPackageDefaults();
   const packages = await measureAdminQuery(
     "pricing.packages.list",
     prisma.creditPackage.findMany({
@@ -590,12 +588,38 @@ export async function getAdminPricingData() {
   const result = dedupeCreditPackages(sourcePackages);
   logAdminPerf("admin.pricing.data", {
     duration: `${adminPerfNow() - startedAt}ms`,
-    queryCount: 2,
+    queryCount: 1,
     resultCount: result.length,
     source: packages.length ? "db" : "fallback"
   });
 
   return result;
+}
+
+export async function getAdminPackageReadinessData() {
+  const startedAt = adminPerfNow();
+  const packages = await measureAdminQuery(
+    "pricing.packages.readiness",
+    prisma.creditPackage.findMany({
+      where: { deletedAt: null },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      take: 25,
+      select: { id: true, status: true }
+    }),
+    { take: 25 }
+  ).catch(() => []);
+  const activeCount = packages.filter((pack) => pack.status === "ACTIVE").length;
+  logAdminPerf("admin.pricing.readiness", {
+    duration: `${adminPerfNow() - startedAt}ms`,
+    queryCount: 1,
+    activeCount,
+    totalCount: packages.length
+  });
+
+  return {
+    activeCount,
+    totalCount: packages.length
+  };
 }
 
 export async function getAdminCreditsData(input: { page?: number; pageSize?: number } = {}) {
@@ -607,62 +631,64 @@ export async function getAdminCreditsData(input: { page?: number; pageSize?: num
     createdAt: { gte: todayStart }
   };
 
-  const [transactions, totalTransactions, totals] = await Promise.all([
-    measureAdminQuery(
-      "credits.transactions.list",
-      prisma.creditTransaction.findMany({
-        where,
-        orderBy: { createdAt: "desc" },
-        skip: getSkip(page, pageSize),
-        take: pageSize,
-        select: {
-          id: true,
-          type: true,
-          amount: true,
-          balanceAfter: true,
-          note: true,
-          createdAt: true,
-          user: { select: { email: true } },
-          verificationJob: { select: { id: true, originalFilename: true, uniqueEmails: true } },
-          payment: { select: { id: true, amount: true, currency: true } }
-        }
-      }),
-      { page, take: pageSize, since: todayStart.toISOString() }
-    ),
-    measureAdminQuery("credits.transactions.count", prisma.creditTransaction.count({ where })),
-    measureAdminQuery(
-      "credits.transactions.totals",
-      prisma.creditTransaction.groupBy({
-        where,
-        by: ["type"],
-        _sum: { amount: true },
-        _count: { _all: true }
-      })
-    )
-  ]);
+  const fetchedTransactions = await measureAdminQuery(
+    "credits.transactions.list",
+    prisma.creditTransaction.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: getSkip(page, pageSize),
+      take: pageSize + 1,
+      select: {
+        id: true,
+        type: true,
+        amount: true,
+        balanceAfter: true,
+        note: true,
+        createdAt: true,
+        user: { select: { email: true } },
+        verificationJob: { select: { id: true, originalFilename: true, uniqueEmails: true } },
+        payment: { select: { id: true, amount: true, currency: true } }
+      }
+    }),
+    { page, take: pageSize + 1, since: todayStart.toISOString() }
+  );
+  const hasNext = fetchedTransactions.length > pageSize;
+  const transactions = fetchedTransactions.slice(0, pageSize);
+  const summary = transactions.reduce(
+    (acc, transaction) => {
+      if (["PURCHASE", "REFUND", "REFERRAL_REWARD"].includes(transaction.type)) {
+        acc.issued += Math.max(0, transaction.amount);
+      }
+      if (transaction.type === "ADMIN_ADJUSTMENT") {
+        acc.manualAdjustments += 1;
+        acc.issued += Math.max(0, transaction.amount);
+      }
+      if (transaction.type === "USE") {
+        acc.used += Math.abs(transaction.amount);
+      }
+      if (transaction.type === "PURCHASE") {
+        acc.purchases += 1;
+      }
+      return acc;
+    },
+    { issued: 0, used: 0, manualAdjustments: 0, purchases: 0 }
+  );
   logAdminPerf("admin.credits.data", {
     duration: `${adminPerfNow() - startedAt}ms`,
-    queryCount: 3,
+    queryCount: 1,
     page,
     take: pageSize,
     resultCount: transactions.length,
-    total: totalTransactions,
+    hasNext,
     since: todayStart.toISOString()
   });
 
   return {
     rangeStart: todayStart,
     transactions,
-    pagination: createPagination({ page, pageSize, total: totalTransactions }),
-    totals,
-    summary: {
-      issued: totals
-        .filter((item) => ["PURCHASE", "ADMIN_ADJUSTMENT", "REFUND", "REFERRAL_REWARD"].includes(item.type))
-        .reduce((sum, item) => sum + Math.max(0, item._sum.amount ?? 0), 0),
-      used: Math.abs(totals.find((item) => item.type === "USE")?._sum.amount ?? 0),
-      manualAdjustments: totals.find((item) => item.type === "ADMIN_ADJUSTMENT")?._count._all ?? 0,
-      purchases: totals.find((item) => item.type === "PURCHASE")?._count._all ?? 0
-    }
+    pagination: createWindowPagination({ page, pageSize, resultCount: transactions.length, hasNext }),
+    totals: [],
+    summary
   };
 }
 
@@ -853,7 +879,7 @@ async function buildAdminPaymentDiagnosticsData() {
     processedAt: true
   } as const;
 
-  const [lastWebhook, webhookEvents, lastSuccessfulPayment, failedPaymentCount, duplicatePayments] = await Promise.all([
+  const [lastWebhook, webhookEvents, lastSuccessfulPayment, failedPaymentCount, recentSessions] = await Promise.all([
     measureAdminQuery(
       "payments.diagnostics.lastWebhook",
       prisma.webhookLog.findFirst({
@@ -899,21 +925,28 @@ async function buildAdminPaymentDiagnosticsData() {
       prisma.payment.count({ where: { deletedAt: null, status: { in: ["FAILED", "CANCELLED"] } } })
     ).catch(() => 0),
     measureAdminQuery(
-      "payments.diagnostics.duplicateSessions",
-      prisma.payment.groupBy({
-        by: ["stripeCheckoutSessionId"],
+      "payments.diagnostics.recentSessions",
+      prisma.payment.findMany({
         where: { stripeCheckoutSessionId: { not: null } },
-        _count: { _all: true },
-        having: { stripeCheckoutSessionId: { _count: { gt: 1 } } },
-        orderBy: { _count: { stripeCheckoutSessionId: "desc" } },
-        take: 1
-      })
+        orderBy: { createdAt: "desc" },
+        take: 200,
+        select: { stripeCheckoutSessionId: true }
+      }),
+      { take: 200 }
     ).catch(() => [])
   ]);
+  const seenSessions = new Set<string>();
+  const duplicateSessionRisk = recentSessions.some((payment) => {
+    const sessionId = payment.stripeCheckoutSessionId;
+    if (!sessionId) return false;
+    if (seenSessions.has(sessionId)) return true;
+    seenSessions.add(sessionId);
+    return false;
+  });
 
   return {
     ...fallback,
-    duplicateSessionRisk: duplicatePayments.length > 0,
+    duplicateSessionRisk,
     lastWebhook,
     webhookEvents,
     lastSuccessfulPayment,
@@ -2343,5 +2376,21 @@ function createPagination(input: { page: number; pageSize: number; total: number
     to,
     hasPrevious: page > 1,
     hasNext: page < totalPages
+  };
+}
+
+function createWindowPagination(input: { page: number; pageSize: number; resultCount: number; hasNext: boolean }): AdminPagination {
+  const from = input.resultCount === 0 ? 0 : (input.page - 1) * input.pageSize + 1;
+  const to = input.resultCount === 0 ? 0 : from + input.resultCount - 1;
+
+  return {
+    page: input.page,
+    pageSize: input.pageSize,
+    total: to,
+    totalPages: input.hasNext ? input.page + 1 : input.page,
+    from,
+    to,
+    hasPrevious: input.page > 1,
+    hasNext: input.hasNext
   };
 }
