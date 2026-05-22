@@ -3,7 +3,6 @@ import { creditPackages } from "@/config/pricing";
 import { aiAdCreativeConfig, aiBackgroundReplacerConfig, objectRemoverConfig } from "@/config/ai-tools";
 import { resolveToolEconomy } from "@/config/tool-economy";
 import { adminPerfNow, logAdminPerf, measureAdminQuery } from "@/lib/admin/perf";
-import { ensureAdminPerformanceIndexes } from "@/lib/admin/readiness";
 import { getOperationalSettings } from "@/lib/settings/operations";
 import { getMarketingTrackingSettings } from "@/lib/settings/marketing";
 import { getBackupRecoveryData } from "@/lib/admin/backup";
@@ -249,7 +248,6 @@ export async function getAdminUsersData(input: {
   pageSize?: number;
 } = {}) {
   const startedAt = adminPerfNow();
-  await ensureAdminPerformanceIndexes("users");
   const query = input.query?.trim();
   const filter = input.filter || "all";
   const page = normalizeAdminPage(input.page);
@@ -283,39 +281,62 @@ export async function getAdminUsersData(input: {
         role: true,
         status: true,
         creditBalance: true,
-        createdAt: true,
-        payments: {
-          where: { deletedAt: null },
-          orderBy: { createdAt: "desc" },
-          take: 1,
-          select: { amount: true, currency: true, status: true, createdAt: true }
-        },
-        verificationJobs: {
-          where: { deletedAt: null },
-          orderBy: { createdAt: "desc" },
-          take: 1,
-          select: { id: true, status: true, uniqueEmails: true, createdAt: true }
-        }
+        createdAt: true
       }
     }),
     { page, take: pageSize + 1, filter, hasQuery: Boolean(query) }
   );
   const hasNext = fetchedUsers.length > pageSize;
   const rawItems = fetchedUsers.slice(0, pageSize);
+  const userIds = rawItems.map((user) => user.id);
+  const [recentPayments, recentVerificationJobs] = userIds.length
+    ? await Promise.all([
+        measureAdminQuery(
+          "users.recentPayments.batch",
+          prisma.payment.findMany({
+            where: { deletedAt: null, userId: { in: userIds } },
+            orderBy: { createdAt: "desc" },
+            take: pageSize * 3,
+            select: { userId: true, amount: true, currency: true, status: true, createdAt: true }
+          }),
+          { page, take: pageSize * 3 }
+        ),
+        measureAdminQuery(
+          "users.recentVerificationJobs.batch",
+          prisma.verificationJob.findMany({
+            where: { deletedAt: null, userId: { in: userIds } },
+            orderBy: { createdAt: "desc" },
+            take: pageSize * 3,
+            select: { userId: true, id: true, status: true, uniqueEmails: true, createdAt: true }
+          }),
+          { page, take: pageSize * 3 }
+        )
+      ])
+    : [[], []] as const;
+  const lastPaymentByUser = new Map<string, (typeof recentPayments)[number]>();
+  for (const payment of recentPayments) {
+    if (!lastPaymentByUser.has(payment.userId)) lastPaymentByUser.set(payment.userId, payment);
+  }
+  const lastVerificationJobByUser = new Map<string, (typeof recentVerificationJobs)[number]>();
+  for (const job of recentVerificationJobs) {
+    if (!lastVerificationJobByUser.has(job.userId)) lastVerificationJobByUser.set(job.userId, job);
+  }
   const items = rawItems.map((user) => ({
     ...user,
+    payments: [],
+    verificationJobs: [],
     _count: {
-      verificationJobs: user.verificationJobs.length,
+      verificationJobs: lastVerificationJobByUser.has(user.id) ? 1 : 0,
       creditTransactions: 0,
-      payments: user.payments.length
+      payments: lastPaymentByUser.has(user.id) ? 1 : 0
     },
-    totalSpend: user.payments[0]?.status === "PAID" ? decimalToNumber(user.payments[0].amount) : 0,
-    lastPayment: user.payments[0] ?? null,
-    lastVerificationJob: user.verificationJobs[0] ?? null
+    totalSpend: lastPaymentByUser.get(user.id)?.status === "PAID" ? decimalToNumber(lastPaymentByUser.get(user.id)?.amount) : 0,
+    lastPayment: lastPaymentByUser.get(user.id) ?? null,
+    lastVerificationJob: lastVerificationJobByUser.get(user.id) ?? null
   }));
   logAdminPerf("admin.users.data", {
     duration: `${adminPerfNow() - startedAt}ms`,
-    queryCount: 1,
+    queryCount: userIds.length ? 3 : 1,
     page,
     take: pageSize,
     filter,
@@ -613,7 +634,6 @@ export function normalizeAdminCreditsRange(value: unknown): AdminCreditsRange {
 
 export async function getAdminCreditsData(input: { page?: number; pageSize?: number; range?: AdminCreditsRange } = {}) {
   const startedAt = adminPerfNow();
-  await ensureAdminPerformanceIndexes("credits");
   const page = normalizeAdminPage(input.page);
   const pageSize = normalizeAdminPageSize(input.pageSize);
   const range = input.range || "last7";
@@ -627,7 +647,7 @@ export async function getAdminCreditsData(input: { page?: number; pageSize?: num
   const paymentCreatedAt: Prisma.DateTimeFilter = { gte: rangeStart };
   if (rangeEnd) paymentCreatedAt.lt = rangeEnd;
 
-  const [fetchedTransactions, totals, missingLedgerPayments] = await Promise.all([
+  const [fetchedTransactions, totals, recentPaidPayments] = await Promise.all([
     measureAdminQuery(
       "credits.transactions.list",
       prisma.creditTransaction.findMany({
@@ -660,17 +680,16 @@ export async function getAdminCreditsData(input: { page?: number; pageSize?: num
       { range, since: rangeStart.toISOString() }
     ).catch(() => []),
     measureAdminQuery(
-      "credits.payments.missingLedger",
+      "credits.payments.recentPaid",
       prisma.payment.findMany({
         where: {
           deletedAt: null,
           status: "PAID",
           creditsDelivered: { gt: 0 },
-          createdAt: paymentCreatedAt,
-          creditTransactions: { none: { type: "PURCHASE" } }
+          createdAt: paymentCreatedAt
         },
         orderBy: { createdAt: "desc" },
-        take: 10,
+        take: 20,
         select: {
           id: true,
           amount: true,
@@ -681,9 +700,22 @@ export async function getAdminCreditsData(input: { page?: number; pageSize?: num
           user: { select: { email: true, creditBalance: true } }
         }
       }),
-      { range, since: rangeStart.toISOString(), take: 10 }
+      { range, since: rangeStart.toISOString(), take: 20 }
     ).catch(() => [])
   ]);
+  const recentPaymentIds = recentPaidPayments.map((payment) => payment.id);
+  const ledgerPaymentIds = recentPaymentIds.length
+    ? await measureAdminQuery(
+        "credits.payments.purchaseLedgerIds",
+        prisma.creditTransaction.findMany({
+          where: { type: "PURCHASE", paymentId: { in: recentPaymentIds } },
+          select: { paymentId: true }
+        }),
+        { range, paymentCount: recentPaymentIds.length }
+      ).catch(() => [])
+    : [];
+  const ledgerPaymentIdSet = new Set(ledgerPaymentIds.map((transaction) => transaction.paymentId).filter(Boolean));
+  const missingLedgerPayments = recentPaidPayments.filter((payment) => !ledgerPaymentIdSet.has(payment.id)).slice(0, 10);
   const hasNext = fetchedTransactions.length > pageSize;
   const transactions = fetchedTransactions.slice(0, pageSize);
   const summary = totals.reduce(
@@ -707,7 +739,7 @@ export async function getAdminCreditsData(input: { page?: number; pageSize?: num
   );
   logAdminPerf("admin.credits.data", {
     duration: `${adminPerfNow() - startedAt}ms`,
-    queryCount: 3,
+    queryCount: recentPaymentIds.length ? 4 : 3,
     page,
     take: pageSize,
     range,
@@ -836,7 +868,6 @@ export async function getAdminLogsData(input: { page?: number; pageSize?: number
 
 export async function getAdminPaymentsData(input: { page?: number; pageSize?: number } = {}) {
   const startedAt = adminPerfNow();
-  await ensureAdminPerformanceIndexes("payments");
   const page = normalizeAdminPage(input.page);
   const pageSize = normalizeAdminPageSize(input.pageSize);
 
@@ -918,7 +949,7 @@ async function buildAdminPaymentDiagnosticsData() {
     processedAt: true
   } as const;
 
-  const [lastWebhook, webhookEvents, lastSuccessfulPayment, failedPaymentCount, missingLedgerPaymentCount] = await Promise.all([
+  const [lastWebhook, webhookEvents, lastSuccessfulPayment, failedPaymentCount, recentPaidPayments] = await Promise.all([
     measureAdminQuery(
       "payments.diagnostics.lastWebhook",
       prisma.webhookLog.findFirst({
@@ -964,19 +995,34 @@ async function buildAdminPaymentDiagnosticsData() {
       prisma.payment.count({ where: { deletedAt: null, status: { in: ["FAILED", "CANCELLED"] }, createdAt: { gte: recentSince } } })
     ).catch(() => 0),
     measureAdminQuery(
-      "payments.diagnostics.missingLedgerCount",
-      prisma.payment.count({
+      "payments.diagnostics.recentPaidForLedger",
+      prisma.payment.findMany({
         where: {
           deletedAt: null,
           status: "PAID",
           creditsDelivered: { gt: 0 },
-          createdAt: { gte: recentSince },
-          creditTransactions: { none: { type: "PURCHASE" } }
-        }
+          createdAt: { gte: recentSince }
+        },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+        select: { id: true }
       }),
-      { since: recentSince.toISOString() }
-    ).catch(() => 0)
+      { since: recentSince.toISOString(), take: 50 }
+    ).catch(() => [])
   ]);
+  const recentPaidPaymentIds = recentPaidPayments.map((payment) => payment.id);
+  const recentPaidLedgerPaymentIds = recentPaidPaymentIds.length
+    ? await measureAdminQuery(
+        "payments.diagnostics.purchaseLedgerIds",
+        prisma.creditTransaction.findMany({
+          where: { type: "PURCHASE", paymentId: { in: recentPaidPaymentIds } },
+          select: { paymentId: true }
+        }),
+        { paymentCount: recentPaidPaymentIds.length }
+      ).catch(() => [])
+    : [];
+  const recentPaidLedgerPaymentIdSet = new Set(recentPaidLedgerPaymentIds.map((transaction) => transaction.paymentId).filter(Boolean));
+  const missingLedgerPaymentCount = recentPaidPaymentIds.filter((paymentId) => !recentPaidLedgerPaymentIdSet.has(paymentId)).length;
 
   return {
     ...fallback,
@@ -1001,7 +1047,6 @@ export async function getAdminAnalyticsData() {
     return cached;
   }
 
-  await ensureAdminPerformanceIndexes("analytics");
   const result = await buildAdminAnalyticsData();
   adminAnalyticsCache = createAdminCacheEntry(result, ADMIN_ANALYTICS_CACHE_TTL_MS);
   return result;
@@ -1272,7 +1317,6 @@ export async function getAdminProvidersData(): Promise<AdminProvider[]> {
   const cached = getAdminCache(adminProvidersCache);
   if (cached) return cached;
 
-  await ensureAdminPerformanceIndexes("providers");
   const startedAt = adminPerfNow();
   const dbProviders = await measureAdminQuery(
     "providers.settings.list",
@@ -1403,7 +1447,6 @@ export async function getAdminProviderMonitoringData() {
 }
 
 export async function getAdminSystemData() {
-  await ensureAdminPerformanceIndexes("system");
   const recentEmailSince = new Date(Date.now() - 30 * 86_400_000);
   const [operations, providers, recentAdminActions, recentSecurityEvents, lastSuccessfulEmail, lastFailedEmail, failedEmailCount, backup] = await Promise.all([
     getOperationalSettings({ bypassCache: true }),
@@ -1520,7 +1563,6 @@ export async function getAdminReportsData(input: {
   expenseCategory?: string;
 } = {}) {
   const startedAt = adminPerfNow();
-  await ensureAdminPerformanceIndexes("reports");
   const range = normalizeReportRange(input.range);
   const grouping = normalizeReportGrouping(input.group);
   const dateRange = getReportDateRange(range, input.from, input.to);
