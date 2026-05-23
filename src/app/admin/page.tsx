@@ -40,9 +40,9 @@ export default async function AdminPage() {
       <div className="grid gap-3 md:grid-cols-3 2xl:grid-cols-5">
         <AdminMetricCard label="Bugünkü gelir" value={formatCurrency(data.cockpit.today.revenue)} note={trendNote(data.cockpit.today.revenue, data.cockpit.yesterday.revenue)} />
         <AdminMetricCard label="Bugünkü ödeme" value={data.cockpit.today.paymentCount} note={`Dünkü gelir: ${formatCurrency(data.cockpit.yesterday.revenue)}`} />
-        <AdminMetricCard label="Bugünkü net kâr" value={formatCurrency(data.cockpit.today.netProfit)} note="Gelir - provider maliyeti - gider" />
+        <AdminMetricCard label="Bugünkü net kâr" value={formatCurrency(data.cockpit.today.netProfit)} note={`Provider: ${formatCurrency(data.cockpit.today.providerCost)} · gider: ${formatCurrency(data.cockpit.today.manualExpenses)}`} />
         <AdminMetricCard label="Bu ay gelir" value={formatCurrency(data.cockpit.thisMonth.revenue)} note={`Son 7 gün: ${formatCurrency(data.cockpit.last7.revenue)}`} />
-        <AdminMetricCard label="Bu ay net kâr" value={formatCurrency(data.cockpit.thisMonth.netProfit)} note={`Son 30 gün: ${formatCurrency(data.cockpit.last30.revenue)}`} />
+        <AdminMetricCard label="Bu ay net kâr" value={formatCurrency(data.cockpit.thisMonth.netProfit)} note={`Gider: ${formatCurrency(data.cockpit.thisMonth.manualExpenses)} · provider: ${formatCurrency(data.cockpit.thisMonth.providerCost)}`} />
       </div>
 
       <div className="mt-3 grid gap-3 md:grid-cols-3 2xl:grid-cols-5">
@@ -179,6 +179,13 @@ function buildAlerts(data: Awaited<ReturnType<typeof getAdminOverviewData>>) {
       label: `${data.cockpit.openTickets} açık ticket var`,
       href: "/admin/tickets?status=OPEN",
       tone: "warn"
+    });
+  }
+  if (data.cockpit.thisMonth.netProfit < 0) {
+    alerts.push({
+      label: `Bu ay net zarar: ${formatCurrency(data.cockpit.thisMonth.netProfit)}`,
+      href: "/admin/reports?range=thisMonth",
+      tone: "bad"
     });
   }
   if (!data.cockpit.operations.checkoutEnabled) {

@@ -80,6 +80,18 @@ async function buildAdminOverviewData() {
   const last30Start = addAdminDays(todayStart, -29);
   const monthStart = getAdminMonthStartUtc(now);
   const cardsStartedAt = adminPerfNow();
+  const completedVerificationJobWhere = (start: Date, end: Date) => ({
+    deletedAt: null,
+    status: "COMPLETED" as const,
+    OR: [
+      { completedAt: { gte: start, lte: end } },
+      { completedAt: null, createdAt: { gte: start, lte: end } }
+    ]
+  });
+  const businessExpenseWhere = (start: Date, end: Date) => ({
+    deletedAt: null,
+    expenseDate: { gte: start, lte: end }
+  });
 
   const overviewPromise = Promise.all([
     measureAdminQuery("overview.users.count", prisma.user.count({ where: { deletedAt: null } })),
@@ -134,15 +146,64 @@ async function buildAdminOverviewData() {
     measureAdminQuery(
       "overview.verificationJobs.today",
       prisma.verificationJob.aggregate({
-        where: {
-          deletedAt: null,
-          status: "COMPLETED",
-          OR: [
-            { completedAt: { gte: todayStart, lte: todayEnd } },
-            { completedAt: null, createdAt: { gte: todayStart, lte: todayEnd } }
-          ]
-        },
+        where: completedVerificationJobWhere(todayStart, todayEnd),
         _sum: { creditsUsed: true, providerCostAtRun: true },
+        _count: { _all: true }
+      })
+    ),
+    measureAdminQuery(
+      "overview.verificationJobs.last7",
+      prisma.verificationJob.aggregate({
+        where: completedVerificationJobWhere(last7Start, todayEnd),
+        _sum: { creditsUsed: true, providerCostAtRun: true },
+        _count: { _all: true }
+      })
+    ),
+    measureAdminQuery(
+      "overview.verificationJobs.last30",
+      prisma.verificationJob.aggregate({
+        where: completedVerificationJobWhere(last30Start, todayEnd),
+        _sum: { creditsUsed: true, providerCostAtRun: true },
+        _count: { _all: true }
+      })
+    ),
+    measureAdminQuery(
+      "overview.verificationJobs.month",
+      prisma.verificationJob.aggregate({
+        where: completedVerificationJobWhere(monthStart, todayEnd),
+        _sum: { creditsUsed: true, providerCostAtRun: true },
+        _count: { _all: true }
+      })
+    ),
+    measureAdminQuery(
+      "overview.expenses.today",
+      prisma.businessExpense.aggregate({
+        where: businessExpenseWhere(todayStart, todayEnd),
+        _sum: { amount: true },
+        _count: { _all: true }
+      })
+    ),
+    measureAdminQuery(
+      "overview.expenses.last7",
+      prisma.businessExpense.aggregate({
+        where: businessExpenseWhere(last7Start, todayEnd),
+        _sum: { amount: true },
+        _count: { _all: true }
+      })
+    ),
+    measureAdminQuery(
+      "overview.expenses.last30",
+      prisma.businessExpense.aggregate({
+        where: businessExpenseWhere(last30Start, todayEnd),
+        _sum: { amount: true },
+        _count: { _all: true }
+      })
+    ),
+    measureAdminQuery(
+      "overview.expenses.month",
+      prisma.businessExpense.aggregate({
+        where: businessExpenseWhere(monthStart, todayEnd),
+        _sum: { amount: true },
         _count: { _all: true }
       })
     ),
@@ -151,32 +212,67 @@ async function buildAdminOverviewData() {
     measureAdminQuery("overview.tickets.open", prisma.ticket.count({ where: { deletedAt: null, status: "OPEN" } })),
     getAdminProvidersData(),
     getOperationalSettings()
-  ]).then(([totalUsers, jobStatusCounts, todayPayments, yesterdayPayments, last7Payments, last30Payments, monthPayments, todayJobs, failedJobsToday, pendingJobs, openTickets, providers, operations]) => {
+  ]).then(([
+    totalUsers,
+    jobStatusCounts,
+    todayPayments,
+    yesterdayPayments,
+    last7Payments,
+    last30Payments,
+    monthPayments,
+    todayJobs,
+    last7Jobs,
+    last30Jobs,
+    monthJobs,
+    todayExpenses,
+    last7Expenses,
+    last30Expenses,
+    monthExpenses,
+    failedJobsToday,
+    pendingJobs,
+    openTickets,
+    providers,
+    operations
+  ]) => {
     const completedJobs = getStatusCount(jobStatusCounts, "COMPLETED");
     const failedJobs = getStatusCount(jobStatusCounts, "FAILED");
     const totalJobs = jobStatusCounts.reduce((sum, item) => sum + item._count._all, 0);
-    const paymentSummary = (aggregate: {
+    const paymentSummary = (
+      aggregate: {
       _sum: { amount: unknown; creditsDelivered: number | null };
       _count: { _all: number };
-    }) => {
+      },
+      jobAggregate?: {
+        _sum: { creditsUsed: number | null; providerCostAtRun: unknown };
+        _count: { _all: number };
+      },
+      expenseAggregate?: {
+        _sum: { amount: unknown };
+        _count: { _all: number };
+      }
+    ) => {
       const revenue = decimalToNumber(aggregate._sum.amount);
       const creditsSold = aggregate._sum.creditsDelivered ?? 0;
+      const creditsUsed = jobAggregate?._sum.creditsUsed ?? 0;
+      const cleanExports = jobAggregate?._count._all ?? 0;
+      const providerCost = decimalToNumber(jobAggregate?._sum.providerCostAtRun);
+      const manualExpenses = decimalToNumber(expenseAggregate?._sum.amount);
       return {
         revenue,
         paymentCount: aggregate._count._all,
         creditsSold,
-        creditsUsed: 0,
-        cleanExports: 0,
-        providerCost: 0,
-        manualExpenses: 0,
-        netProfit: revenue
+        creditsUsed,
+        cleanExports,
+        providerCost,
+        manualExpenses,
+        netProfit: revenue - providerCost - manualExpenses
       };
     };
-    const today = paymentSummary(todayPayments);
-    today.creditsUsed = todayJobs._sum.creditsUsed ?? 0;
-    today.cleanExports = todayJobs._count._all;
-    today.providerCost = decimalToNumber(todayJobs._sum.providerCostAtRun);
-    today.netProfit = today.revenue - today.providerCost;
+    const today = paymentSummary(todayPayments, todayJobs, todayExpenses);
+    const yesterday = paymentSummary(yesterdayPayments);
+    const last7 = paymentSummary(last7Payments, last7Jobs, last7Expenses);
+    const last30 = paymentSummary(last30Payments, last30Jobs, last30Expenses);
+    const thisMonth = paymentSummary(monthPayments, monthJobs, monthExpenses);
     const missingActiveCostTargets = providers
       .filter((provider) => provider.status === "ACTIVE" && provider.providerKey === "millionverifier" && !provider.estimatedCostPerRun)
       .map((provider) => ({ name: provider.name, providerName: provider.providerKey }));
@@ -184,7 +280,7 @@ async function buildAdminOverviewData() {
 
     logAdminPerf("overview.cards", {
       duration: `${adminPerfNow() - cardsStartedAt}ms`,
-      queryCount: 11,
+      queryCount: 20,
       statusBuckets: jobStatusCounts.length,
       pendingJobs
     });
@@ -198,10 +294,10 @@ async function buildAdminOverviewData() {
       pendingJobs,
       openTickets,
       today,
-      yesterday: paymentSummary(yesterdayPayments),
-      last7: paymentSummary(last7Payments),
-      last30: paymentSummary(last30Payments),
-      thisMonth: paymentSummary(monthPayments),
+      yesterday,
+      last7,
+      last30,
+      thisMonth,
       missingActiveCostTargets,
       missingEnvProviders,
       operations
@@ -236,7 +332,7 @@ async function buildAdminOverviewData() {
   ]);
   logAdminPerf("admin.overview.data", {
     duration: `${adminPerfNow() - startedAt}ms`,
-    queryCount: 12,
+    queryCount: 21,
     cacheHit: false,
     resultCount: recentJobs.length
   });

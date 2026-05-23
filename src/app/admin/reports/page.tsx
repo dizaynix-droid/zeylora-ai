@@ -122,6 +122,24 @@ export default async function AdminReportsPage({
         <AdminMetricCard label="İade" value={formatCurrency(data.summary.refundAmount)} note={`${data.summary.refundCount} iade/iptal kaydı`} />
       </div>
 
+      <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-blue-700">Kâr mutabakatı</p>
+        <div className="mt-3 flex flex-col gap-2 text-sm font-semibold text-slate-700 lg:flex-row lg:items-center lg:gap-3">
+          <span>Gelir {formatCurrency(data.summary.revenue)}</span>
+          <span className="text-slate-400">-</span>
+          <span>Sağlayıcı {formatCurrency(data.summary.providerCost)}</span>
+          <span className="text-slate-400">-</span>
+          <span>Manuel gider {formatCurrency(data.summary.manualExpenses)}</span>
+          <span className="text-slate-400">=</span>
+          <span className={data.summary.netProfit < 0 ? "text-rose-700" : "text-emerald-700"}>
+            Net {formatCurrency(data.summary.netProfit)}
+          </span>
+        </div>
+        <p className="mt-3 max-w-4xl text-xs leading-5 text-slate-500">
+          Gelir yalnızca başarılı ödemelerden gelir. Sağlayıcı maliyeti tamamlanan verification job maliyetidir. Manuel gider reklam, yazılım, domain, SEO gibi elle girilen giderlerden düşülür.
+        </p>
+      </div>
+
       <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_.8fr]">
         <AdminSection title="Email provider maliyetleri" description="Tamamlanan işlerin TR tarihine göre net provider maliyeti kullanılır; provider iadesi olan riskli/catch-all sonuçlar maliyetten düşülür.">
           <AdminTable>
