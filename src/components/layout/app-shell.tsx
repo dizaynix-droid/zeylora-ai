@@ -19,6 +19,7 @@ export function AppShell({ title, description, area, children }: AppShellProps) 
   const nav = area === "admin" ? adminNav : dashboardNav;
   const isAdmin = area === "admin";
   const frameMaxWidth = isAdmin ? "max-w-[1760px]" : "max-w-[1320px]";
+  const navPrefetch = isAdmin ? false : undefined;
 
   return (
     <main className="min-h-screen w-full max-w-full overflow-x-hidden bg-[#f7f8fb] text-slate-950">
@@ -66,6 +67,7 @@ export function AppShell({ title, description, area, children }: AppShellProps) 
                 <Link
                   key={item.href}
                   href={item.href}
+                  prefetch={navPrefetch}
                   className="rounded-md px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
                   scroll
                 >
@@ -112,6 +114,7 @@ export function AppShell({ title, description, area, children }: AppShellProps) 
                 <Link
                   key={item.href}
                   href={item.href}
+                  prefetch={navPrefetch}
                   className="rounded-md px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
                   scroll
                 >

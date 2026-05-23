@@ -1643,7 +1643,7 @@ export async function getAdminSystemData() {
       "system.email.failedCount",
       prisma.emailEvent.count({ where: { status: "FAILED", updatedAt: { gte: recentEmailSince } } })
     ),
-    getBackupRecoveryData()
+    getBackupRecoveryData({ mode: "fast" })
   ]);
 
   return {

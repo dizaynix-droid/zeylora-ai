@@ -115,11 +115,11 @@ export async function createEmergencyBackupSnapshot(admin: AdminSession) {
   }
 }
 
-export async function getBackupRecoveryData() {
+export async function getBackupRecoveryData(input: { mode?: "fast" | "full" } = {}) {
   const [backupEvents, restoreTests, audit] = await Promise.all([
     prisma.backupEvent.findMany({
       orderBy: { startedAt: "desc" },
-      take: 10,
+      take: input.mode === "fast" ? 4 : 10,
       select: {
         id: true,
         type: true,
@@ -136,7 +136,7 @@ export async function getBackupRecoveryData() {
     prisma.backupEvent.findMany({
       where: { OR: [{ type: "RESTORE_TEST" }, { restoreTested: true }] },
       orderBy: { startedAt: "desc" },
-      take: 5,
+      take: input.mode === "fast" ? 1 : 5,
       select: {
         id: true,
         type: true,
@@ -147,7 +147,7 @@ export async function getBackupRecoveryData() {
         errorMessage: true
       }
     }),
-    getBackupAuditSummary()
+    input.mode === "fast" ? getFastBackupAuditSummary() : getBackupAuditSummary()
   ]);
   const lastExport = backupEvents.find((event) => ["COMPLETED", "WARNING"].includes(event.status));
   const lastFailed = backupEvents.find((event) => event.status === "FAILED");
@@ -165,6 +165,63 @@ export async function getBackupRecoveryData() {
     lastExport,
     lastFailed,
     criticalWarnings: buildCriticalWarnings(audit, statusItems)
+  };
+}
+
+async function getFastBackupAuditSummary(): Promise<BackupAuditSummary> {
+  const [negativeBalances, completedMissingOutput, mediaWithoutKey] = await Promise.all([
+    prisma.user.findMany({
+      where: { creditBalance: { lt: 0 }, deletedAt: null },
+      take: 10,
+      select: { id: true, email: true, creditBalance: true }
+    }),
+    prisma.aiJob.count({
+      where: {
+        deletedAt: null,
+        status: "COMPLETED",
+        outputImageId: null
+      }
+    }),
+    prisma.mediaAsset.count({ where: { deletedAt: null, storageKey: "" } })
+  ]);
+  const r2Configured = Boolean(process.env.R2_BUCKET_NAME && process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY);
+
+  return {
+    stripe: {
+      duplicateCredits: [],
+      paymentsWithoutTransaction: [],
+      transactionsWithoutPayment: [],
+      orphanPurchaseTransactions: [],
+      negativeBalances,
+      invalidSnapshots: [],
+      counts: {
+        duplicateCredits: 0,
+        paymentsWithoutTransaction: 0,
+        transactionsWithoutPayment: 0,
+        orphanPurchaseTransactions: 0,
+        negativeBalances: negativeBalances.length,
+        invalidSnapshots: 0
+      }
+    },
+    creditLedger: {
+      checkedUsers: 0,
+      mismatches: [],
+      mismatchCount: 0,
+      truncated: true
+    },
+    r2: {
+      configured: r2Configured,
+      completedMissingOutput,
+      mediaWithoutKey,
+      checkedSignedUrlSamples: 0,
+      brokenSignedUrlSamples: [],
+      orphanedObjectsNote: "Sistem sayfası hızlı modda signed URL ve tam ledger audit çalıştırmaz. Detay için Recovery panelini aç.",
+      counts: {
+        completedMissingOutput,
+        mediaWithoutKey,
+        brokenSignedUrls: 0
+      }
+    }
   };
 }
 
