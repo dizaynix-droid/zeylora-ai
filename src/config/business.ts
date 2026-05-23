@@ -1,6 +1,6 @@
 export const businessFoundation = {
   credits: {
-    freeTrialCredits: 0,
+    freeTrialCredits: 50,
     lowCreditThreshold: 5,
     enforcementEnabled: true,
     transactionsEnabled: true

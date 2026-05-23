@@ -22,10 +22,12 @@ import {
   VerifyPageShell,
   VerifyPanel
 } from "@/components/verify-ui/core";
+import { businessFoundation } from "@/config/business";
 import { getCreditPackagesForDisplay } from "@/lib/pricing/packages";
 import { createMetadata } from "@/lib/seo";
 
 type DisplayPackage = Awaited<ReturnType<typeof getCreditPackagesForDisplay>>[number];
+const FREE_VERIFICATION_LIMIT = businessFoundation.credits.freeTrialCredits;
 
 export const metadata: Metadata = createMetadata({
   title: "Email Verification & Email Address Checker",
@@ -56,14 +58,19 @@ export default async function HomePage() {
               <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
                 Use Zeylora as an email verifier, email validity checker, bulk email verifier, or email list verification workflow for campaigns, newsletters, CRMs, and agencies.
               </p>
+              {FREE_VERIFICATION_LIMIT > 0 ? (
+                <p className="mt-3 max-w-2xl rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold leading-6 text-blue-800">
+                  Start free with {FREE_VERIFICATION_LIMIT.toLocaleString()} email verifications. No subscription required.
+                </p>
+              ) : null}
 
               <div className="mt-5 grid gap-3 sm:grid-cols-2">
                 <VerifyAction href="#verify-list" className="h-12 px-5 text-base">
                   Check email list now
                   <ArrowRight size={18} />
                 </VerifyAction>
-                <VerifyAction href="#pricing" variant="secondary" className="h-12 px-5 text-base">
-                  See pricing
+                <VerifyAction href={FREE_VERIFICATION_LIMIT > 0 ? "/auth/sign-in?mode=signup&next=/dashboard%23verify" : "#pricing"} variant="secondary" className="h-12 px-5 text-base">
+                  {FREE_VERIFICATION_LIMIT > 0 ? "Create free account" : "See pricing"}
                 </VerifyAction>
               </div>
 

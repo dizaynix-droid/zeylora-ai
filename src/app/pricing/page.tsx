@@ -4,8 +4,11 @@ import { CheckoutResume } from "@/components/billing/checkout-resume";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 import { VerifyBadge, VerifyContainer, VerifyPageShell, VerifyPanel } from "@/components/verify-ui/core";
+import { businessFoundation } from "@/config/business";
 import { getCreditPackagesForDisplay } from "@/lib/pricing/packages";
 import { createMetadata } from "@/lib/seo";
+
+const FREE_VERIFICATION_LIMIT = businessFoundation.credits.freeTrialCredits;
 
 const pricingFeatures = [
   "SMTP & MX Validation",
@@ -14,7 +17,7 @@ const pricingFeatures = [
   "CSV Export",
   "Real-Time Verification",
   "Sender Reputation Protection",
-  "Usage Based Credits",
+  "Usage Based Verifications",
   "No Subscription Required"
 ];
 
@@ -48,12 +51,17 @@ export default async function PricingPage({
               Clean email lists before campaigns hit inboxes.
             </h1>
             <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-600">
-              1 credit verifies 1 email. Buy once, upload lists anytime, and download valid, invalid, risky, disposable, and full report CSVs.
+              1 verification checks 1 unique email. Buy once, upload lists anytime, and download valid, invalid, risky, disposable, and full report CSVs.
             </p>
+            {FREE_VERIFICATION_LIMIT > 0 ? (
+              <p className="mt-3 max-w-2xl rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold leading-6 text-blue-800">
+                Create a free account and get {FREE_VERIFICATION_LIMIT.toLocaleString()} email verifications before choosing a package.
+              </p>
+            ) : null}
 
             <div className="mt-7 grid gap-3 md:grid-cols-3">
               {[
-                ["No subscription", "Buy verification credits once and use them as needed."],
+                ["No subscription", "Buy email verifications once and use them as needed."],
                 ["Sender reputation", "Remove invalid and risky emails before sending."],
                 ["Segmented exports", "Download clean CSV segments for reporting and campaign hygiene."]
               ].map(([label, copy]) => (

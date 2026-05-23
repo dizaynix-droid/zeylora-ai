@@ -3,24 +3,36 @@
 import { type FormEvent, useState } from "react";
 import { KeyRound, Loader2, Mail } from "lucide-react";
 import { VerifyBadge, VerifyPanel } from "@/components/verify-ui/core";
+import { businessFoundation } from "@/config/business";
 import { trackingEvents } from "@/config/tracking";
 import { trackEvent } from "@/lib/analytics/events";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseAuthConfigured } from "@/lib/supabase/config";
 
 type AuthMode = "signin" | "signup";
+const FREE_VERIFICATION_LIMIT = businessFoundation.credits.freeTrialCredits;
 
-export function AuthForm({ authStatus, authError, next = "/dashboard" }: { authStatus?: string; authError?: string; next?: string }) {
+export function AuthForm({
+  authStatus,
+  authError,
+  initialMode = "signin",
+  next = "/dashboard"
+}: {
+  authStatus?: string;
+  authError?: string;
+  initialMode?: AuthMode;
+  next?: string;
+}) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [mode, setMode] = useState<AuthMode>("signin");
+  const [mode, setMode] = useState<AuthMode>(initialMode);
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">(authStatus === "retry" ? "error" : "idle");
   const [message, setMessage] = useState(
     authStatus === "retry"
       ? authError || "Your sign-in could not be completed. Sign in with your email and password to continue."
       : authStatus === "password-reset"
       ? "Check your email for a secure password reset link."
-      : "Sign in to verify lists, manage credits, and download clean reports."
+      : getModeMessage(initialMode)
   );
   const configured = isSupabaseAuthConfigured();
 
@@ -142,10 +154,12 @@ export function AuthForm({ authStatus, authError, next = "/dashboard" }: { authS
     <VerifyPanel className="mx-auto max-w-xl p-5 sm:p-6 md:p-8">
         <VerifyBadge tone="blue">Zeylora account</VerifyBadge>
         <h1 className="mt-4 text-3xl font-semibold tracking-[-0.03em] text-slate-950 sm:text-4xl md:text-5xl">
-          Sign in to your email verification workspace.
+          {mode === "signup" ? "Create your free email verification workspace." : "Sign in to your email verification workspace."}
         </h1>
         <p className="mt-3 text-sm leading-6 text-slate-600">
-          Secure sessions unlock CSV uploads, verification jobs, credit balance, and segmented downloads.
+          {mode === "signup" && FREE_VERIFICATION_LIMIT > 0
+            ? `Start with ${FREE_VERIFICATION_LIMIT.toLocaleString()} free email verifications, then upload CSV/TXT lists and download segmented reports.`
+            : "Secure sessions unlock CSV uploads, verification jobs, verification balance, and segmented downloads."}
         </p>
 
         <div className="mt-6 grid grid-cols-2 gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
@@ -157,10 +171,11 @@ export function AuthForm({ authStatus, authError, next = "/dashboard" }: { authS
               key={value}
               type="button"
               onClick={() => {
-                setMode(value as AuthMode);
+                const nextMode = value as AuthMode;
+                setMode(nextMode);
                 if (status !== "loading") {
                   setStatus("idle");
-                  setMessage("Sign in to verify lists, manage credits, and download clean reports.");
+                  setMessage(getModeMessage(nextMode));
                 }
               }}
               className={`h-10 rounded-md text-sm font-semibold transition ${
@@ -236,7 +251,7 @@ export function AuthForm({ authStatus, authError, next = "/dashboard" }: { authS
                 {mode === "signup" ? "Creating..." : "Signing in..."}
               </>
             ) : mode === "signup" ? (
-              "Create Account"
+              FREE_VERIFICATION_LIMIT > 0 ? `Create Account + ${FREE_VERIFICATION_LIMIT} Free` : "Create Account"
             ) : (
               "Sign In"
             )}
@@ -257,6 +272,14 @@ export function AuthForm({ authStatus, authError, next = "/dashboard" }: { authS
         </p>
     </VerifyPanel>
   );
+}
+
+function getModeMessage(mode: AuthMode) {
+  if (mode === "signup" && FREE_VERIFICATION_LIMIT > 0) {
+    return `Create an account to get ${FREE_VERIFICATION_LIMIT.toLocaleString()} free email verifications. No subscription required.`;
+  }
+
+  return "Sign in to verify lists, manage verifications, and download clean reports.";
 }
 
 async function handlePasswordReset(

@@ -18,7 +18,7 @@ export const metadata: Metadata = createMetadata({
 export default async function SignInPage({
   searchParams
 }: {
-  searchParams?: Promise<{ authStatus?: string; authError?: string; next?: string }>;
+  searchParams?: Promise<{ authStatus?: string; authError?: string; mode?: string; next?: string }>;
 }) {
   const params = await searchParams;
   const supabase = await createClient();
@@ -40,7 +40,12 @@ export default async function SignInPage({
     <>
       <SiteHeader />
       <main className="min-h-[calc(100vh-8rem)] bg-[#f7f8fb] px-3 py-8 sm:px-4 md:py-20">
-        <AuthForm authStatus={params?.authStatus} authError={params?.authError} next={params?.next || "/dashboard"} />
+        <AuthForm
+          authStatus={params?.authStatus}
+          authError={params?.authError}
+          initialMode={params?.mode === "signup" ? "signup" : "signin"}
+          next={params?.next || "/dashboard"}
+        />
       </main>
       <SiteFooter />
     </>

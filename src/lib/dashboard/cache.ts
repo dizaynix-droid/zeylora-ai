@@ -29,6 +29,14 @@ export function deleteDashboardCache(key: string) {
   dashboardCache.delete(key);
 }
 
+export function deleteDashboardCachePrefix(prefix: string) {
+  for (const key of dashboardCache.keys()) {
+    if (key.startsWith(prefix)) {
+      dashboardCache.delete(key);
+    }
+  }
+}
+
 export function getOrSetDashboardCache<T>(key: string, createValue: () => T, ttlMs: number) {
   const cached = getDashboardCache<T>(key);
 

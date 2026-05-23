@@ -1,7 +1,7 @@
 import type { CreditTransactionType } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { businessFoundation } from "@/config/business";
-import { deleteDashboardCache, setDashboardCache } from "@/lib/dashboard/cache";
+import { deleteDashboardCachePrefix, setDashboardCache } from "@/lib/dashboard/cache";
 
 type CreditMutationInput = {
   userId: string;
@@ -44,15 +44,86 @@ export async function listCreditTransactions(userId: string, take = 6) {
 }
 
 export async function grantFreeTrialCredits(userId: string, credits = businessFoundation.credits.freeTrialCredits) {
-  void credits;
-  const balance = await getCreditBalance(userId);
+  const amount = Math.max(0, Math.floor(credits));
 
-  return {
-    balanceAfter: balance.balance,
-    skipped: true as const,
-    transaction: null,
-    reason: "free_trial_disabled" as const
-  };
+  if (!amount) {
+    const balance = await getCreditBalance(userId);
+
+    return {
+      balanceAfter: balance.balance,
+      skipped: true as const,
+      transaction: null,
+      reason: "free_trial_disabled" as const
+    };
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    const updated = await tx.user.updateMany({
+      where: {
+        id: userId,
+        freeTrialClaimed: false
+      },
+      data: {
+        creditBalance: {
+          increment: amount
+        },
+        freeTrialClaimed: true
+      }
+    });
+
+    if (updated.count === 0) {
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        select: {
+          creditBalance: true
+        }
+      });
+
+      if (!user) {
+        throw new Error("User not found for free trial credit grant.");
+      }
+
+      return {
+        balanceAfter: user.creditBalance,
+        skipped: true as const,
+        transaction: null,
+        reason: "already_claimed" as const
+      };
+    }
+
+    const user = await tx.user.findUnique({
+      where: { id: userId },
+      select: {
+        creditBalance: true
+      }
+    });
+
+    if (!user) {
+      throw new Error("User not found after free trial credit grant.");
+    }
+
+    const transaction = await tx.creditTransaction.create({
+      data: {
+        userId,
+        type: "FREE_TRIAL",
+        amount,
+        balanceAfter: user.creditBalance,
+        note: `Free trial: ${amount.toLocaleString("en-US")} email verifications`
+      }
+    });
+
+    return {
+      balanceAfter: user.creditBalance,
+      skipped: false as const,
+      transaction,
+      reason: null
+    };
+  });
+
+  refreshCreditDashboardCache(userId, result.balanceAfter, true);
+  deleteDashboardCachePrefix(`dashboard:transactions:${userId}:`);
+
+  return result;
 }
 
 export async function ensureFreeTrialCredits(userId: string, credits = businessFoundation.credits.freeTrialCredits) {
@@ -110,7 +181,7 @@ export async function reserveCreditsForJob(input: CreditMutationInput) {
     ]);
 
     refreshCreditDashboardCache(input.userId, updatedUser.creditBalance, user.freeTrialClaimed);
-    deleteDashboardCache(`dashboard:transactions:${input.userId}`);
+    deleteDashboardCachePrefix(`dashboard:transactions:${input.userId}:`);
 
     return {
       ok: true as const,
@@ -201,7 +272,7 @@ async function mutateCredits(
       updatedUser.creditBalance,
       options.markFreeTrialClaimed ? true : user.freeTrialClaimed
     );
-    deleteDashboardCache(`dashboard:transactions:${input.userId}`);
+    deleteDashboardCachePrefix(`dashboard:transactions:${input.userId}:`);
 
     return {
       balanceAfter: updatedUser.creditBalance,
