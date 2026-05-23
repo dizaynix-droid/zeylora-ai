@@ -248,6 +248,7 @@ model User {
   affiliateClicks    ReferralClick[]     @relation("ReferralClickMatchedUser")
   referralSignups    ReferralSignup[]    @relation("ReferralSignupReferred")
   affiliateRewards   ReferralReward[]    @relation("ReferralRewardAffiliate")
+  freeTrialClaims    FreeTrialClaim[]
   referredRewards    ReferralReward[]    @relation("ReferralRewardReferred")
   payoutSnapshots    AffiliatePayoutSnapshot[]
 
@@ -598,6 +599,30 @@ model CreditTransaction {
   @@index([createdAt, type])
   @@index([verificationJobId])
   @@index([paymentId])
+}
+
+model FreeTrialClaim {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  emailIdentityHash String
+  ipHash            String?
+  userAgentHash     String?
+  deviceHash        String?
+  ipUserAgentHash   String?
+  status            String   @default("GRANTED")
+  blockReason       String?
+  grantAmount       Int      @default(0)
+  metadataJson      Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([emailIdentityHash])
+  @@index([ipHash, createdAt])
+  @@index([deviceHash, createdAt])
+  @@index([ipUserAgentHash, createdAt])
+  @@index([status, createdAt])
 }
 
 model VerificationJob {

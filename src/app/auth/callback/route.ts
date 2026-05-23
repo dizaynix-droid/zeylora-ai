@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (user?.email) {
-    await syncSupabaseUserProfile(user).catch((profileError) => {
+    await syncSupabaseUserProfile(user, { headers: request.headers }).catch((profileError) => {
       if (process.env.NODE_ENV === "development") {
         console.error(
           "[auth/callback-route] profile sync failed",

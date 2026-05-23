@@ -1,6 +1,7 @@
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { prisma } from "@/lib/db";
 import { applyPendingReferralForUser, ensureAffiliateProfile } from "@/lib/affiliate/referrals";
+import type { FreeTrialGrantContext } from "@/lib/credits/free-trial-abuse";
 import { ensureFreeTrialCredits } from "@/lib/credits/ledger";
 
 type SyncedUserProfile = {
@@ -16,7 +17,7 @@ type SyncedUserProfile = {
   deletedAt: Date | null;
 };
 
-export async function syncSupabaseUserProfile(user: SupabaseUser) {
+export async function syncSupabaseUserProfile(user: SupabaseUser, context: FreeTrialGrantContext = {}) {
   if (!user.email) return null;
 
   const name = getDisplayName(user);
@@ -38,7 +39,7 @@ export async function syncSupabaseUserProfile(user: SupabaseUser) {
 
   if (existingById) {
     if (!needsUserSync(existingById, user.email, name)) {
-      const grantedUser = await applyFreeTrialIfEligible(existingById);
+      const grantedUser = await applyFreeTrialIfEligible(existingById, context);
       await afterProfileSync(grantedUser);
       return grantedUser;
     }
@@ -64,7 +65,7 @@ export async function syncSupabaseUserProfile(user: SupabaseUser) {
         deletedAt: true
       }
     });
-    const grantedUser = await applyFreeTrialIfEligible(updated);
+    const grantedUser = await applyFreeTrialIfEligible(updated, context);
     await afterProfileSync(grantedUser);
     return grantedUser;
   }
@@ -96,15 +97,15 @@ export async function syncSupabaseUserProfile(user: SupabaseUser) {
       deletedAt: true
     }
   });
-  const grantedUser = await applyFreeTrialIfEligible(upserted);
+  const grantedUser = await applyFreeTrialIfEligible(upserted, context);
   await afterProfileSync(grantedUser);
   return grantedUser;
 }
 
-async function applyFreeTrialIfEligible<T extends SyncedUserProfile>(user: T): Promise<T> {
+async function applyFreeTrialIfEligible<T extends SyncedUserProfile>(user: T, context: FreeTrialGrantContext): Promise<T> {
   if (user.freeTrialClaimed) return user;
 
-  const grant = await ensureFreeTrialCredits(user.id).catch((error) => {
+  const grant = await ensureFreeTrialCredits(user.id, undefined, { ...context, email: context.email || user.email }).catch((error) => {
     console.error("[free-trial-grant-failed]", {
       userId: user.id,
       message: error instanceof Error ? error.message : String(error || "Unknown error"),
@@ -113,7 +114,14 @@ async function applyFreeTrialIfEligible<T extends SyncedUserProfile>(user: T): P
     return null;
   });
 
-  if (!grant || grant.skipped) return user;
+  if (!grant || grant.skipped) {
+    return grant?.reason === "abuse_blocked"
+      ? {
+          ...user,
+          freeTrialClaimed: true
+        }
+      : user;
+  }
 
   return {
     ...user,

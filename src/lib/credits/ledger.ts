@@ -1,6 +1,15 @@
 import type { CreditTransactionType } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { businessFoundation } from "@/config/business";
+import {
+  buildFreeTrialSignals,
+  ensureFreeTrialClaimStoreReady,
+  findFreeTrialConflict,
+  insertFreeTrialGrantClaim,
+  recordBlockedFreeTrialClaim,
+  type FreeTrialGrantContext
+} from "@/lib/credits/free-trial-abuse";
 import { deleteDashboardCachePrefix, setDashboardCache } from "@/lib/dashboard/cache";
 
 type CreditMutationInput = {
@@ -43,7 +52,7 @@ export async function listCreditTransactions(userId: string, take = 6) {
   });
 }
 
-export async function grantFreeTrialCredits(userId: string, credits = businessFoundation.credits.freeTrialCredits) {
+export async function grantFreeTrialCredits(userId: string, credits = businessFoundation.credits.freeTrialCredits, context: FreeTrialGrantContext = {}) {
   const amount = Math.max(0, Math.floor(credits));
 
   if (!amount) {
@@ -57,32 +66,22 @@ export async function grantFreeTrialCredits(userId: string, credits = businessFo
     };
   }
 
+  await ensureFreeTrialClaimStoreReady();
+
   const result = await prisma.$transaction(async (tx) => {
-    const updated = await tx.user.updateMany({
-      where: {
-        id: userId,
-        freeTrialClaimed: false
-      },
-      data: {
-        creditBalance: {
-          increment: amount
-        },
-        freeTrialClaimed: true
-      }
-    });
+    const users = await tx.$queryRaw<Array<{ id: string; email: string; creditBalance: number; freeTrialClaimed: boolean }>>(Prisma.sql`
+      SELECT "id", "email", "creditBalance", "freeTrialClaimed"
+      FROM "User"
+      WHERE "id" = ${userId}
+      FOR UPDATE
+    `);
+    const user = users[0];
 
-    if (updated.count === 0) {
-      const user = await tx.user.findUnique({
-        where: { id: userId },
-        select: {
-          creditBalance: true
-        }
-      });
+    if (!user) {
+      throw new Error("User not found for free trial credit grant.");
+    }
 
-      if (!user) {
-        throw new Error("User not found for free trial credit grant.");
-      }
-
+    if (user.freeTrialClaimed) {
       return {
         balanceAfter: user.creditBalance,
         skipped: true as const,
@@ -91,29 +90,137 @@ export async function grantFreeTrialCredits(userId: string, credits = businessFo
       };
     }
 
-    const user = await tx.user.findUnique({
-      where: { id: userId },
-      select: {
-        creditBalance: true
-      }
-    });
+    const signals = await buildFreeTrialSignals(context.email || user.email, context);
+    const conflict = await findFreeTrialConflict(tx, { userId, signals });
 
-    if (!user) {
-      throw new Error("User not found after free trial credit grant.");
+    if (conflict) {
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          freeTrialClaimed: true
+        },
+        select: { id: true }
+      });
+      await recordBlockedFreeTrialClaim(tx, {
+        userId,
+        signals,
+        reason: conflict.reason,
+        matchedClaimId: conflict.claimId,
+        matchedUserId: conflict.matchedUserId
+      });
+      await tx.adminLog.create({
+        data: {
+          action: "free_trial.blocked",
+          entityType: "User",
+          entityId: userId,
+          metadataJson: {
+            reason: conflict.reason,
+            matchedClaimId: conflict.claimId,
+            matchedUserId: conflict.matchedUserId,
+            hasIp: Boolean(signals.ipHash),
+            hasUserAgent: Boolean(signals.userAgentHash),
+            hasDevice: Boolean(signals.deviceHash),
+            hasIpUserAgent: Boolean(signals.ipUserAgentHash),
+            country: signals.country
+          }
+        }
+      });
+
+      return {
+        balanceAfter: user.creditBalance,
+        skipped: true as const,
+        transaction: null,
+        reason: "abuse_blocked" as const,
+        blockReason: conflict.reason
+      };
     }
 
-    const transaction = await tx.creditTransaction.create({
-      data: {
-        userId,
-        type: "FREE_TRIAL",
-        amount,
-        balanceAfter: user.creditBalance,
-        note: `Free trial: ${amount.toLocaleString("en-US")} email verifications`
-      }
+    const claimId = await insertFreeTrialGrantClaim(tx, {
+      userId,
+      amount,
+      signals
     });
 
+    if (!claimId) {
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          freeTrialClaimed: true
+        },
+        select: { id: true }
+      });
+      await recordBlockedFreeTrialClaim(tx, {
+        userId,
+        signals,
+        reason: "claim_insert_conflict"
+      });
+      await tx.adminLog.create({
+        data: {
+          action: "free_trial.blocked",
+          entityType: "User",
+          entityId: userId,
+          metadataJson: {
+            reason: "claim_insert_conflict",
+            hasIp: Boolean(signals.ipHash),
+            hasUserAgent: Boolean(signals.userAgentHash),
+            hasDevice: Boolean(signals.deviceHash),
+            hasIpUserAgent: Boolean(signals.ipUserAgentHash),
+            country: signals.country
+          }
+        }
+      });
+
+      return {
+        balanceAfter: user.creditBalance,
+        skipped: true as const,
+        transaction: null,
+        reason: "abuse_blocked" as const,
+        blockReason: "claim_insert_conflict" as const
+      };
+    }
+
+    const balanceAfter = user.creditBalance + amount;
+
+    const [updatedUser, transaction] = await Promise.all([
+      tx.user.update({
+        where: { id: userId },
+        data: {
+          creditBalance: balanceAfter,
+          freeTrialClaimed: true
+        },
+        select: {
+          creditBalance: true
+        }
+      }),
+      tx.creditTransaction.create({
+        data: {
+          userId,
+          type: "FREE_TRIAL",
+          amount,
+          balanceAfter,
+          note: `Free trial: ${amount.toLocaleString("en-US")} email verifications`
+        }
+      }),
+      tx.adminLog.create({
+        data: {
+          action: "free_trial.granted",
+          entityType: "User",
+          entityId: userId,
+          metadataJson: {
+            claimId,
+            amount,
+            hasIp: Boolean(signals.ipHash),
+            hasUserAgent: Boolean(signals.userAgentHash),
+            hasDevice: Boolean(signals.deviceHash),
+            hasIpUserAgent: Boolean(signals.ipUserAgentHash),
+            country: signals.country
+          }
+        }
+      })
+    ]);
+
     return {
-      balanceAfter: user.creditBalance,
+      balanceAfter: updatedUser.creditBalance,
       skipped: false as const,
       transaction,
       reason: null
@@ -126,8 +233,8 @@ export async function grantFreeTrialCredits(userId: string, credits = businessFo
   return result;
 }
 
-export async function ensureFreeTrialCredits(userId: string, credits = businessFoundation.credits.freeTrialCredits) {
-  return grantFreeTrialCredits(userId, credits);
+export async function ensureFreeTrialCredits(userId: string, credits = businessFoundation.credits.freeTrialCredits, context: FreeTrialGrantContext = {}) {
+  return grantFreeTrialCredits(userId, credits, context);
 }
 
 export async function reserveCreditsForJob(input: CreditMutationInput) {

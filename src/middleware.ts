@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import { FREE_TRIAL_DEVICE_COOKIE } from "@/config/free-trial";
 import { updateSession } from "@/lib/supabase/middleware";
 
 export async function middleware(request: NextRequest) {
@@ -23,6 +24,16 @@ export async function middleware(request: NextRequest) {
   }
 
   const response = await updateSession(request);
+  if (!request.cookies.get(FREE_TRIAL_DEVICE_COOKIE)?.value) {
+    response.cookies.set(FREE_TRIAL_DEVICE_COOKIE, crypto.randomUUID(), {
+      maxAge: 60 * 60 * 24 * 365,
+      path: "/",
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: true
+    });
+  }
+
   const referralCode = normalizeReferralCode(request.nextUrl.searchParams.get("ref") || "");
   if (referralCode) {
     response.cookies.set("zeylora_ref", referralCode, {

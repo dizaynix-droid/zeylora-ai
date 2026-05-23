@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { AuthForm } from "@/components/auth/auth-form";
 import { SiteHeader } from "@/components/layout/site-header";
@@ -22,6 +23,7 @@ export default async function SignInPage({
 }) {
   const params = await searchParams;
   const supabase = await createClient();
+  const requestHeaders = await headers();
 
   if (supabase) {
     const {
@@ -29,7 +31,7 @@ export default async function SignInPage({
     } = await supabase.auth.getUser();
 
     if (user) {
-      await syncSupabaseUserProfile(user).catch(() => null);
+      await syncSupabaseUserProfile(user, { headers: requestHeaders }).catch(() => null);
       const mfaRedirectPath = await getMfaRedirectPath(getSafeNextPath(params?.next));
       if (mfaRedirectPath) redirect(mfaRedirectPath);
       redirect(getSafeNextPath(params?.next));

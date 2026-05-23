@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { VerificationDashboardClient } from "@/components/verification/verification-dashboard-client";
@@ -25,6 +26,7 @@ export default async function DashboardPage() {
   }
 
   await requireMfaIfNeeded("/dashboard");
+  const requestHeaders = await headers();
   const [appUser, packages] = await Promise.all([
     prisma.user.findFirst({
       where: {
@@ -53,7 +55,7 @@ export default async function DashboardPage() {
         }
       : null;
   } else if (!dashboardUser.freeTrialClaimed) {
-    const grant = await ensureFreeTrialCredits(dashboardUser.id).catch((error) => {
+    const grant = await ensureFreeTrialCredits(dashboardUser.id, undefined, { headers: requestHeaders, email: dashboardUser.email }).catch((error) => {
       console.error("[dashboard-free-trial-grant-failed]", {
         userId: dashboardUser?.id ?? null,
         message: error instanceof Error ? error.message : String(error || "Unknown error"),
