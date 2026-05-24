@@ -101,10 +101,11 @@ export default async function AdminUsersPage({
           />
         </div>
         <AdminTable>
-          <table className="min-w-[1280px] w-full divide-y divide-slate-200 text-sm">
+          <table className="min-w-[1380px] w-full divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.16em] text-slate-500">
               <tr>
                 <th className="px-4 py-3">Email</th>
+                <th className="px-4 py-3">Kayıt ülkesi</th>
                 <th className="px-4 py-3">Rol</th>
                 <th className="px-4 py-3">Kredi</th>
                 <th className="px-4 py-3">Son doğrulama</th>
@@ -120,6 +121,10 @@ export default async function AdminUsersPage({
                   <td className="px-4 py-3">
                     <p className="font-semibold text-slate-950">{user.email}</p>
                     <p className="mt-1 text-xs text-slate-500">{user.name || "İsim yok"}</p>
+                  </td>
+                  <td className="px-4 py-3">
+                    <p className="font-semibold text-slate-950">{formatCountry(user.signupCountry)}</p>
+                    <p className="mt-1 text-xs text-slate-500">{user.signupCountry || "Veri yok"}</p>
                   </td>
                   <td className="px-4 py-3">
                     <AdminStatusPill tone={user.role === "ADMIN" ? "good" : "neutral"}>{user.role}</AdminStatusPill>
@@ -182,7 +187,7 @@ export default async function AdminUsersPage({
                 </tr>
               ))}
               {users.length === 0 ? (
-                <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400">Filtreye uygun kullanıcı yok.</td></tr>
+                <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-400">Filtreye uygun kullanıcı yok.</td></tr>
               ) : null}
             </tbody>
           </table>
@@ -251,6 +256,7 @@ async function getSafeAdminUsersData(input: Parameters<typeof getAdminUsersData>
       data: {
         items: users.map((user) => ({
           ...user,
+          signupCountry: null,
           _count: { verificationJobs: 0, creditTransactions: 0, payments: 0 },
           payments: [],
           verificationJobs: [],
@@ -281,4 +287,13 @@ function buildAdminUsersReturnPath(input: { q: string; filter: string; page: num
   if (input.page > 1) params.set("page", String(input.page));
   const query = params.toString();
   return query ? `/admin/users?${query}` : "/admin/users";
+}
+
+function formatCountry(countryCode: string | null) {
+  if (!countryCode) return "-";
+  try {
+    return new Intl.DisplayNames(["tr-TR"], { type: "region" }).of(countryCode) || countryCode;
+  } catch {
+    return countryCode;
+  }
 }

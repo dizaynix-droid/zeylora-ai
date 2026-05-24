@@ -403,7 +403,7 @@ export async function getAdminUsersData(input: {
   const hasNext = fetchedUsers.length > pageSize;
   const rawItems = fetchedUsers.slice(0, pageSize);
   const userIds = rawItems.map((user) => user.id);
-  const [recentPayments, recentVerificationJobs] = userIds.length
+  const [recentPayments, recentVerificationJobs, freeTrialClaims, countryEvents] = userIds.length
     ? await Promise.all([
         measureAdminQuery(
           "users.recentPayments.batch",
@@ -424,9 +424,30 @@ export async function getAdminUsersData(input: {
             select: { userId: true, id: true, status: true, uniqueEmails: true, createdAt: true }
           }),
           { page, take: pageSize * 3 }
+        ),
+        measureAdminQuery(
+          "users.freeTrialClaims.country.batch",
+          prisma.freeTrialClaim.findMany({
+            where: { userId: { in: userIds } },
+            select: { userId: true, metadataJson: true, createdAt: true }
+          }),
+          { page, userCount: userIds.length }
+        ),
+        measureAdminQuery(
+          "users.analytics.country.batch",
+          prisma.analyticsEvent.findMany({
+            where: {
+              userId: { in: userIds },
+              country: { not: null }
+            },
+            orderBy: { createdAt: "asc" },
+            take: pageSize * 20,
+            select: { userId: true, country: true, createdAt: true }
+          }),
+          { page, take: pageSize * 20 }
         )
       ])
-    : [[], []] as const;
+    : [[], [], [], []] as const;
   const lastPaymentByUser = new Map<string, (typeof recentPayments)[number]>();
   for (const payment of recentPayments) {
     if (!lastPaymentByUser.has(payment.userId)) lastPaymentByUser.set(payment.userId, payment);
@@ -435,8 +456,22 @@ export async function getAdminUsersData(input: {
   for (const job of recentVerificationJobs) {
     if (!lastVerificationJobByUser.has(job.userId)) lastVerificationJobByUser.set(job.userId, job);
   }
+  const signupCountryByUser = new Map<string, string>();
+  for (const claim of freeTrialClaims) {
+    const country = normalizeCountryCode(asRecord(claim.metadataJson).country);
+    if (country && !signupCountryByUser.has(claim.userId)) {
+      signupCountryByUser.set(claim.userId, country);
+    }
+  }
+  for (const event of countryEvents) {
+    const country = normalizeCountryCode(event.country);
+    if (country && event.userId && !signupCountryByUser.has(event.userId)) {
+      signupCountryByUser.set(event.userId, country);
+    }
+  }
   const items = rawItems.map((user) => ({
     ...user,
+    signupCountry: signupCountryByUser.get(user.id) ?? null,
     payments: [],
     verificationJobs: [],
     _count: {
@@ -450,7 +485,7 @@ export async function getAdminUsersData(input: {
   }));
   logAdminPerf("admin.users.data", {
     duration: `${adminPerfNow() - startedAt}ms`,
-    queryCount: userIds.length ? 3 : 1,
+    queryCount: userIds.length ? 5 : 1,
     page,
     take: pageSize,
     filter,
@@ -1427,6 +1462,12 @@ function buildDailyTrend(rows: Array<{ event: string; createdAt: Date; sessionId
 function asRecord(value: Prisma.JsonValue | null): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   return value as Record<string, unknown>;
+}
+
+function normalizeCountryCode(value: unknown) {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toUpperCase();
+  return /^[A-Z]{2}$/.test(normalized) ? normalized : null;
 }
 
 type AdminAnalyticsData = Awaited<ReturnType<typeof buildAdminAnalyticsData>>;
